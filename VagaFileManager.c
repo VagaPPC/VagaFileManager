@@ -86,6 +86,9 @@ LONG gWinInnerH = DEFAULT_WIN_HEIGHT;
 /* contesto UI usato dalla divisione in due pannelli */
 static Class *gFbClass = NULL;
 static Object *gRootLayout = NULL;
+static Object *gPanesRow = NULL;
+static Object *gTopBar = NULL;
+static Object *gTopCopyBtn = NULL, *gTopMoveBtn = NULL, *gTopDeleteBtn = NULL;
 static struct Screen *gPubScreen = NULL;
 
 void DBG(CONST_STRPTR fmt, ...)
@@ -497,12 +500,69 @@ static BOOL PointInPane(int p, WORD x, WORD y)
             y >= g->TopEdge  && y < g->TopEdge  + g->Height);
 }
 
+/* Crea e aggiunge la barra dei comandi condivisa (solo in vista divisa).
+   Viene aggiunta in coda al layout verticale, cioe' in basso. */
+static void ShowTopBar(struct Window *win)
+{
+    struct lmAddChild add;
+    struct TagItem attrs[2];
+
+    if (!gRootLayout || gTopBar) return;
+
+    gTopCopyBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, GID_TOP_COPY, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_COPY), TAG_DONE);
+    gTopMoveBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, GID_TOP_MOVE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_MOVE), TAG_DONE);
+    gTopDeleteBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, GID_TOP_DELETE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_DELETE), TAG_DONE);
+
+    gTopBar = IIntuition->NewObject(NULL, "layout.gadget",
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_AddChild, (ULONG)gTopCopyBtn,   CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)gTopMoveBtn,   CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)gTopDeleteBtn, CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE), CHILD_WeightedWidth, 100,
+        TAG_DONE);
+    if (!gTopBar) return;
+
+    attrs[0].ti_Tag  = CHILD_WeightedHeight;
+    attrs[0].ti_Data = 0;
+    attrs[1].ti_Tag  = TAG_DONE;
+    attrs[1].ti_Data = 0;
+
+    memset(&add, 0, sizeof(add));
+    add.MethodID       = LM_ADDCHILD;
+    add.lm_Window      = win;
+    add.lm_Object      = gTopBar;
+    add.lm_ObjectAttrs = attrs;
+    IIntuition->IDoMethodA(gRootLayout, (Msg)&add);
+}
+
+/* Rimuove e distrugge la barra condivisa: sparisce completamente. */
+static void HideTopBar(struct Window *win)
+{
+    struct lmRemoveChild rem;
+
+    if (!gRootLayout || !gTopBar) return;
+
+    memset(&rem, 0, sizeof(rem));
+    rem.MethodID  = LM_REMOVECHILD;
+    rem.lm_Window = win;
+    rem.lm_Object = gTopBar;
+    IIntuition->IDoMethodA(gRootLayout, (Msg)&rem);
+
+    gTopBar = NULL;
+    gTopCopyBtn = gTopMoveBtn = gTopDeleteBtn = NULL;
+}
+
 /* attiva (o chiude) il secondo pannello */
+static void UpdateTopBar(struct Window *win);
+
 static void ToggleSplit(struct Window *win, Object *winObj)
 {
     struct Pane *pn = &gPanes[1];
 
-    if (!win || !gRootLayout) return;
+    if (!win || !gRootLayout || !gPanesRow) return;
 
     if (pn->paneLayout)
     {
@@ -517,7 +577,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         rem.MethodID  = LM_REMOVECHILD;
         rem.lm_Window = win;
         rem.lm_Object = pn->paneLayout;
-        IIntuition->IDoMethodA(gRootLayout, (Msg)&rem);
+        IIntuition->IDoMethodA(gPanesRow, (Msg)&rem);
 
         pn->paneLayout = NULL;
         pn->listGad = pn->pathGad = pn->statusGad = pn->toggleGad = NULL;
@@ -527,7 +587,9 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
         if (pn->colInfo) { IListBrowser->FreeLBColumnInfo(pn->colInfo); pn->colInfo = NULL; }
         gActivePane = 0;
+        HideTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
+        UpdateTopBar(win);
         DBG("split: second pane closed");
     }
     else
@@ -567,9 +629,11 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         add.lm_Window     = win;
         add.lm_Object     = pn->paneLayout;
         add.lm_ObjectAttrs = attrs;
-        IIntuition->IDoMethodA(gRootLayout, (Msg)&add);
+        IIntuition->IDoMethodA(gPanesRow, (Msg)&add);
 
+        ShowTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
+        UpdateTopBar(win);
         SetupNotify(pn->pathBuffer);
         UpdateStatus(pn->listGad, pn->statusGad, win);
         UpdateWindowTitle(win, pn->pathBuffer);
@@ -867,18 +931,44 @@ static BOOL RexxRenameSelected(int gp, CONST_STRPTR newName)
     return TRUE;
 }
 
-static LONG RexxDeleteSelected(int gp)
+static LONG RexxDeleteSelected(int gp, struct Window *win)
 {
     struct Node *n;
     LONG count = 0;
+    ULONG total = 0;
+    BOOL useProgress = FALSE;
 
     if (IsRootPath(gPanes[gp].pathBuffer)) return 0;
 
+    /* conta gli oggetti (file + cassetti) per la barra di avanzamento */
     for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES;
         STRPTR name = NULL;
         char full[PATH_MAX_LEN];
+
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
+        if (!sel) continue;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
+            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+        if (!name || index >= (ULONG)gEntryCount) continue;
+        if (!BuildChildPath(gPathBuffer, name, full, sizeof(full))) continue;
+        total += CountDeleteObjects(full);
+    }
+    if (total > 0)
+    {
+        ProgressOpen(win, total);
+        useProgress = TRUE;
+    }
+
+    SetDeleteProgress(TRUE);
+    for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES;
+        STRPTR name = NULL;
+        char full[PATH_MAX_LEN];
+
+        if (useProgress && gProgCancel) break;
 
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
         if (!sel) continue;
@@ -896,6 +986,8 @@ static LONG RexxDeleteSelected(int gp)
 
         if (DeleteEntryRecursive(full, 0)) { DeleteSiblingInfo(full); count++; }
     }
+    SetDeleteProgress(FALSE);
+    if (useProgress) ProgressClose();
     return count;
 }
 
@@ -1127,7 +1219,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     }
     else if (!IUtility->Stricmp(cmd, "DELETE"))
     {
-        if (RexxDeleteSelected(gp) > 0)
+        if (RexxDeleteSelected(gp, win) > 0)
             LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, fl);
         else
         {
@@ -1213,21 +1305,12 @@ static void RefreshAfterSelection(Object *listGad, struct Window *win)
         IIntuition->IDoMethod(gMainWinObj, WM_RETHINK);
 }
 
-/* Cambia il pannello attivo e riallinea gli indicatori: "* " nella barra di
-   stato segna il pannello su cui agiscono menu e pulsanti, e il titolo della
-   finestra segue il percorso del pannello attivo. */
-static void SetActivePane(int p, struct Window *win)
+/* Aggiorna le barre di stato (e lo stato "ghost" dei pulsanti) di ENTRAMBI i
+   pannelli. Serve per esempio dopo Copia/Taglia, cosi' il pulsante Incolla
+   si abilita subito anche nell'altro pannello. */
+static void UpdateAllStatuses(struct Window *win)
 {
-    int q, save;
-
-    if (p < 0 || p > 1) p = 0;
-    if (p == 1 && !gPanes[1].listGad) p = 0;
-    if (p == gActivePane) return;
-
-    gActivePane = p;
-
-    /* riallinea le barre di stato di entrambi i pannelli */
-    save = gActivePane;
+    int q, save = gActivePane;
     for (q = 0; q < 2; q++)
     {
         if (!gPanes[q].listGad || !gPanes[q].statusGad) continue;
@@ -1235,6 +1318,21 @@ static void SetActivePane(int p, struct Window *win)
         UpdateStatus(gPanes[q].listGad, gPanes[q].statusGad, win);
     }
     gActivePane = save;
+}
+
+/* Cambia il pannello attivo e riallinea gli indicatori: "* " nella barra di
+   stato segna il pannello su cui agiscono menu e pulsanti, e il titolo della
+   finestra segue il percorso del pannello attivo. */
+static void SetActivePane(int p, struct Window *win)
+{
+    if (p < 0 || p > 1) p = 0;
+    if (p == 1 && !gPanes[1].listGad) p = 0;
+    if (p == gActivePane) return;
+
+    gActivePane = p;
+
+    /* riallinea le barre di stato di entrambi i pannelli */
+    UpdateAllStatuses(win);
 
     /* il titolo della finestra segue il pannello attivo */
     if (win)
@@ -1259,6 +1357,34 @@ static void ClearOtherPaneSelection(int gp, struct Window *win)
     DeselectAllEntries(&gPanes[other].fileList);
     RefreshAfterSelection(gPanes[other].listGad, win);
     UpdateStatus(gPanes[other].listGad, gPanes[other].statusGad, win);
+}
+
+/* Ricarica la vista di un singolo pannello (imposta temporaneamente
+   gActivePane, perche' LoadPath usa le macro del pannello attivo). */
+static void RefreshPane(int p, struct Window *win)
+{
+    int save = gActivePane;
+    if (p >= 0 && p <= 1 && gPanes[p].listGad && win)
+    {
+        gActivePane = p;
+        LoadPath(gPanes[p].pathBuffer, gPanes[p].listGad, gPanes[p].pathGad,
+                 gPanes[p].statusGad, win, &gPanes[p].fileList);
+    }
+    gActivePane = save;
+}
+
+/* Abilita i pulsanti della barra superiore: copia/sposta hanno senso solo
+   con la vista divisa (serve il secondo pannello). */
+static void UpdateTopBar(struct Window *win)
+{
+    BOOL split = (gPanes[1].listGad != NULL);
+
+    if (gTopCopyBtn)
+        IIntuition->SetGadgetAttrs((struct Gadget *)gTopCopyBtn, win, NULL,
+            GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
+    if (gTopMoveBtn)
+        IIntuition->SetGadgetAttrs((struct Gadget *)gTopMoveBtn, win, NULL,
+            GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
 }
 
 int main(int argc, char **argv)
@@ -1414,13 +1540,20 @@ int main(int argc, char **argv)
         LoadBookmarks();
         BuildMenu();
 
-        gRootLayout = IIntuition->NewObject(NULL, "layout.gadget",
+        /* riga dei due pannelli */
+        gPanesRow = IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ, LAYOUT_SpaceOuter, TRUE, LAYOUT_DeferLayout, TRUE,
             LAYOUT_AddChild, (ULONG)gPanes[0].paneLayout, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 100,
             TAG_DONE);
 
+        /* La barra dei comandi condivisa non esiste all'avvio: viene creata
+           e aggiunta in basso solo quando si attiva la vista divisa. */
+        gRootLayout = IIntuition->NewObject(NULL, "layout.gadget",
+            LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE, LAYOUT_DeferLayout, TRUE,
+            LAYOUT_AddChild, (ULONG)gPanesRow, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 100,
+            TAG_DONE);
+
         objects[OID_MAIN] = IIntuition->NewObject(NULL, "window.class",
-            WA_ScreenTitle, (ULONG)LS(MSG_APP_TITLE),
             WA_Title, (ULONG)LS(MSG_APP_TITLE),
             WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE, WA_SizeGadget, TRUE,
             WA_InnerWidth, (ULONG)gWinInnerW, WA_InnerHeight, (ULONG)gWinInnerH,
@@ -1451,15 +1584,10 @@ int main(int argc, char **argv)
 
                 CaptureWindowSize(windows[WID_MAIN]);
 
-                /* ripristina il secondo pannello, se era aperto */
-                if (gPrefs.split && !gPanes[1].paneLayout)
-                {
-                    gActivePane = 0;
-                    ToggleSplit(windows[WID_MAIN], objects[OID_MAIN]);
-                    gActivePane = 0;
-                    UpdateWindowTitle(windows[WID_MAIN], gPanes[0].pathBuffer);
-                    UpdateMenu();
-                }
+                /* Default: vista singola. La divisione si apre solo su richiesta
+                   (pulsante/voce "Dividi"). */
+                gActivePane = 0;
+                UpdateTopBar(windows[WID_MAIN]);
 
                 while (!done)
                 {
@@ -1503,10 +1631,14 @@ int main(int argc, char **argv)
                             ULONG ticks;
                             while ((nm = IExec->GetMsg(np)) != NULL)
                                 IExec->ReplyMsg(nm);
+                            /* lascia completare eventuali riscritture di .info
+                               (es. tooltype appena modificati) prima di
+                               rileggere la cartella */
+                            IDOS->Delay(5);
                             IDOS->DateStamp(&ds);
                             ticks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
                             if (ticks < gPanes[p].lastRefreshTicks) ticks += 1440 * 50;  /* midnight rollover */
-                            if (gPanes[p].lastRefreshTicks == 0 || ticks - gPanes[p].lastRefreshTicks >= 100)
+                            if (gPanes[p].lastRefreshTicks == 0 || ticks - gPanes[p].lastRefreshTicks >= 25)
                             {
                                 int save = gActivePane;
                                 gPanes[p].lastRefreshTicks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
@@ -1611,6 +1743,37 @@ int main(int argc, char **argv)
                                 case WMHI_GADGETUP:
                                 {
                                     ULONG gid = result & WMHI_GADGETMASK;
+
+                                    /* barra superiore condivisa: agisce sul pannello
+                                       attivo e trasferisce verso l'altro pannello */
+                                    if (gid == GID_TOP_COPY || gid == GID_TOP_MOVE ||
+                                        gid == GID_TOP_DELETE)
+                                    {
+                                        int src = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+                                        int dst = src ^ 1;
+
+                                        if (gid == GID_TOP_DELETE)
+                                        {
+                                            DoDeleteSelected(gPanes[src].listGad, gPanes[src].pathGad,
+                                                             gPanes[src].statusGad, windows[WID_MAIN],
+                                                             &gPanes[src].fileList);
+                                        }
+                                        else if (gPanes[1].listGad)
+                                        {
+                                            DoTransferToPane(&gPanes[src].fileList,
+                                                             gPanes[src].pathBuffer,
+                                                             gPanes[dst].pathBuffer,
+                                                             (gid == GID_TOP_MOVE) ? TRUE : FALSE,
+                                                             windows[WID_MAIN]);
+                                            RefreshPane(dst, windows[WID_MAIN]);
+                                            if (gid == GID_TOP_MOVE)
+                                                RefreshPane(src, windows[WID_MAIN]);
+                                        }
+                                        UpdateAllStatuses(windows[WID_MAIN]);
+                                        break;
+                                    }
+
+                                    {
                                     int gp = (gid >= PANE_ID_OFFSET) ? 1 : 0;
                                     ULONG bid = gid - (ULONG)gp * PANE_ID_OFFSET;
 
@@ -1648,9 +1811,9 @@ int main(int argc, char **argv)
                                             case GID_RENAME: DoRenameSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_DELETE: DoDeleteSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_DUPLICATE: DoDuplicateSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
-                                            case GID_COPY: DoCopySelected(fl); needStatus=TRUE; break;
-                                            case GID_CUT: DoCutSelected(fl); needStatus=TRUE; break;
-                                            case GID_PASTE: DoPaste(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
+                                            case GID_COPY: DoCopySelected(fl); UpdateAllStatuses(windows[WID_MAIN]); break;
+                                            case GID_CUT: DoCutSelected(fl); UpdateAllStatuses(windows[WID_MAIN]); break;
+                                            case GID_PASTE: DoPaste(listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateAllStatuses(windows[WID_MAIN]); break;
                                             case GID_INFO: DoInfo(fl, windows[WID_MAIN]); break;
                                             case GID_CALCSIZE: DoCalculateSize(listGad, pathGad, statusGad, windows[WID_MAIN], fl); break;
                                             case GID_SHELL: OpenShellHere(); break;
@@ -1676,6 +1839,7 @@ int main(int argc, char **argv)
                                             default: break;
                                         }
                                         if (paneChanged) UpdateMenu();
+                                    }
                                     }
                                     break;
                                 }
@@ -1749,9 +1913,9 @@ int main(int argc, char **argv)
                                                 case MENU_RENAME: DoRenameSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_DELETE: DoDeleteSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_DUPLICATE: DoDuplicateSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
-                                                case MENU_COPY: DoCopySelected(fl); needStatus=TRUE; break;
-                                                case MENU_CUT: DoCutSelected(fl); needStatus=TRUE; break;
-                                                case MENU_PASTE: DoPaste(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
+                                                case MENU_COPY: DoCopySelected(fl); UpdateAllStatuses(windows[WID_MAIN]); break;
+                                                case MENU_CUT: DoCutSelected(fl); UpdateAllStatuses(windows[WID_MAIN]); break;
+                                                case MENU_PASTE: DoPaste(listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateAllStatuses(windows[WID_MAIN]); break;
                                                 case MENU_FILEINFO: DoInfo(fl, windows[WID_MAIN]); break;
                                                 case MENU_CALCSIZE: DoCalculateSize(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_SCRIPT_REFRESH: ScanPlugins(); UpdateMenu(); break;
@@ -1814,9 +1978,30 @@ int main(int argc, char **argv)
                                             {
                                                 WORD dx = windows[WID_MAIN]->MouseX - gDragStartX;
                                                 WORD dy = windows[WID_MAIN]->MouseY - gDragStartY;
+                                                BOOL start = FALSE;
+
                                                 if (dx < 0) dx = (WORD)-dx;
                                                 if (dy < 0) dy = (WORD)-dy;
                                                 if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD)
+                                                    start = TRUE;
+
+                                                /* In vista LISTA il trascinamento dentro la
+                                                   lista serve alla selezione multipla
+                                                   (rubber band del listbrowser): avvia il
+                                                   drag&drop dei file solo quando il
+                                                   puntatore esce dalla lista. */
+                                                if (start && gPanes[gp].viewMode != FBVM_ICONS)
+                                                {
+                                                    struct Gadget *lg = (struct Gadget *)gPanes[gp].listGad;
+                                                    WORD mx = windows[WID_MAIN]->MouseX;
+                                                    WORD my = windows[WID_MAIN]->MouseY;
+                                                    if (lg &&
+                                                        mx >= lg->LeftEdge && mx < lg->LeftEdge + lg->Width &&
+                                                        my >= lg->TopEdge  && my < lg->TopEdge + lg->Height)
+                                                        start = FALSE;
+                                                }
+
+                                                if (start)
                                                 {
                                                     gDragActive = TRUE;
                                                     /* tell the list/icon gadget a drag started so it keeps

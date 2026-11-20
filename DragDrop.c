@@ -90,17 +90,53 @@ BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LON
     return (c > 0);
 }
 
+/* forward declarations (definite piu' sotto) */
+static BOOL StrContainsNoCase(CONST_STRPTR hay, CONST_STRPTR needle);
+static CONST_STRPTR WindowTaskName(struct Window *w);
+
 BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort)
 {
     struct VFMWindowTag *tag;
+    CONST_STRPTR tname;
+    struct Task *me;
+
     if (outPort) *outPort = NULL;
-    if (!w || !w->ScreenTitle || strcmp(w->ScreenTitle, "VagaFileManager") != 0) return FALSE;
-    if (!w->UserData) return FALSE;
+    if (!w || !w->UserData) return FALSE;
+
+    /* Identifica le finestre VFM dal processo che le possiede e dal magic in
+       UserData.  NON dal titolo della schermata, che ora lasciamo al
+       Workbench (barra titolo del Workbench invariata). */
+    tname = WindowTaskName(w);
+    me = IExec->FindTask(NULL);
+    if (!tname || !me || !me->tc_Node.ln_Name ||
+        IUtility->Stricmp(tname, me->tc_Node.ln_Name) != 0)
+        return FALSE;
+
     tag = (struct VFMWindowTag *)w->UserData;
     if (tag->vft_Magic != VFM_WINDOW_MAGIC) return FALSE;
     if (outPort)
         *outPort = IExec->FindPort(tag->vft_PortName);
     return TRUE;
+}
+
+/* Stesso device (stesso handler DOS)? */
+static BOOL SameDevice(CONST_STRPTR a, CONST_STRPTR b)
+{
+    struct DevProc *da = IDOS->GetDeviceProc((STRPTR)a, NULL);
+    struct DevProc *db = IDOS->GetDeviceProc((STRPTR)b, NULL);
+    BOOL same = (da && db && da->dvp_Port && db->dvp_Port &&
+                 da->dvp_Port == db->dvp_Port) ? TRUE : FALSE;
+    if (da) IDOS->FreeDeviceProc(da);
+    if (db) IDOS->FreeDeviceProc(db);
+    return same;
+}
+
+/* Trascinamento: stesso device -> sposta; device diverso -> copia. */
+static BOOL DragTransfer(CONST_STRPTR src, CONST_STRPTR dst)
+{
+    if (SameDevice(src, dst))
+        return MoveEntry(src, dst);
+    return CopyEntryRecursive(src, dst);
 }
 
 /* ---- drop testuale su finestre esterne (Shell e file requester) ----
@@ -451,31 +487,24 @@ void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD scr
 
     if (targetDrawer[0] != '\0')
     {
-        LONG action = AskCopyOrMove(win, screenX - win->LeftEdge, screenY - win->TopEdge);
-        if (action != DROP_ACTION_CANCEL)
+        ULONG total = 0;
+        for (i = 0; i < count; i++) total += CountFilesRecursive(paths[i]);
+        ProgressOpen(win, total);
         {
-            ULONG total = 0;
-            for (i = 0; i < count; i++) total += CountFilesRecursive(paths[i]);
-            ProgressOpen(win, total);
-            {
-                uint64 b = 0;
-                for (i = 0; i < count; i++) b += CountBytesRecursive(paths[i]);
-                ProgressSetBytes(b);
-            }
-            ResetCopyConflict();
-            for (i = 0; i < count && !gProgCancel; i++)
-            {
-                char dst[PATH_MAX_LEN];
-                CONST_STRPTR base = FilePart(paths[i]);
-                if (!base || !base[0] || !BuildChildPath(targetDrawer, base, dst, sizeof(dst)))
-                { anyErr = TRUE; continue; }
-                if (action == DROP_ACTION_MOVE)
-                { if (!MoveEntry(paths[i], dst)) anyErr = TRUE; }
-                else
-                { if (!CopyEntryRecursive(paths[i], dst)) anyErr = TRUE; }
-            }
-            ProgressClose();
+            uint64 b = 0;
+            for (i = 0; i < count; i++) b += CountBytesRecursive(paths[i]);
+            ProgressSetBytes(b);
         }
+        ResetCopyConflict();
+        for (i = 0; i < count && !gProgCancel; i++)
+        {
+            char dst[PATH_MAX_LEN];
+            CONST_STRPTR base = FilePart(paths[i]);
+            if (!base || !base[0] || !BuildChildPath(targetDrawer, base, dst, sizeof(dst)))
+            { anyErr = TRUE; continue; }
+            if (!DragTransfer(paths[i], dst)) anyErr = TRUE;
+        }
+        ProgressClose();
         if (anyErr)
             ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));
     }
@@ -612,10 +641,15 @@ BOOL IsPointOverGadget(Object *gad, struct Window *win, WORD x, WORD y)
 void CopyDroppedToCurrent(CONST_STRPTR srcPath, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
 {
     char dst[PATH_MAX_LEN]; CONST_STRPTR base = FilePart(srcPath);
+    ULONG total;
     if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst))) return;
+    total = CountFilesRecursive(srcPath);
+    ProgressOpen(win, total);
+    ProgressSetBytes(CountBytesRecursive(srcPath));
     ResetCopyConflict();
     if (!CopyEntryRecursive(srcPath, dst))
         ShowMessage(LS(MSG_COPY), LS(MSG_DROP_COPY_FAILED));
+    ProgressClose();
     LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
 }
 
@@ -668,7 +702,7 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
     {
         LONG nArgs = appmsg->am_NumArgs;
         char (*srcs)[PATH_MAX_LEN];
-        LONG nPaths = 0, action;
+        LONG nPaths = 0;
         ULONG total = 0;
 
         srcs = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags((nArgs > 0 ? nArgs : 1) * PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE);
@@ -693,8 +727,6 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
 
         for (i = 0; i < nPaths; i++) total += CountFilesRecursive(srcs[i]);
 
-        action = AskCopyOrMove(win, appmsg->am_MouseX, appmsg->am_MouseY);
-        if (action == DROP_ACTION_CANCEL) { IExec->FreeVec(srcs); return; }
         ProgressOpen(win, total);
         {
             uint64 b = 0;
@@ -707,21 +739,10 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
         {
             char dst[PATH_MAX_LEN]; CONST_STRPTR base = FilePart(srcs[i]);
             if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst))) continue;
-            if (action == DROP_ACTION_MOVE)
+            if (!DragTransfer(srcs[i], dst))
             {
-                if (!MoveEntry(srcs[i], dst))
-                {
-                    char em[300]; snprintf(em, sizeof(em), LS(MSG_DROP_COPY_ERROR_NAME), base);
-                    ShowMessage(LS(MSG_DRAGDROP_TITLE), em);
-                }
-            }
-            else
-            {
-                if (!CopyEntryRecursive(srcs[i], dst))
-                {
-                    char em[300]; snprintf(em, sizeof(em), LS(MSG_DROP_COPY_ERROR_NAME), base);
-                    ShowMessage(LS(MSG_DRAGDROP_TITLE), em);
-                }
+                char em[300]; snprintf(em, sizeof(em), LS(MSG_DROP_COPY_ERROR_NAME), base);
+                ShowMessage(LS(MSG_DRAGDROP_TITLE), em);
             }
         }
         ProgressClose();
@@ -817,7 +838,6 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
     {
         char *q = drop->vfm_Paths;
         ULONG total = 0;
-        LONG action;
 
         for (i = 0; i < drop->vfm_NumPaths; i++)
         {
@@ -826,40 +846,33 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
             q += strlen(q) + 1;
         }
 
-        action = AskCopyOrMove(win, drop->vfm_MouseX - win->LeftEdge, drop->vfm_MouseY - win->TopEdge);
-        if (action != DROP_ACTION_CANCEL)
+        ProgressOpen(win, total);
         {
-            ProgressOpen(win, total);
-            {
-                uint64 b = 0;
-                q = drop->vfm_Paths;
-                for (i = 0; i < drop->vfm_NumPaths; i++)
-                {
-                    if (q[0] == '\0') break;
-                    b += CountBytesRecursive(q);
-                    q += strlen(q) + 1;
-                }
-                ProgressSetBytes(b);
-            }
-
-            ResetCopyConflict();
+            uint64 b = 0;
             q = drop->vfm_Paths;
-            for (i = 0; i < drop->vfm_NumPaths && !gProgCancel; i++)
+            for (i = 0; i < drop->vfm_NumPaths; i++)
             {
-                char dst[PATH_MAX_LEN];
-                CONST_STRPTR base;
                 if (q[0] == '\0') break;
-                base = FilePart(q);
-                if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst)))
-                { anyErr = TRUE; q += strlen(q) + 1; continue; }
-                if (action == DROP_ACTION_MOVE)
-                { if (!MoveEntry(q, dst)) anyErr = TRUE; }
-                else
-                { if (!CopyEntryRecursive(q, dst)) anyErr = TRUE; }
+                b += CountBytesRecursive(q);
                 q += strlen(q) + 1;
             }
-            ProgressClose();
+            ProgressSetBytes(b);
         }
+
+        ResetCopyConflict();
+        q = drop->vfm_Paths;
+        for (i = 0; i < drop->vfm_NumPaths && !gProgCancel; i++)
+        {
+            char dst[PATH_MAX_LEN];
+            CONST_STRPTR base;
+            if (q[0] == '\0') break;
+            base = FilePart(q);
+            if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst)))
+            { anyErr = TRUE; q += strlen(q) + 1; continue; }
+            if (!DragTransfer(q, dst)) anyErr = TRUE;
+            q += strlen(q) + 1;
+        }
+        ProgressClose();
 
         if (anyErr)
             ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));

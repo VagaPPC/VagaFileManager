@@ -560,7 +560,20 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
                 itemPath[nlen - 5] = '\0';
         }
 
-        gIcons[gEntryCount] = IIcon->GetIconTags(itemPath, ICONGETA_FailIfUnavailable, FALSE, TAG_DONE);
+        /* Carica l'icona; se il file .info e' appena stato riscritto (es. dopo
+           aver modificato i tooltype nella finestra Informazioni) puo' essere
+           temporaneamente non disponibile: riprova un paio di volte. */
+        {
+            int tries;
+            gIcons[gEntryCount] = NULL;
+            for (tries = 0; tries < 3; tries++)
+            {
+                gIcons[gEntryCount] = IIcon->GetIconTags(itemPath, ICONGETA_FailIfUnavailable, FALSE, TAG_DONE);
+                if (gIcons[gEntryCount]) break;
+                if (!entries[i].hasInfo) break;   /* nessuna icona prevista */
+                IDOS->Delay(1);
+            }
+        }
         gIsDir[gEntryCount] = entries[i].isDir;
         gFileSize[gEntryCount] = entries[i].fileSize;
         gDateStamp[gEntryCount] = entries[i].dateStamp;
@@ -634,7 +647,8 @@ void UpdateWindowTitle(struct Window *win, CONST_STRPTR path)
         if (name[0] == '\0') name = path;  /* volume root like "RAM Disk:" */
         snprintf(gWinTitle, sizeof(gWinTitle), "%s", name);
     }
-    IIntuition->SetWindowTitles(win, gWinTitle, (STRPTR)LS(MSG_APP_TITLE));
+    /* lascia invariato il titolo della schermata (barra titolo del Workbench) */
+    IIntuition->SetWindowTitles(win, gWinTitle, (STRPTR)~0);
 }
 
 void SetPathGadget(Object *pathGad, struct Window *win, CONST_STRPTR path)
@@ -675,8 +689,7 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
     if (listGad) IIntuition->GetAttr(LISTBROWSER_NumSelected, listGad, &numSel);
     snprintf(body, sizeof(body), LS(MSG_STATUS_FORMAT),
              (long)gPanes[pane].entryCount, (unsigned long)numSel);
-    /* "* " marca il pannello attivo: e' quello su cui agiscono menu e pulsanti */
-    snprintf(buf, sizeof(statusBuf[pane]), "%s%s", (pane == gActivePane) ? "* " : "  ", body);
+    snprintf(buf, sizeof(statusBuf[pane]), "%s", body);
     if (statusGad)
     {
         if (win) IIntuition->RefreshSetGadgetAttrs((struct Gadget *)statusGad, win, NULL, GA_Text, (ULONG)buf, TAG_DONE);

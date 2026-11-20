@@ -1208,7 +1208,7 @@ void ManageBookmarks(Object *mainWinObj)
                                                 }
                                                 SaveBookmarks();
                                                 UpdateMenu();
-                                                IIntuition->SetWindowTitles(win, (STRPTR)LS(MSG_MENU_MANAGE), (STRPTR)LS(MSG_APP_TITLE));
+                                                IIntuition->SetWindowTitles(win, (STRPTR)LS(MSG_MENU_MANAGE), (STRPTR)~0);
                                                 /* refresh the list */
                                                 IListBrowser->FreeListBrowserList(&bmlist);
                                                 for (j = 0; j < gBookmarkCount; j++)

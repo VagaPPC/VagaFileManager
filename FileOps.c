@@ -527,6 +527,10 @@ void DeleteSiblingInfo(CONST_STRPTR path)
    move/copy, quindi va attivato solo dal comando di cancellazione. */
 static BOOL gDeleteProgress = FALSE;
 
+/* Abilita l'avanzamento della barra durante DeleteEntryRecursive (usato dal
+   comando di cancellazione, anche da ARexx). */
+void SetDeleteProgress(BOOL on) { gDeleteProgress = on; }
+
 static BOOL PathExists(CONST_STRPTR path)
 {
     BPTR l;
@@ -719,7 +723,7 @@ static void MakeParentWritable(CONST_STRPTR path)
     }
 }
 
-static ULONG CountDeleteObjects(CONST_STRPTR src)
+ULONG CountDeleteObjects(CONST_STRPTR src)
 {
     ULONG count = 1;
     if (IsLinkPath(src)) return 1;
@@ -1024,12 +1028,9 @@ void DoDuplicateSelected(Object *listGad, Object *pathGad, Object *statusGad, st
         }
     }
 
-    if (total > 1)
-    {
-        ProgressOpen(win, total);
-        ProgressSetBytes(bytes);
-        useProgress = TRUE;
-    }
+    ProgressOpen(win, total);
+    ProgressSetBytes(bytes);
+    useProgress = TRUE;
 
     ResetCopyConflict();
     for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
@@ -1204,6 +1205,71 @@ void DoCutSelected(struct List *list)
     {
         gClipboardMode = CLIP_CUT;
         SaveSharedClipboard();
+    }
+}
+
+/* Copia o sposta gli elementi selezionati in 'srcList' (percorso 'srcDir')
+   dentro 'dstDir' (l'altro pannello). Usata dalla barra superiore condivisa. */
+void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR dstDir,
+                      BOOL move, struct Window *win)
+{
+    struct Node *n;
+    ULONG total = 0;
+    uint64 bytes = 0;
+    BOOL anyErr = FALSE, useProgress = FALSE;
+
+    if (!srcList || !srcDir || !dstDir || !srcDir[0] || !dstDir[0]) return;
+    /* spostare nella stessa cartella non ha senso */
+    if (move && IUtility->Stricmp(srcDir, dstDir) == 0) return;
+
+    /* conta gli elementi selezionati per la barra di avanzamento */
+    for (n = srcList->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES; STRPTR name = NULL; char full[PATH_MAX_LEN];
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
+        if (!sel) continue;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index, LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+        if (!name || index >= (ULONG)gEntryCount) continue;
+        if (!BuildChildPath(srcDir, name, full, sizeof(full))) continue;
+        total += CountFilesRecursive(full);
+        bytes += CountBytesRecursive(full);
+    }
+    if (total == 0)
+    {
+        ShowMessage(move ? LS(MSG_MOVE) : LS(MSG_COPY), LS(MSG_COPY_NONE));
+        return;
+    }
+    ProgressOpen(win, total);
+    ProgressSetBytes(bytes);
+    useProgress = TRUE;
+
+    ResetCopyConflict();
+    for (n = srcList->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES; STRPTR name = NULL;
+        char src[PATH_MAX_LEN], dst[PATH_MAX_LEN];
+
+        if (useProgress && gProgCancel) break;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
+        if (!sel) continue;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index, LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+        if (!name || index >= (ULONG)gEntryCount) continue;
+        if (!BuildChildPath(srcDir, name, src, sizeof(src))) continue;
+        if (!BuildChildPath(dstDir, name, dst, sizeof(dst))) { anyErr = TRUE; continue; }
+        if (move)
+        {
+            if (!MoveEntry(src, dst)) anyErr = TRUE;
+        }
+        else
+        {
+            if (!CopyEntryRecursive(src, dst)) anyErr = TRUE;
+        }
+    }
+    {
+        BOOL canceled = gProgCancel;
+        if (useProgress) ProgressClose();
+        if (anyErr && !canceled)
+            ShowMessage(move ? LS(MSG_MOVE) : LS(MSG_COPY), LS(MSG_DROP_COPY_FAILED));
     }
 }
 

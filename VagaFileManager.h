@@ -126,7 +126,10 @@ enum
     GID_SPLIT,
     GID_CALCSIZE,
     GID_SHELL,
-    GID_FILTER
+    GID_FILTER,
+    GID_TOP_COPY,
+    GID_TOP_MOVE,
+    GID_TOP_DELETE
 };
 
 enum
@@ -451,6 +454,8 @@ void CopyInfoFileIfPresent(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth);
+ULONG CountDeleteObjects(CONST_STRPTR src);
+void SetDeleteProgress(BOOL on);
 void DeleteSiblingInfo(CONST_STRPTR path);
 BOOL MoveInfoFile(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst);
@@ -484,6 +489,7 @@ void SaveSharedClipboard(void);
 BOOL LoadSharedClipboard(void);
 void DoCopySelected(struct List *list);
 void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
+void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR dstDir, BOOL move, struct Window *win);
 void DoCutSelected(struct List *list);
 BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LONG maxPaths, LONG *count);
 BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort);
