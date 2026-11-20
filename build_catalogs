@@ -1,0 +1,10 @@
+; Build VagaFileManager catalogs with CatComp (AmigaOS)
+; Run from the VagaFileManager directory
+
+CatComp VagaFileManager.cd CFILE VagaFileManager_strings.h
+CatComp VagaFileManager.cd Catalogs/english/VagaFileManager.ct CATALOG Catalogs/english/VagaFileManager.catalog
+CatComp VagaFileManager.cd Catalogs/italian/VagaFileManager.ct CATALOG Catalogs/italian/VagaFileManager.catalog
+CatComp VagaFileManager.cd Catalogs/french/VagaFileManager.ct CATALOG Catalogs/french/VagaFileManager.catalog
+CatComp VagaFileManager.cd Catalogs/german/VagaFileManager.ct CATALOG Catalogs/german/VagaFileManager.catalog
+CatComp VagaFileManager.cd Catalogs/polish/VagaFileManager.ct CATALOG Catalogs/polish/VagaFileManager.catalog
+CatComp VagaFileManager.cd Catalogs/spanish/VagaFileManager.ct CATALOG Catalogs/spanish/VagaFileManager.catalog

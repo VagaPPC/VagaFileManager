@@ -1,0 +1,415 @@
+## version $VER: VagaFileManager.catalog 1.0 (19.11.2026)
+## codeset 0
+## language english
+;
+MSG_APP_TITLE
+VagaFileManager
+;
+MSG_VIEW_ICONS_ONLY
+by icons
+;
+MSG_VIEW_ALL_FILES
+all files
+;
+MSG_SORT_BY_TYPE
+type
+;
+MSG_SORT_ALPHABETICAL
+Alphabetical
+;
+MSG_SORT_BY_NAME
+name
+;
+MSG_SORT_BY_DATE
+date
+;
+MSG_SORT_BY_SIZE
+size
+;
+MSG_TYPE_DIR_LINK
+Dir (link)
+;
+MSG_TYPE_LINK
+Link
+;
+MSG_TYPE_DRAWER
+Drawer
+;
+MSG_TYPE_FILE
+File
+;
+MSG_TYPE_SOFTLINK
+Softlink
+;
+MSG_TYPE_OTHER
+Other
+;
+MSG_TYPE_DEVICE
+Device
+;
+MSG_TYPE_VOLUME
+Volume
+;
+MSG_TYPE_ASSIGN
+Assign
+;
+MSG_TYPE_LATE_ASSIGN
+Late assign
+;
+MSG_TYPE_NONBINDING
+Non-binding
+;
+MSG_ROOT_ASSIGNS
+(Devices and assigns)
+;
+MSG_STATUS_FORMAT
+Items: %ld  |  Selected: %lu
+;
+MSG_BTN_OK
+OK
+;
+MSG_BTN_CANCEL
+Cancel
+;
+MSG_BTN_OK_CANCEL
+OK|Cancel
+;
+MSG_RENAME_TITLE
+Rename: %s
+;
+MSG_RENAME
+Rename
+;
+MSG_RENAME_SELECT_ONE
+Select a single item to rename.
+;
+MSG_RENAME_FAILED
+Unable to rename:\n%s
+;
+MSG_ERROR_TITLE
+Error
+;
+MSG_DELETE
+Delete
+;
+MSG_DELETE_NONE
+No item selected.
+;
+MSG_DELETE_CONFIRM_ONE
+Delete the selected item?
+;
+MSG_DELETE_CONFIRM_MANY
+Delete %ld selected items?
+;
+MSG_DELETE_CONFIRM_TITLE
+Confirm deletion
+;
+MSG_DELETE_FAILED
+Unable to delete:\n%s\n(The drawer may not be empty)
+;
+MSG_DUPLICATE
+Duplicate
+;
+MSG_DUPLICATE_ROOT
+Operation not available in this view.
+;
+MSG_DUPLICATE_NONE
+No item selected.
+;
+MSG_DUPLICATE_ERRORS
+Some items could not be duplicated.
+;
+MSG_COPY_PREFIX
+Copy_%ld_%s
+;
+MSG_COPY
+Copy
+;
+MSG_COPY_NONE
+No item selected.
+;
+MSG_PASTE
+Paste
+;
+MSG_PASTE_ROOT
+Cannot paste into the assigns list.
+;
+MSG_PASTE_EMPTY
+Clipboard is empty.
+;
+MSG_PASTE_ERRORS
+Some items could not be pasted.
+;
+MSG_INFO
+Info
+;
+MSG_INFO_TITLE
+Information
+;
+MSG_INFO_SELECT_ONE
+Select a single item.
+;
+MSG_DROP_COPY_FAILED
+Error while copying the dropped item.
+;
+MSG_DRAGDROP_TITLE
+Drag & Drop
+;
+MSG_DROP_ROOT
+Cannot copy into the assigns list.
+;
+MSG_DROP_COPY_ERROR_NAME
+Error copying:\n%s
+;
+MSG_COL_NAME
+Name
+;
+MSG_COL_TYPE
+Type
+;
+MSG_COL_SIZE
+Size
+;
+MSG_COL_DATE
+Date
+;
+MSG_STATUS_EMPTY
+Items: 0  |  Selected: 0
+;
+MSG_BTN_ICONS
+Icons
+;
+MSG_BTN_DETAILS
+Details
+;
+MSG_BTN_UP
+Up
+;
+MSG_BTN_OPEN
+Open
+;
+MSG_BTN_REFRESH
+Refresh
+;
+MSG_BTN_HOME
+Home
+;
+MSG_LABEL_VIEW
+View:
+;
+MSG_LABEL_LIST
+List:
+;
+MSG_LABEL_PATH
+Path:
+;
+MSG_DROP_NO_TARGET
+No valid drop target found.
+;
+MSG_COL_COMMENT
+Comment
+;
+MSG_BTN_BACK
+Back
+;
+MSG_BTN_FORWARD
+Forward
+;
+MSG_MENU_PROGRAM
+Program
+;
+MSG_MENU_NEWWINDOW
+New...
+;
+MSG_MENU_INFO
+Information...
+;
+MSG_MENU_QUIT
+Quit
+;
+MSG_MENU_EDIT
+Edit
+;
+MSG_MENU_VIEW
+View
+;
+MSG_MENU_BOOKMARKS
+Bookmarks
+;
+MSG_MENU_ADDBOOKMARK
+Add to favorites
+;
+MSG_BOOKMARK_ADDED
+Added to favorites.
+;
+MSG_MENU_MANAGE
+Manage...
+;
+MSG_CUT
+Cut
+;
+MSG_FILTER
+Filter
+;
+MSG_SORT
+Sort by
+;
+MSG_ABOUT_VERSION
+Version 1.0 (19.11.2026)
+;
+MSG_ABOUT_AUTHOR
+VagaPPC (Benedetto Lorello)
+;
+MSG_ABOUT_EMAIL
+mail: vagappc@yahoo.it
+;
+MSG_ABOUT_LICENSE
+Free software: GNU General Public License v3 or later
+;
+MSG_MOVE
+Move
+;
+MSG_PROG_TITLE
+File operation
+;
+MSG_PROG_STATUS
+Copying...
+;
+MSG_PROG_PAUSE
+Pause
+;
+MSG_PROG_CONTINUE
+Continue
+;
+MSG_MENU_SHOW
+Show by
+;
+MSG_MENU_SCRIPT
+Script
+;
+MSG_SCRIPT_REFRESH
+Refresh list
+;
+MSG_SCRIPT_OPENDIR
+Open plugin drawer
+;
+MSG_CALC_SIZE
+Calculate size
+;
+MSG_SIZE_TITLE
+Size
+;
+MSG_SIZE_SELECT_DIR
+Select a drawer or a volume.
+;
+MSG_SIZE_RESULT
+Size: %s (%lld bytes)   Files: %lld   Drawers: %lld
+;
+MSG_BTN_SPLIT_HINT
+Split / close second pane
+;
+MSG_ABOUT_BY
+by
+;
+MSG_ABOUT_AUTHOR_NAME
+VagaPPC
+;
+MSG_ABOUT_AUTHOR_SUFFIX
+(Benedetto Lorello)
+;
+MSG_ABOUT_MAIL
+Mail: vagappc@yahoo.it
+;
+MSG_ABOUT_THANKS
+Special thanks: ldg72 and Flash
+;
+MSG_MENU_WBREPLACE
+Replace Workbench
+;
+MSG_MENU_WBRESTORE
+Restore Workbench
+;
+MSG_FIND_TITLE
+Find file
+;
+MSG_FIND_NONE
+No file found.
+;
+MSG_FIND_RESULTS
+Search results
+;
+MSG_GREP_TITLE
+grep
+;
+MSG_GREP_NONE
+No match in the selected files.
+;
+MSG_GREP_RESULTS
+grep results
+;
+MSG_MENU_SHOWINFO
+Show file info
+;
+MSG_BTN_SHELL_HINT
+Open shell here
+;
+MSG_MENU_SHELL
+Shell
+;
+MSG_MENU_NEW
+New
+;
+MSG_MENU_NEW_DRAWER
+Drawer
+;
+MSG_MENU_NEW_TEXTFILE
+Text file
+;
+MSG_MENU_SELECT_ALL
+Select all
+;
+MSG_MENU_INVERT_SELECTION
+Invert selection
+;
+MSG_MENU_DESELECT_ALL
+Deselect all
+;
+MSG_NEW_DRAWER_PROMPT
+Name of the new drawer:
+;
+MSG_NEW_FILE_PROMPT
+Name of the new text file:
+;
+MSG_NEW_DRAWER_FAILED
+Cannot create the drawer.
+;
+MSG_NEW_FILE_FAILED
+Cannot create the file.
+;
+MSG_NEW_FILE_EXISTS
+A file with that name already exists.
+;
+MSG_CONFLICT_TITLE
+File already exists
+;
+MSG_CONFLICT_BODY
+The file %s already exists.\n\nWhat do you want to do?
+;
+MSG_CONFLICT_OVERWRITE
+Overwrite
+;
+MSG_CONFLICT_OVERWRITE_ALL
+Overwrite all
+;
+MSG_CONFLICT_UPDATE
+Update
+;
+MSG_CONFLICT_UPDATE_ALL
+Update all
+;
+MSG_CONFLICT_RENAME
+Rename
+;
+MSG_CONFLICT_SKIP
+Skip
+;

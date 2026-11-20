@@ -1,0 +1,415 @@
+## version $VER: VagaFileManager.catalog 1.0 (19.11.2026)
+## codeset 5
+## language polish
+;
+MSG_APP_TITLE
+VagaFileManager
+;
+MSG_VIEW_ICONS_ONLY
+wg ikon
+;
+MSG_VIEW_ALL_FILES
+wszystkie pliki
+;
+MSG_SORT_BY_TYPE
+typ
+;
+MSG_SORT_ALPHABETICAL
+Alfabetycznie
+;
+MSG_SORT_BY_NAME
+nazwa
+;
+MSG_SORT_BY_DATE
+data
+;
+MSG_SORT_BY_SIZE
+rozmiar
+;
+MSG_TYPE_DIR_LINK
+Kat. (odno¶nik)
+;
+MSG_TYPE_LINK
+Odno¶nik
+;
+MSG_TYPE_DRAWER
+Katalog
+;
+MSG_TYPE_FILE
+Plik
+;
+MSG_TYPE_SOFTLINK
+Dowi±zanie miêkkie
+;
+MSG_TYPE_OTHER
+Inne
+;
+MSG_TYPE_DEVICE
+Urz±dzenie
+;
+MSG_TYPE_VOLUME
+Wolumen
+;
+MSG_TYPE_ASSIGN
+Przypisanie
+;
+MSG_TYPE_LATE_ASSIGN
+Przypisanie pó¼ne
+;
+MSG_TYPE_NONBINDING
+Niewi±¿±ce
+;
+MSG_ROOT_ASSIGNS
+(Urz±dzenia i przypisania)
+;
+MSG_STATUS_FORMAT
+Elementy: %ld  |  Zaznaczone: %lu
+;
+MSG_BTN_OK
+OK
+;
+MSG_BTN_CANCEL
+Anuluj
+;
+MSG_BTN_OK_CANCEL
+OK|Anuluj
+;
+MSG_RENAME_TITLE
+Zmieñ nazwê: %s
+;
+MSG_RENAME
+Zmieñ nazwê
+;
+MSG_RENAME_SELECT_ONE
+Wybierz jeden element do zmiany nazwy.
+;
+MSG_RENAME_FAILED
+Nie mo¿na zmieniæ nazwy:\n%s
+;
+MSG_ERROR_TITLE
+B³±d
+;
+MSG_DELETE
+Usuñ
+;
+MSG_DELETE_NONE
+Nie wybrano elementu.
+;
+MSG_DELETE_CONFIRM_ONE
+Usun±æ wybrany element?
+;
+MSG_DELETE_CONFIRM_MANY
+Usun±æ %ld wybranych elementów?
+;
+MSG_DELETE_CONFIRM_TITLE
+Potwierd¼ usuniêcie
+;
+MSG_DELETE_FAILED
+Nie mo¿na usun±æ:\n%s\n(Katalog mo¿e nie byæ pusty)
+;
+MSG_DUPLICATE
+Duplikuj
+;
+MSG_DUPLICATE_ROOT
+Operacja niedostêpna w tym widoku.
+;
+MSG_DUPLICATE_NONE
+Nie wybrano elementu.
+;
+MSG_DUPLICATE_ERRORS
+Niektórych elementów nie uda³o siê zduplikowaæ.
+;
+MSG_COPY_PREFIX
+Kopia_%ld_%s
+;
+MSG_COPY
+Kopiuj
+;
+MSG_COPY_NONE
+Nie wybrano elementu.
+;
+MSG_PASTE
+Wklej
+;
+MSG_PASTE_ROOT
+Nie mo¿na wkleiæ do listy przypisañ.
+;
+MSG_PASTE_EMPTY
+Schowek jest pusty.
+;
+MSG_PASTE_ERRORS
+Niektórych elementów nie uda³o siê wkleiæ.
+;
+MSG_INFO
+Informacje
+;
+MSG_INFO_TITLE
+Informacje
+;
+MSG_INFO_SELECT_ONE
+Wybierz jeden element.
+;
+MSG_DROP_COPY_FAILED
+B³±d podczas kopiowania upuszczonego elementu.
+;
+MSG_DRAGDROP_TITLE
+Przeci±gnij i upu¶æ
+;
+MSG_DROP_ROOT
+Nie mo¿na kopiowaæ do listy przypisañ.
+;
+MSG_DROP_COPY_ERROR_NAME
+B³±d kopiowania:\n%s
+;
+MSG_COL_NAME
+Nazwa
+;
+MSG_COL_TYPE
+Typ
+;
+MSG_COL_SIZE
+Rozmiar
+;
+MSG_COL_DATE
+Data
+;
+MSG_STATUS_EMPTY
+Elementy: 0  |  Zaznaczone: 0
+;
+MSG_BTN_ICONS
+Ikony
+;
+MSG_BTN_DETAILS
+Szczegó³y
+;
+MSG_BTN_UP
+W górê
+;
+MSG_BTN_OPEN
+Otwórz
+;
+MSG_BTN_REFRESH
+Od¶wie¿
+;
+MSG_BTN_HOME
+Start
+;
+MSG_LABEL_VIEW
+Widok:
+;
+MSG_LABEL_LIST
+Lista:
+;
+MSG_LABEL_PATH
+¦cie¿ka:
+;
+MSG_DROP_NO_TARGET
+Nie znaleziono prawid³owego celu upuszczenia.
+;
+MSG_COL_COMMENT
+Komentarz
+;
+MSG_BTN_BACK
+Wstecz
+;
+MSG_BTN_FORWARD
+Dalej
+;
+MSG_MENU_PROGRAM
+Program
+;
+MSG_MENU_NEWWINDOW
+Nowe...
+;
+MSG_MENU_INFO
+Informacje...
+;
+MSG_MENU_QUIT
+Zakoñcz
+;
+MSG_MENU_EDIT
+Edycja
+;
+MSG_MENU_VIEW
+Widok
+;
+MSG_MENU_BOOKMARKS
+Zak³adki
+;
+MSG_MENU_ADDBOOKMARK
+Dodaj do zak³adek
+;
+MSG_BOOKMARK_ADDED
+Dodano do zak³adek.
+;
+MSG_MENU_MANAGE
+Zarz±dzaj...
+;
+MSG_CUT
+Wytnij
+;
+MSG_FILTER
+Filtr
+;
+MSG_SORT
+Sortuj wg
+;
+MSG_ABOUT_VERSION
+Wersja 1.0 (19.11.2026)
+;
+MSG_ABOUT_AUTHOR
+VagaPPC (Benedetto Lorello)
+;
+MSG_ABOUT_EMAIL
+mail: vagappc@yahoo.it
+;
+MSG_ABOUT_LICENSE
+Wolne oprogramowanie: GNU GPL v3 lub nowsza
+;
+MSG_MOVE
+Przenie¶
+;
+MSG_PROG_TITLE
+Operacja na plikach
+;
+MSG_PROG_STATUS
+Kopiowanie...
+;
+MSG_PROG_PAUSE
+Pauza
+;
+MSG_PROG_CONTINUE
+Kontynuuj
+;
+MSG_MENU_SHOW
+Poka¿ wg
+;
+MSG_MENU_SCRIPT
+Skrypt
+;
+MSG_SCRIPT_REFRESH
+Odswiez liste
+;
+MSG_SCRIPT_OPENDIR
+Otworz szuflade wtyczek
+;
+MSG_CALC_SIZE
+Oblicz rozmiar
+;
+MSG_SIZE_TITLE
+Rozmiar
+;
+MSG_SIZE_SELECT_DIR
+Wybierz szuflade lub wolumin.
+;
+MSG_SIZE_RESULT
+Rozmiar: %s (%lld bajtow)   Pliki: %lld   Szuflady: %lld
+;
+MSG_BTN_SPLIT_HINT
+Podziel / zamknij drugi panel
+;
+MSG_ABOUT_BY
+przez
+;
+MSG_ABOUT_AUTHOR_NAME
+VagaPPC
+;
+MSG_ABOUT_AUTHOR_SUFFIX
+(Benedetto Lorello)
+;
+MSG_ABOUT_MAIL
+Mail: vagappc@yahoo.it
+;
+MSG_ABOUT_THANKS
+Podziekowania: ldg72 i Flash
+;
+MSG_MENU_WBREPLACE
+Zastap Workbench
+;
+MSG_MENU_WBRESTORE
+Przywroc Workbench
+;
+MSG_FIND_TITLE
+Znajdz plik
+;
+MSG_FIND_NONE
+Nie znaleziono pliku.
+;
+MSG_FIND_RESULTS
+Wyniki wyszukiwania
+;
+MSG_GREP_TITLE
+grep
+;
+MSG_GREP_NONE
+Brak dopasowan w wybranych plikach.
+;
+MSG_GREP_RESULTS
+Wyniki grep
+;
+MSG_MENU_SHOWINFO
+Pokaz info plikow
+;
+MSG_BTN_SHELL_HINT
+Otworz powloke tutaj
+;
+MSG_MENU_SHELL
+Shell
+;
+MSG_MENU_NEW
+Nowy
+;
+MSG_MENU_NEW_DRAWER
+Katalog
+;
+MSG_MENU_NEW_TEXTFILE
+Plik tekstowy
+;
+MSG_MENU_SELECT_ALL
+Zaznacz wszystko
+;
+MSG_MENU_INVERT_SELECTION
+Odwroc zaznaczenie
+;
+MSG_MENU_DESELECT_ALL
+Odznacz wszystko
+;
+MSG_NEW_DRAWER_PROMPT
+Nazwa nowego katalogu:
+;
+MSG_NEW_FILE_PROMPT
+Nazwa nowego pliku tekstowego:
+;
+MSG_NEW_DRAWER_FAILED
+Nie mozna utworzyc katalogu.
+;
+MSG_NEW_FILE_FAILED
+Nie mozna utworzyc pliku.
+;
+MSG_NEW_FILE_EXISTS
+Plik o tej nazwie juz istnieje.
+;
+MSG_CONFLICT_TITLE
+Plik juz istnieje
+;
+MSG_CONFLICT_BODY
+Plik %s juz istnieje.\n\nCo chcesz zrobic?
+;
+MSG_CONFLICT_OVERWRITE
+Nadpisz
+;
+MSG_CONFLICT_OVERWRITE_ALL
+Nadpisz wszystkie
+;
+MSG_CONFLICT_UPDATE
+Aktualizuj
+;
+MSG_CONFLICT_UPDATE_ALL
+Aktualizuj wszystkie
+;
+MSG_CONFLICT_RENAME
+Zmien nazwe
+;
+MSG_CONFLICT_SKIP
+Pomin
+;

@@ -1,0 +1,415 @@
+## version $VER: VagaFileManager.catalog 1.0 (19.11.2026)
+## codeset 4
+## language italian
+;
+MSG_APP_TITLE
+VagaFileManager
+;
+MSG_VIEW_ICONS_ONLY
+per icone
+;
+MSG_VIEW_ALL_FILES
+tutti file
+;
+MSG_SORT_BY_TYPE
+tipo
+;
+MSG_SORT_ALPHABETICAL
+Alfabetico
+;
+MSG_SORT_BY_NAME
+nome
+;
+MSG_SORT_BY_DATE
+data
+;
+MSG_SORT_BY_SIZE
+dimensione
+;
+MSG_TYPE_DIR_LINK
+Dir (link)
+;
+MSG_TYPE_LINK
+Link
+;
+MSG_TYPE_DRAWER
+Cassetto
+;
+MSG_TYPE_FILE
+File
+;
+MSG_TYPE_SOFTLINK
+Softlink
+;
+MSG_TYPE_OTHER
+Altro
+;
+MSG_TYPE_DEVICE
+Dispositivo
+;
+MSG_TYPE_VOLUME
+Volume
+;
+MSG_TYPE_ASSIGN
+Assegnazione
+;
+MSG_TYPE_LATE_ASSIGN
+Assign ritardata
+;
+MSG_TYPE_NONBINDING
+Non vincolante
+;
+MSG_ROOT_ASSIGNS
+(Dispositivi e assegnazioni)
+;
+MSG_STATUS_FORMAT
+Elementi: %ld  |  Selezionati: %lu
+;
+MSG_BTN_OK
+OK
+;
+MSG_BTN_CANCEL
+Annulla
+;
+MSG_BTN_OK_CANCEL
+OK|Annulla
+;
+MSG_RENAME_TITLE
+Rinomina: %s
+;
+MSG_RENAME
+Rinomina
+;
+MSG_RENAME_SELECT_ONE
+Seleziona un solo elemento da rinominare.
+;
+MSG_RENAME_FAILED
+Impossibile rinominare:\n%s
+;
+MSG_ERROR_TITLE
+Errore
+;
+MSG_DELETE
+Elimina
+;
+MSG_DELETE_NONE
+Nessun elemento selezionato.
+;
+MSG_DELETE_CONFIRM_ONE
+Eliminare l'elemento selezionato?
+;
+MSG_DELETE_CONFIRM_MANY
+Eliminare %ld elementi selezionati?
+;
+MSG_DELETE_CONFIRM_TITLE
+Conferma eliminazione
+;
+MSG_DELETE_FAILED
+Impossibile eliminare:\n%s\n(Il cassetto potrebbe non essere vuoto)
+;
+MSG_DUPLICATE
+Duplica
+;
+MSG_DUPLICATE_ROOT
+Operazione non disponibile in questa vista.
+;
+MSG_DUPLICATE_NONE
+Nessun elemento selezionato.
+;
+MSG_DUPLICATE_ERRORS
+Alcuni elementi non sono stati duplicati.
+;
+MSG_COPY_PREFIX
+Copia_%ld_%s
+;
+MSG_COPY
+Copia
+;
+MSG_COPY_NONE
+Nessun elemento selezionato.
+;
+MSG_PASTE
+Incolla
+;
+MSG_PASTE_ROOT
+Impossibile incollare nella lista assegnazioni.
+;
+MSG_PASTE_EMPTY
+Nessun elemento negli appunti.
+;
+MSG_PASTE_ERRORS
+Alcuni elementi non sono stati incollati.
+;
+MSG_INFO
+Informazioni
+;
+MSG_INFO_TITLE
+Informazioni
+;
+MSG_INFO_SELECT_ONE
+Seleziona un solo elemento.
+;
+MSG_DROP_COPY_FAILED
+Errore durante la copia dell'elemento trascinato.
+;
+MSG_DRAGDROP_TITLE
+Trascina e rilascia
+;
+MSG_DROP_ROOT
+Impossibile copiare nella lista assegnazioni.
+;
+MSG_DROP_COPY_ERROR_NAME
+Errore copiando:\n%s
+;
+MSG_COL_NAME
+Nome
+;
+MSG_COL_TYPE
+Tipo
+;
+MSG_COL_SIZE
+Dim.
+;
+MSG_COL_DATE
+Data
+;
+MSG_STATUS_EMPTY
+Elementi: 0  |  Selezionati: 0
+;
+MSG_BTN_ICONS
+Icone
+;
+MSG_BTN_DETAILS
+Dettagli
+;
+MSG_BTN_UP
+Su
+;
+MSG_BTN_OPEN
+Apri
+;
+MSG_BTN_REFRESH
+Ricarica
+;
+MSG_BTN_HOME
+Home
+;
+MSG_LABEL_VIEW
+Visualizza:
+;
+MSG_LABEL_LIST
+Elenco:
+;
+MSG_LABEL_PATH
+Percorso:
+;
+MSG_DROP_NO_TARGET
+Nessuna destinazione valida per il rilascio.
+;
+MSG_COL_COMMENT
+Commento
+;
+MSG_BTN_BACK
+Indietro
+;
+MSG_BTN_FORWARD
+Avanti
+;
+MSG_MENU_PROGRAM
+Programma
+;
+MSG_MENU_NEWWINDOW
+Nuova...
+;
+MSG_MENU_INFO
+Informazioni...
+;
+MSG_MENU_QUIT
+Esci
+;
+MSG_MENU_EDIT
+Modifica
+;
+MSG_MENU_VIEW
+Vista
+;
+MSG_MENU_BOOKMARKS
+Preferiti
+;
+MSG_MENU_ADDBOOKMARK
+Aggiungi a preferiti
+;
+MSG_BOOKMARK_ADDED
+Aggiunto ai preferiti.
+;
+MSG_MENU_MANAGE
+Gestisci...
+;
+MSG_CUT
+Taglia
+;
+MSG_FILTER
+Filtro
+;
+MSG_SORT
+Ordina per
+;
+MSG_ABOUT_VERSION
+Versione 1.0 (19.11.2026)
+;
+MSG_ABOUT_AUTHOR
+VagaPPC (Benedetto Lorello)
+;
+MSG_ABOUT_EMAIL
+mail: vagappc@yahoo.it
+;
+MSG_ABOUT_LICENSE
+Software libero: GNU General Public License v3 o successive
+;
+MSG_MOVE
+Sposta
+;
+MSG_PROG_TITLE
+Operazione file
+;
+MSG_PROG_STATUS
+Copia...
+;
+MSG_PROG_PAUSE
+Pausa
+;
+MSG_PROG_CONTINUE
+Continua
+;
+MSG_MENU_SHOW
+Mostra per
+;
+MSG_MENU_SCRIPT
+Script
+;
+MSG_SCRIPT_REFRESH
+Aggiorna elenco
+;
+MSG_SCRIPT_OPENDIR
+Apri cassetto plugin
+;
+MSG_CALC_SIZE
+Calcola dimensione
+;
+MSG_SIZE_TITLE
+Dimensione
+;
+MSG_SIZE_SELECT_DIR
+Seleziona un cassetto o un volume.
+;
+MSG_SIZE_RESULT
+Dimensione: %s (%lld byte)   File: %lld   Cassetti: %lld
+;
+MSG_BTN_SPLIT_HINT
+Dividi / chiudi secondo pannello
+;
+MSG_ABOUT_BY
+by
+;
+MSG_ABOUT_AUTHOR_NAME
+VagaPPC
+;
+MSG_ABOUT_AUTHOR_SUFFIX
+(Benedetto Lorello)
+;
+MSG_ABOUT_MAIL
+Mail: vagappc@yahoo.it
+;
+MSG_ABOUT_THANKS
+Ringraziamenti speciali: ldg72 e Flash
+;
+MSG_MENU_WBREPLACE
+Sostituisci Workbench
+;
+MSG_MENU_WBRESTORE
+Ripristina Workbench
+;
+MSG_FIND_TITLE
+Cerca file
+;
+MSG_FIND_NONE
+Nessun file trovato.
+;
+MSG_FIND_RESULTS
+Risultati ricerca
+;
+MSG_GREP_TITLE
+grep
+;
+MSG_GREP_NONE
+Nessuna occorrenza nei file selezionati.
+;
+MSG_GREP_RESULTS
+Risultati grep
+;
+MSG_MENU_SHOWINFO
+Mostra file info
+;
+MSG_BTN_SHELL_HINT
+Apri una shell in questo percorso
+;
+MSG_MENU_SHELL
+Shell
+;
+MSG_MENU_NEW
+Nuovo
+;
+MSG_MENU_NEW_DRAWER
+Cassetto
+;
+MSG_MENU_NEW_TEXTFILE
+File testo
+;
+MSG_MENU_SELECT_ALL
+Seleziona tutto
+;
+MSG_MENU_INVERT_SELECTION
+Inverti selezione
+;
+MSG_MENU_DESELECT_ALL
+Annulla selezione
+;
+MSG_NEW_DRAWER_PROMPT
+Nome del nuovo cassetto:
+;
+MSG_NEW_FILE_PROMPT
+Nome del nuovo file di testo:
+;
+MSG_NEW_DRAWER_FAILED
+Impossibile creare il cassetto.
+;
+MSG_NEW_FILE_FAILED
+Impossibile creare il file.
+;
+MSG_NEW_FILE_EXISTS
+Esiste gia un file con questo nome.
+;
+MSG_CONFLICT_TITLE
+File gia esistente
+;
+MSG_CONFLICT_BODY
+Il file %s esiste gia.\n\nCosa vuoi fare?
+;
+MSG_CONFLICT_OVERWRITE
+Sovrascrivi
+;
+MSG_CONFLICT_OVERWRITE_ALL
+Sovrascrivi tutti
+;
+MSG_CONFLICT_UPDATE
+Aggiorna
+;
+MSG_CONFLICT_UPDATE_ALL
+Aggiorna tutti
+;
+MSG_CONFLICT_RENAME
+Rinomina
+;
+MSG_CONFLICT_SKIP
+Salta
+;
