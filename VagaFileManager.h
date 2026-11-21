@@ -247,6 +247,9 @@ struct VFMWindowTag
 
 #define MAX_HISTORY 64
 #define MAX_DELETE_DEPTH 256
+/* maximum depth for copy/move and for the progress bar counts; beyond it
+   the operation fails without touching the source */
+#define MAX_COPY_DEPTH 256
 #define SHARED_CLIP_PATH "T:FileList_Clipboard.txt"
 
 enum

@@ -132,62 +132,68 @@ void CopyAttributes(CONST_STRPTR src, CONST_STRPTR dst)
 
 /* ===== Conteggio e copia ===== */
 
-ULONG CountFilesRecursive(CONST_STRPTR src)
+static ULONG CountFilesRec(CONST_STRPTR src, ULONG depth)
 {
     ULONG count = 0;
     if (IsLinkPath(src)) return 1;
+    if (depth >= MAX_COPY_DEPTH) return 1;
     if (IsDirectoryPath(src))
     {
         APTR ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)src, EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
-        if (ctx)
+        STRPTR s = ctx ? (STRPTR)IExec->AllocVecTags(PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE) : NULL;
+        if (ctx && s)
         {
             struct ExamineData *ed;
             while ((ed = IDOS->ExamineDir(ctx)) != NULL)
             {
-                char s[PATH_MAX_LEN];
                 ULONG nlen = strlen(ed->Name);
                 /* gli .info si copiano insieme al file/cassetto: non contano */
                 if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
                     continue;
-                if (!BuildChildPath(src, ed->Name, s, sizeof(s))) continue;
+                if (!BuildChildPath(src, ed->Name, s, PATH_MAX_LEN)) continue;
                 if (EXD_IS_LINK(ed)) count++;
-                else if (EXD_IS_DIRECTORY(ed)) count += CountFilesRecursive(s);
+                else if (EXD_IS_DIRECTORY(ed)) count += CountFilesRec(s, depth + 1);
                 else count++;
             }
-            IDOS->ReleaseDirContext(ctx);
         }
+        if (s) IExec->FreeVec(s);
+        if (ctx) IDOS->ReleaseDirContext(ctx);
     }
     else count = 1;
     return count;
 }
 
+ULONG CountFilesRecursive(CONST_STRPTR src) { return CountFilesRec(src, 0); }
+
 /* Somma la dimensione (in byte) di tutti i file sotto 'src'. */
-uint64 CountBytesRecursive(CONST_STRPTR src)
+static uint64 CountBytesRec(CONST_STRPTR src, ULONG depth)
 {
     uint64 bytes = 0;
     if (!src || !src[0]) return 0;
+    if (depth >= MAX_COPY_DEPTH) return 0;
     if (IsLinkPath(src)) return 0;
     if (IsDirectoryPath(src))
     {
         APTR ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)src,
                     EX_DataFields, EXF_NAME | EXF_TYPE | EXF_SIZE, TAG_END);
-        if (ctx)
+        STRPTR s = ctx ? (STRPTR)IExec->AllocVecTags(PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE) : NULL;
+        if (ctx && s)
         {
             struct ExamineData *ed;
             while ((ed = IDOS->ExamineDir(ctx)) != NULL)
             {
-                char s[PATH_MAX_LEN];
                 ULONG nlen = strlen(ed->Name);
                 /* gli .info si copiano insieme al file/cassetto: non contano */
                 if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
                     continue;
-                if (!BuildChildPath(src, ed->Name, s, sizeof(s))) continue;
+                if (!BuildChildPath(src, ed->Name, s, PATH_MAX_LEN)) continue;
                 if (EXD_IS_LINK(ed)) continue;
-                if (EXD_IS_DIRECTORY(ed)) bytes += CountBytesRecursive(s);
+                if (EXD_IS_DIRECTORY(ed)) bytes += CountBytesRec(s, depth + 1);
                 else if (ed->FileSize > 0) bytes += (uint64)ed->FileSize;
             }
-            IDOS->ReleaseDirContext(ctx);
         }
+        if (s) IExec->FreeVec(s);
+        if (ctx) IDOS->ReleaseDirContext(ctx);
     }
     else
     {
@@ -201,6 +207,8 @@ uint64 CountBytesRecursive(CONST_STRPTR src)
     }
     return bytes;
 }
+
+uint64 CountBytesRecursive(CONST_STRPTR src) { return CountBytesRec(src, 0); }
 
 BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
 {
@@ -290,28 +298,33 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
     APTR ctx;
     struct ExamineData *ed;
     BOOL ok = TRUE;
-    char srcRes[PATH_MAX_LEN], dstRes[PATH_MAX_LEN];
+    /* path buffers on the heap: on the stack they took 5 KB per recursion
+       level and a deep drawer tree overflowed the stack (Guru 80000003) */
+    struct CopyDirBufs { char srcRes[PATH_MAX_LEN], dstRes[PATH_MAX_LEN],
+                         s[PATH_MAX_LEN], d[PATH_MAX_LEN], sRes[PATH_MAX_LEN]; } *b;
 
-    if (GetResolvedPath(src, srcRes, sizeof(srcRes)) && GetResolvedPath(dst, dstRes, sizeof(dstRes)))
+    b = (struct CopyDirBufs *)IExec->AllocVecTags(sizeof(*b), AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    if (!b) return FALSE;
+
+    if (GetResolvedPath(src, b->srcRes, sizeof(b->srcRes)) && GetResolvedPath(dst, b->dstRes, sizeof(b->dstRes)))
     {
-        if (IsPathSameOrInside(dstRes, srcRes)) return FALSE;
+        if (IsPathSameOrInside(b->dstRes, b->srcRes)) { IExec->FreeVec(b); return FALSE; }
     }
 
     if (!CreateDirUnlocked(dst))
     {
         BPTR l = IDOS->Lock(dst, SHARED_LOCK);
-        if (!l) return FALSE;
+        if (!l) { IExec->FreeVec(b); return FALSE; }
         IDOS->UnLock(l);
     }
     /* resolve dst after creation for comparison */
-    if (GetResolvedPath(dst, dstRes, sizeof(dstRes))) { /* ok */ } else { dstRes[0]='\0'; }
+    if (GetResolvedPath(dst, b->dstRes, sizeof(b->dstRes))) { /* ok */ } else { b->dstRes[0]='\0'; }
 
     ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)src, EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
-    if (!ctx) return FALSE;
+    if (!ctx) { IExec->FreeVec(b); return FALSE; }
 
     while (!gProgCancel && (ed = IDOS->ExamineDir(ctx)) != NULL)
     {
-        char s[PATH_MAX_LEN], d[PATH_MAX_LEN], sRes[PATH_MAX_LEN];
         ULONG nlen = strlen(ed->Name);
 
         /* i file .info non si copiano qui: vengono copiati come icona
@@ -321,14 +334,14 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
         if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
             continue;
 
-        if (!BuildChildPath(src, ed->Name, s, sizeof(s))) { ok = FALSE; continue; }
-        if (!BuildChildPath(dst, ed->Name, d, sizeof(d))) { ok = FALSE; continue; }
+        if (!BuildChildPath(src, ed->Name, b->s, sizeof(b->s))) { ok = FALSE; continue; }
+        if (!BuildChildPath(dst, ed->Name, b->d, sizeof(b->d))) { ok = FALSE; continue; }
         /* skip if this entry is the destination directory itself */
-        if (dstRes[0] && GetResolvedPath(s, sRes, sizeof(sRes)))
+        if (b->dstRes[0] && GetResolvedPath(b->s, b->sRes, sizeof(b->sRes)))
         {
-            if (strcmp(sRes, dstRes) == 0) continue;
+            if (strcmp(b->sRes, b->dstRes) == 0) continue;
         }
-        if (!CopyEntryRecursive(s, d)) ok = FALSE;
+        if (!CopyEntryRecursive(b->s, b->d)) ok = FALSE;
     }
     /* The loop ends on cancel, at the end of the listing or on a read
        error: only the end of the listing means "everything was copied".
@@ -339,6 +352,7 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
         ok = FALSE;
     IDOS->ReleaseDirContext(ctx);
     CopyAttributes(src, dst);
+    IExec->FreeVec(b);
     return ok;
 }
 
@@ -458,14 +472,21 @@ static int ResolveCopyConflict(CONST_STRPTR src, STRPTR dst, ULONG dstSize)
    destinazione.  Ritorna FALSE in caso di errore o di annullamento. */
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
 {
-    char srcRes[PATH_MAX_LEN], dstRes[PATH_MAX_LEN];
-    char dstPath[PATH_MAX_LEN];
+    /* buffers on the heap (they used to take 3 KB of stack per level, see
+       CopyDirectoryRecursive) */
+    struct CopyEntryBufs { char srcRes[PATH_MAX_LEN], dstRes[PATH_MAX_LEN],
+                           dstPath[PATH_MAX_LEN]; } *b;
     BOOL isDir, ok = FALSE;
     int top;
 
     if (!src || !dst) return FALSE;
-    strncpy(dstPath, dst, sizeof(dstPath) - 1);
-    dstPath[sizeof(dstPath) - 1] = '\0';
+    /* beyond this depth the copy fails cleanly: a move does not delete
+       the source */
+    if (gCopyDepth >= MAX_COPY_DEPTH) return FALSE;
+    b = (struct CopyEntryBufs *)IExec->AllocVecTags(sizeof(*b), AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    if (!b) return FALSE;
+    strncpy(b->dstPath, dst, sizeof(b->dstPath) - 1);
+    b->dstPath[sizeof(b->dstPath) - 1] = '\0';
     isDir = IsDirectoryPath(src);
     top = (gCopyDepth == 0);
     gCopyDepth++;
@@ -474,83 +495,84 @@ BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
        per non ricorrere nella directory target (e per evitare cicli). */
     if (IsLinkPath(src))
     {
-        if (PathExists(dstPath) && !PathIsInfo(src))
+        if (PathExists(b->dstPath) && !PathIsInfo(src))
         {
-            int act = ResolveCopyConflict(src, dstPath, sizeof(dstPath));
+            int act = ResolveCopyConflict(src, b->dstPath, sizeof(b->dstPath));
             if (act < 0) { gProgCancel = TRUE; goto done; }
             if (act == 0) { gCopySkipped = TRUE; ProgressAdvance(); ok = TRUE; goto done; }
         }
         if (top)
         {
-            strncpy(gCopyResolvedDst, dstPath, sizeof(gCopyResolvedDst) - 1);
+            strncpy(gCopyResolvedDst, b->dstPath, sizeof(gCopyResolvedDst) - 1);
             gCopyResolvedDst[sizeof(gCopyResolvedDst) - 1] = '\0';
         }
-        ok = CopySingleFile(src, dstPath);
-        if (ok) { CopyInfoFileIfPresent(src, dstPath); ProgressAdvance(); }
+        ok = CopySingleFile(src, b->dstPath);
+        if (ok) { CopyInfoFileIfPresent(src, b->dstPath); ProgressAdvance(); }
         goto done;
     }
 
     /* Prevent copying a directory into itself/subdir; una cartella
        "duplicata" nella stessa posizione prende invece un nome nuovo. */
-    if (isDir && GetResolvedPath(src, srcRes, sizeof(srcRes)))
+    if (isDir && GetResolvedPath(src, b->srcRes, sizeof(b->srcRes)))
     {
-        if (GetResolvedPath(dstPath, dstRes, sizeof(dstRes)))
+        if (GetResolvedPath(b->dstPath, b->dstRes, sizeof(b->dstRes)))
         {
-            if (strcmp(srcRes, dstRes) == 0)
-                MakeUniqueDstName(dstPath, sizeof(dstPath));
-            else if (IsPathSameOrInside(dstRes, srcRes))
+            if (strcmp(b->srcRes, b->dstRes) == 0)
+                MakeUniqueDstName(b->dstPath, sizeof(b->dstPath));
+            else if (IsPathSameOrInside(b->dstRes, b->srcRes))
                 goto done;
         }
-        else if (IsDestInsideSrcForCopy(src, dstPath))
+        else if (IsDestInsideSrcForCopy(src, b->dstPath))
         {
             goto done;
         }
     }
 
-    if (!isDir && GetResolvedPath(src, srcRes, sizeof(srcRes)) &&
-        GetResolvedPath(dstPath, dstRes, sizeof(dstRes)) &&
-        strcmp(srcRes, dstRes) == 0)
+    if (!isDir && GetResolvedPath(src, b->srcRes, sizeof(b->srcRes)) &&
+        GetResolvedPath(b->dstPath, b->dstRes, sizeof(b->dstRes)) &&
+        strcmp(b->srcRes, b->dstRes) == 0)
     {
         /* copia nella stessa cartella: nome nuovo, senza chiedere */
-        MakeUniqueDstName(dstPath, sizeof(dstPath));
+        MakeUniqueDstName(b->dstPath, sizeof(b->dstPath));
     }
-    else if (PathExists(dstPath) && !PathIsInfo(src))
+    else if (PathExists(b->dstPath) && !PathIsInfo(src))
     {
         /* due cartelle: unisci i contenuti senza chiedere */
-        if (!(isDir && IsDirectoryPath(dstPath)))
+        if (!(isDir && IsDirectoryPath(b->dstPath)))
         {
-            int act = ResolveCopyConflict(src, dstPath, sizeof(dstPath));
+            int act = ResolveCopyConflict(src, b->dstPath, sizeof(b->dstPath));
             if (act < 0) { gProgCancel = TRUE; goto done; }
             if (act == 0) { gCopySkipped = TRUE; ProgressAdvance(); ok = TRUE; goto done; }
             /* se i tipi sono diversi, evita di cancellare una cartella */
-            if (PathExists(dstPath) && isDir && !IsDirectoryPath(dstPath))
-                IDOS->Delete(dstPath);
-            else if (PathExists(dstPath) && !isDir && IsDirectoryPath(dstPath))
-                MakeUniqueDstName(dstPath, sizeof(dstPath));
+            if (PathExists(b->dstPath) && isDir && !IsDirectoryPath(b->dstPath))
+                IDOS->Delete(b->dstPath);
+            else if (PathExists(b->dstPath) && !isDir && IsDirectoryPath(b->dstPath))
+                MakeUniqueDstName(b->dstPath, sizeof(b->dstPath));
         }
     }
 
     if (top)
     {
-        strncpy(gCopyResolvedDst, dstPath, sizeof(gCopyResolvedDst) - 1);
+        strncpy(gCopyResolvedDst, b->dstPath, sizeof(gCopyResolvedDst) - 1);
         gCopyResolvedDst[sizeof(gCopyResolvedDst) - 1] = '\0';
     }
 
     if (isDir)
     {
-        ok = CopyDirectoryRecursive(src, dstPath);
+        ok = CopyDirectoryRecursive(src, b->dstPath);
         /* copia anche l'icona del cassetto stesso (dir.info), che non sta
            dentro la directory */
-        if (ok) CopyInfoFileIfPresent(src, dstPath);
+        if (ok) CopyInfoFileIfPresent(src, b->dstPath);
     }
     else
     {
-        ok = CopySingleFile(src, dstPath);
-        if (ok) { CopyInfoFileIfPresent(src, dstPath); ProgressAdvance(); }
+        ok = CopySingleFile(src, b->dstPath);
+        if (ok) { CopyInfoFileIfPresent(src, b->dstPath); ProgressAdvance(); }
     }
 
 done:
     gCopyDepth--;
+    IExec->FreeVec(b);
     return ok;
 }
 
@@ -671,6 +693,7 @@ static BOOL DeleteEntry(CONST_STRPTR path)
 static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
 {
     APTR context;
+    STRPTR child;
     BOOL ok = TRUE;
 
     if (gDeleteProgress && gProgCancel) return FALSE;
@@ -684,14 +707,17 @@ static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
                                          TAG_END);
     if (!context) return TRUE;   /* non e' una cartella accessibile */
 
+    /* buffer on the heap: the recursion goes up to MAX_DELETE_DEPTH levels */
+    child = (STRPTR)IExec->AllocVecTags(PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    if (!child) { IDOS->ReleaseDirContext(context); return FALSE; }
+
     while (1)
     {
         struct ExamineData *ed = IDOS->ExamineDir(context);
-        char child[PATH_MAX_LEN];
 
         if (ed == NULL) break;
         if (gDeleteProgress && gProgCancel) { ok = FALSE; break; }
-        if (!BuildChildPath(directory, ed->Name, child, sizeof(child)))
+        if (!BuildChildPath(directory, ed->Name, child, PATH_MAX_LEN))
         { ok = FALSE; continue; }
 
         if (EXD_IS_DIRECTORY(ed) && !EXD_IS_LINK(ed))
@@ -703,6 +729,7 @@ static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
         if (!DeleteEntry(child))
             ok = FALSE;
     }
+    IExec->FreeVec(child);
     IDOS->ReleaseDirContext(context);
     return ok;
 }
@@ -768,10 +795,11 @@ static void MakeParentWritable(CONST_STRPTR path)
     }
 }
 
-ULONG CountDeleteObjects(CONST_STRPTR src)
+static ULONG CountDeleteRec(CONST_STRPTR src, ULONG depth)
 {
     ULONG count = 1;
     if (IsLinkPath(src)) return 1;
+    if (depth >= MAX_DELETE_DEPTH) return 1;
     if (IsDirectoryPath(src))
     {
         /* EX_DoCurrentDir come DOpus4: evita di lasciare lock pendenti sul
@@ -780,21 +808,24 @@ ULONG CountDeleteObjects(CONST_STRPTR src)
                                               EX_DoCurrentDir, TRUE,
                                               EX_DataFields, EXF_NAME | EXF_TYPE,
                                               TAG_END);
-        if (ctx)
+        STRPTR child = ctx ? (STRPTR)IExec->AllocVecTags(PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE) : NULL;
+        if (ctx && child)
         {
             struct ExamineData *ed;
             while ((ed = IDOS->ExamineDir(ctx)) != NULL)
             {
-                char child[PATH_MAX_LEN];
-                if (!BuildChildPath(src, ed->Name, child, sizeof(child))) continue;
+                if (!BuildChildPath(src, ed->Name, child, PATH_MAX_LEN)) continue;
                 if (EXD_IS_LINK(ed)) count++;
-                else count += CountDeleteObjects(child);
+                else count += CountDeleteRec(child, depth + 1);
             }
-            IDOS->ReleaseDirContext(ctx);
         }
+        if (child) IExec->FreeVec(child);
+        if (ctx) IDOS->ReleaseDirContext(ctx);
     }
     return count;
 }
+
+ULONG CountDeleteObjects(CONST_STRPTR src) { return CountDeleteRec(src, 0); }
 
 /* ===== Spostamento e rinomina ===== */
 
