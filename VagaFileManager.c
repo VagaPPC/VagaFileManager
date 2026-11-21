@@ -1349,6 +1349,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     Object *toggleGad = gPanes[gp].toggleGad;
     struct List *fl = &gPanes[gp].fileList;
 
+    DBG("rexx: '%s'", a0 ? a0 : "(null)");
     msg->rm_Result1 = RC_OK;
     gActivePane = gp;
 
