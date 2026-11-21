@@ -35,7 +35,7 @@
 #include <rexx/errors.h>
 #include <interfaces/rexxsyslib.h>
 
-static const char version_tag[] __attribute__((used)) = "\0$VER: VagaFileManager 1.0 (19.11.2026)";
+static const char version_tag[] __attribute__((used)) = "\0$VER: VagaFileManager " VFM_VERSION_LONG;
 
 struct LocaleInfo gLoc;
 static struct Library *gLocaleBase = NULL;
@@ -1397,7 +1397,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             "REVEAL <path> | SEARCHPATH | FIND | GREP | QUIT | VERSION");
     }
     else if (!IUtility->Stricmp(cmd, "VERSION"))
-        RexxSetResult(msg, "VagaFileManager 1.0");
+        RexxSetResult(msg, "VagaFileManager " VFM_VERSION_FULL);
     else if (!IUtility->Stricmp(cmd, "QUIT"))
         gRexxQuit = TRUE;
     else if (!IUtility->Stricmp(cmd, "NEW"))

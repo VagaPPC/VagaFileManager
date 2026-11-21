@@ -3,6 +3,8 @@
 ## Progetto
 File manager AmigaOS 4.1 (Reaction/BOOPSI) a due pannelli.
 Repo git, licenza GNU GPLv3 (`LICENSE`). Cartella `VagaFileManager/`.
+Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
+`VFM_VERSION_DATE`); usati da `$VER`, About e comando ARexx `VERSION`.
 
 ## Build
 - Amiga: `make` → cataloghi (CatComp) + eseguibili + `VMF/` (solo runtime).

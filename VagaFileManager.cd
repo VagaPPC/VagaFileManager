@@ -271,7 +271,7 @@ Sort by
 ;
 ;
 MSG_ABOUT_VERSION (//)
-Version 1.0 (19.11.2026)
+Version %s
 ;
 MSG_ABOUT_AUTHOR (//)
 VagaPPC (Benedetto Lorello)

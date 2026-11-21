@@ -54,11 +54,13 @@
 #include <proto/utility.h>
 #include <proto/wb.h>
 
+#include "VagaFileManager_version.h"
+
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 
 static const char wb2_version_tag[] __attribute__((used)) =
-    "\0$VER: WB2VagaFileManager " WB2_VERSION " (20.11.2026)";
+    "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(VFM_BUILD) " (20.11.2026)";
 
 static BOOL gActive = FALSE;
 static char gExePath[PATH_MAX_LEN];
@@ -287,8 +289,8 @@ int main(int argc, char **argv)
     memset(&nb, 0, sizeof(nb));
     nb.nb_Version  = NB_VERSION;
     nb.nb_Name     = "WB2VagaFileManager";
-    nb.nb_Title    = "WB2 VagaFileManager " WB2_VERSION;
-    nb.nb_Descr    = "WB2 VagaFileManager drawer patch " WB2_VERSION;
+    nb.nb_Title    = "WB2 VagaFileManager " WB2_VERSION " build " VFM_STR(VFM_BUILD);
+    nb.nb_Descr    = "WB2 VagaFileManager drawer patch " WB2_VERSION " build " VFM_STR(VFM_BUILD);
     nb.nb_Unique   = NBU_UNIQUE | NBU_NOTIFY;
     nb.nb_Flags    = COF_ENABLE;
     nb.nb_Pri      = 0;

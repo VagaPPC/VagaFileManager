@@ -1,4 +1,4 @@
-## version $VER: VagaFileManager.catalog 1.0 (19.11.2026)
+## version $VER: VagaFileManager.catalog 1.0 (21.11.2026)
 ## codeset 4
 ## language german
 ;
@@ -255,7 +255,7 @@ MSG_SORT
 Sortieren nach
 ;
 MSG_ABOUT_VERSION
-Version 1.0 (19.11.2026)
+Version %s
 ;
 MSG_ABOUT_AUTHOR
 VagaPPC (Benedetto Lorello)

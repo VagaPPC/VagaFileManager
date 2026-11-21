@@ -892,9 +892,11 @@ void ShowAbout(struct Window *win)
     struct Screen *scr = win ? win->WScreen : NULL;
     char byText[128];
     char suffixText[128];
+    char verText[128];
 
     snprintf(byText, sizeof(byText), "%s ", LS(MSG_ABOUT_BY));
     snprintf(suffixText, sizeof(suffixText), " %s", LS(MSG_ABOUT_AUTHOR_SUFFIX));
+    snprintf(verText, sizeof(verText), LS(MSG_ABOUT_VERSION), VFM_VERSION_LONG);
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_APP_TITLE), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
@@ -905,7 +907,7 @@ void ShowAbout(struct Window *win)
             LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_APP_TITLE), FSF_BOLD),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
-            LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_ABOUT_VERSION), 0),
+            LAYOUT_AddChild, (ULONG)MakeAboutLabel(verText, 0),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             /* by VagaPPC (Benedetto Lorello) -- "VagaPPC" in grassetto */

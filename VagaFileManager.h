@@ -19,6 +19,8 @@
 #ifndef VAGAFILEMANAGER_H
 #define VAGAFILEMANAGER_H
 
+#include "VagaFileManager_version.h"
+
 /* Dichiarazioni condivise di VagaFileManager (globals e prototipi). */
 
 #include <stdio.h>
