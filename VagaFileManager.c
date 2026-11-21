@@ -1086,9 +1086,17 @@ void RunPlugin(CONST_STRPTR path)
     }
     else
         snprintf(cmd, sizeof(cmd), "C:RX \"%s\"", absPath);
-    IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
-                     SYS_StackSize, stack, TAG_DONE);
-    DBG("plugin run: %s", cmd);
+    {
+        LONG rc = IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
+                                   SYS_StackSize, stack, TAG_DONE);
+        DBG("plugin run: rc=%ld cmd=%s", (long)rc, cmd);
+        if (rc == -1)
+        {
+            DBG("plugin run: failed to start");
+            ShowMessage(LS(MSG_APP_TITLE),
+                "Cannot start the plugin. Check C:Python / C:Python3 and the script path.");
+        }
+    }
 }
 
 void ScanPlugins(void)

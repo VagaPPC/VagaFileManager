@@ -101,8 +101,9 @@ def vfm(command):
         return None
     try:
         rc, rc2, result = arexx.dorexx(PORT, command)
-    except Exception as exc:
-        log('dorexx exception: %s' % exc)
+    except Exception:
+        # Keep this compatible with Python 2.5 (no "except ... as ...").
+        log('dorexx exception')
         return None
     if rc != 0:
         log('dorexx rc=%s rc2=%s: %s' % (rc, rc2, command))

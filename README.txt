@@ -96,6 +96,9 @@ Python / ARexx addons:
   <buttons> accepts up to six labels separated by '|'.
   See Plugins/ARexxDemo.py for a complete, commented example; it writes
   diagnostics to T:ARexxDemo.log.
+- If no window appears, run it once from a Shell to see Python errors:
+    C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR:
+  and check T:ARexxDemo.log.
 
 Localization:
 - Built-in language: english (fallback)
