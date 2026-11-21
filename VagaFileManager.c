@@ -1894,7 +1894,9 @@ int main(int argc, char **argv)
                 ASOPORT_Public, TRUE,
                 TAG_DONE);
         }
-        DBG("ARexx port '%s' %s", gRexxPortName, gRexxPort ? "opened" : "FAILED");
+        DBG("ARexx port '%s' %s (FindPort=%p)",
+            gRexxPortName, gRexxPort ? "opened" : "FAILED",
+            gRexxPort ? (void *)IExec->FindPort(gRexxPortName) : NULL);
     }
 
     /* cartella plugin / script ARexx */

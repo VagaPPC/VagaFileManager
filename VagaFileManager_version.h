@@ -14,7 +14,7 @@
 /* Versione applicazione e numero di build.
    Incrementare VFM_BUILD ad ogni build/rilascio. */
 #define VFM_VERSION       "1.0"
-#define VFM_BUILD         3
+#define VFM_BUILD         4
 #define VFM_VERSION_DATE  "21.11.2026"
 
 /* Helper per trasformare VFM_BUILD in stringa. */
