@@ -37,6 +37,11 @@
 
 static const char version_tag[] __attribute__((used)) = "\0$VER: VagaFileManager " VFM_VERSION_LONG;
 
+/* Cookie di stack: garantisce almeno 1 MB di stack anche quando VFM viene
+   avviato da Shell (dove il default e' molto piu' piccolo dei 256 KB del
+   .info).  Evita il crash aprendo cartelle molto profonde. */
+static const char stack_cookie[] __attribute__((used)) = "$STACK:1048576";
+
 struct LocaleInfo gLoc;
 static struct Library *gLocaleBase = NULL;
 static struct LocaleIFace *gLocale = NULL;
@@ -2007,6 +2012,9 @@ int main(int argc, char **argv)
                             if (gIRexx && gIRexx->IsRexxMsg(rxmsg))
                             {
                                 ExecuteRexxCommand(rxmsg, gp, windows[WID_MAIN]);
+                                DBG("rexx: result1=%ld result2=%p",
+                                    (long)rxmsg->rm_Result1,
+                                    (void *)(ULONG)rxmsg->rm_Result2);
                                 gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
                             }
                             IExec->ReplyMsg((struct Message *)rxmsg);
