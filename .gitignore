@@ -1,0 +1,8 @@
+# Build outputs (make on Amiga, build-vfm.sh on Linux)
+VMF/
+build-cross/
+*.o
+
+# Executables produced in the project root
+/VagaFileManager
+/WB2VagaFileManager
