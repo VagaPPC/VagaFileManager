@@ -1500,8 +1500,11 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             s = sep ? sep + 1 : NULL;
         }
 
+        DBG("DIALOG: title='%s' prompt='%s' text='%s' buttons='%s'",
+            title, prompt, text, buttons);
         {
             LONG idx = PromptDialog(title, prompt, text, sizeof(text), buttons);
+            DBG("DIALOG: idx=%ld text='%s'", (long)idx, text);
             if (idx > 0)
             {
                 char result[512];

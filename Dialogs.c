@@ -460,9 +460,12 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
             TAG_DONE),
         TAG_DONE);
 
+    DBG("PromptDialog: winObj=%p win=%p buttons=%ld",
+        (void *)winObj, (void *)win, (long)nButtons);
     if (winObj)
     {
         win = (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN);
+        DBG("PromptDialog: opened win=%p", (void *)win);
         if (win)
         {
             IIntuition->GetAttr(WINDOW_SigMask, winObj, &sig);
