@@ -89,10 +89,13 @@ Python / ARexx addons:
 - Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
 - VFM passes the ARexx port and the active path to Python addons
   (C:Python "<script>" "<port>" "<path>").
+- VFM looks for C:Python, then C:Python3.
 - The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
   Reaction interface, use the ARexx DIALOG command:
     DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
-  See Plugins/ARexxDemo.py for a complete, commented example.
+  <buttons> accepts up to six labels separated by '|'.
+  See Plugins/ARexxDemo.py for a complete, commented example; it writes
+  diagnostics to T:ARexxDemo.log.
 
 Localization:
 - Built-in language: english (fallback)

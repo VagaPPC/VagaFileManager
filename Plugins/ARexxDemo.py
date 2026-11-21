@@ -26,7 +26,7 @@
 #       DIALOG <title>|<prompt>|<default>|<buttons>
 #
 #   VFM shows a window.class window with a label, a string gadget and up
-#   to four buttons, then replies:
+#   to six buttons, then replies:
 #
 #       <button-index>|<text>
 #
@@ -44,6 +44,12 @@
 # ------------
 #   Copy this file to PROGDIR:Plugins, then use
 #   "Scripts -> Refresh" in VFM and pick "ARexxDemo" from the menu.
+#
+# Troubleshooting
+# ---------------
+#   Every startup and every error is appended to T:ARexxDemo.log.
+#   If no window appears, check that log first: it tells whether the
+#   arexx module was imported and whether the VFM DIALOG command worked.
 # ---------------------------------------------------------------------------
 
 import sys
@@ -53,9 +59,36 @@ try:
 except ImportError:
     arexx = None
 
-# The two arguments are supplied by RunPlugin() in VagaFileManager.c.
+try:
+    import asl
+except ImportError:
+    asl = None
+
+# RunPlugin() supplies these two arguments (see RunPlugin in the C source).
 PORT = sys.argv[1] if len(sys.argv) > 1 else 'VAGAFILEMANAGER'
 START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
+
+LOG = 'T:ARexxDemo.log'
+
+
+def log(text):
+    """Append a diagnostic line to T:ARexxDemo.log (best effort)."""
+    try:
+        f = open(LOG, 'a')
+        f.write(text + '\n')
+        f.close()
+    except Exception:
+        pass
+
+
+def message(text):
+    """Show an error with ASL (if available) and always log it."""
+    log('message: ' + text)
+    if asl is not None:
+        try:
+            asl.MessageBox('VFM ARexx demo', text, 'OK')
+        except Exception:
+            pass
 
 
 def vfm(command):
@@ -68,10 +101,11 @@ def vfm(command):
         return None
     try:
         rc, rc2, result = arexx.dorexx(PORT, command)
-    except Exception:
-        # A closed VFM instance or a missing port ends up here.
+    except Exception as exc:
+        log('dorexx exception: %s' % exc)
         return None
     if rc != 0:
+        log('dorexx rc=%s rc2=%s: %s' % (rc, rc2, command))
         return None
     return result if result is not None else ''
 
@@ -80,19 +114,20 @@ def dialog(prompt, text, buttons):
     """Show a Reaction dialog inside VFM.
 
     buttons is a string such as "Run|PATH|ENTRIES|Close".
-    Returns (button_index, typed_text); index 0 means closed/cancelled.
+    Returns (button_index, typed_text); None on ARexx failure.
     """
     spec = 'VFM ARexx demo|' + prompt + '|' + text + '|' + buttons
     answer = vfm('DIALOG ' + spec)
     if answer is None:
-        return (0, '')
+        return None
     # The reply is "<index>|<text>"; the text may itself contain '|',
     # so split only on the first separator.
     idx, sep, value = answer.partition('|')
     try:
         return (int(idx), value if sep else '')
     except ValueError:
-        return (0, '')
+        log('bad DIALOG reply: %r' % answer)
+        return None
 
 
 def short_path(path):
@@ -103,8 +138,10 @@ def short_path(path):
 
 
 def main():
+    log('start port=%s path=%s arexx=%s' % (PORT, START_PATH, arexx is not None))
+
     if arexx is None:
-        # Without the arexx module there is nothing useful to do.
+        message('The arexx module is not available in this Python.')
         return
 
     # Show the launch path once, as a small demonstration of argv[2].
@@ -114,11 +151,18 @@ def main():
     command = 'PATH'
 
     while True:
-        idx, text = dialog(
+        reply = dialog(
             'Path: ' + short_path(path) + '  -  ARexx command:',
             command,
             'Run|PATH|ENTRIES|SELECTED|Close')
 
+        if reply is None:
+            message('Cannot open the Reaction dialog.\n'
+                    'Use a VFM build with the DIALOG command, or check '
+                    'the ARexx port and T:ARexxDemo.log.')
+            return
+
+        idx, text = reply
         if idx <= 0 or idx == 5:
             break
 
@@ -136,7 +180,8 @@ def main():
 
         result = vfm(command)
         if result is None:
-            result = '(ARexx error)'
+            message('ARexx error while running: ' + command)
+            return
 
         # Refresh the path shown in the next dialog.
         if command.upper() == 'PATH' and result:

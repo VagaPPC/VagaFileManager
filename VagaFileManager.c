@@ -1028,7 +1028,7 @@ void RunPlugin(CONST_STRPTR path)
 {
     char absPath[PATH_MAX_LEN];
     char cmd[PATH_MAX_LEN * 2 + 128];
-    ULONG len;
+    ULONG len, stack = 524288;
     BPTR dir;
 
     if (!path || !path[0]) return;
@@ -1059,16 +1059,36 @@ void RunPlugin(CONST_STRPTR path)
     len = strlen(absPath);
     if (len > 3 && IUtility->Stricmp(absPath + len - 3, ".py") == 0)
     {
+        CONST_STRPTR py = NULL;
+        BPTR lock;
+
+        /* Python puo' essere installato come C:Python (2.x) o C:Python3. */
+        lock = IDOS->Lock("C:Python", SHARED_LOCK);
+        if (lock) { IDOS->UnLock(lock); py = "C:Python"; }
+        else
+        {
+            lock = IDOS->Lock("C:Python3", SHARED_LOCK);
+            if (lock) { IDOS->UnLock(lock); py = "C:Python3"; }
+        }
+        if (!py)
+        {
+            DBG("plugin run: Python not found (C:Python / C:Python3)");
+            ShowMessage(LS(MSG_APP_TITLE),
+                "Python not found: install C:Python or C:Python3.");
+            return;
+        }
+
         /* I plugin Python ricevono anche il path del pannello attivo:
            e' il path della finestra al momento del lancio. */
-        snprintf(cmd, sizeof(cmd), "C:Python \"%s\" \"%s\" \"%s\"",
-                 absPath, gRexxPortName, gPathBuffer);
+        snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\" \"%s\"",
+                 py, absPath, gRexxPortName, gPathBuffer);
+        stack = 1024 * 1024;
     }
     else
         snprintf(cmd, sizeof(cmd), "C:RX \"%s\"", absPath);
     IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
-                     SYS_StackSize, 524288, TAG_DONE);
-    DBG("plugin run: %s", absPath);
+                     SYS_StackSize, stack, TAG_DONE);
+    DBG("plugin run: %s", cmd);
 }
 
 void ScanPlugins(void)
@@ -1462,7 +1482,9 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
            mantengono i valori di default). */
         for (f = 0; f < 4 && s; f++)
         {
-            char *sep = strchr(s, '|');
+            /* Gli ultimi tre campi sono separati da '|'; il quarto
+               (pulsanti) contiene a sua volta '|' e prende tutto il resto. */
+            char *sep = (f < 3) ? strchr(s, '|') : NULL;
             ULONG n = sep ? (ULONG)(sep - s) : (ULONG)strlen(s);
             if (n >= sizes[f]) n = sizes[f] - 1;
             memcpy(fields[f], s, n);

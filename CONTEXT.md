@@ -60,16 +60,18 @@ Repo git, licenza GNU GPLv3 (`LICENSE`). Cartella `VagaFileManager/`.
 - Porta pubblica `VAGAFILEMANAGER`; con più istanze `VAGAFILEMANAGER.<task>`.
 - I plugin stanno in `PROGDIR:Plugins`; menu Script → Refresh.
   `PROGDIR:` viene risolto in assoluto prima del lancio:
-  - `.py` → `C:Python "<script>" "<porta>" "<path pannello>"`
+  - `.py` → `C:Python` (o `C:Python3`) `"<script>" "<porta>" "<path pannello>"`
   - `.rexx` → `C:RX "<script>"`
+  - se Python non c'è, VFM mostra un messaggio (non resta muto).
 - Il Python OS4 standard espone solo `amiga`, `arexx`, `asl`, `catalog`, `icon`,
   `installer`: **niente BOOPSI/ReAction diretto**.
 - Per l'interfaccia grafica VFM espone il comando `DIALOG` (finestra Reaction:
-  label, string gadget, max 4 pulsanti):
+  label, string gadget, max 6 pulsanti):
   `DIALOG <title>|<prompt>|<default>|<buttons>` → `<index>|<text>`.
   Implementato da `PromptDialog()` in `Dialogs.c`.
 - `ARexxDemo.py`: esempio puro Python con interfaccia Reaction via `DIALOG`;
-  usa `arexx.dorexx` e i comandi PATH/ENTRIES/SELECTED.
+  usa `arexx.dorexx` e i comandi PATH/ENTRIES/SELECTED.  Log diagnostico in
+  `T:ARexxDemo.log`; se `DIALOG` fallisce mostra un messaggio ASL.
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
   `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
   `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,

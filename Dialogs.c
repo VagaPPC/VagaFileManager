@@ -372,7 +372,7 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
 
 /* Dialogo Reaction generico per gli addon (comando ARexx DIALOG).
    Campi: titolo, prompt, testo iniziale, pulsanti separati da '|'
-   (massimo 4).  Ritorna l'indice del pulsante (1..n) e lascia in buf
+   (massimo 6).  Ritorna l'indice del pulsante (1..n) e lascia in buf
    il testo inserito; 0 se la finestra viene chiusa. */
 #define GID_DLG_STR 2000
 #define GID_DLG_BTN 2001
@@ -381,20 +381,20 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
                   STRPTR buf, ULONG bufSize, CONST_STRPTR buttons)
 {
     Object *winObj = NULL, *strGad = NULL, *labelGad = NULL, *btnRow = NULL;
-    Object *btn[4] = { NULL, NULL, NULL, NULL };
-    struct TagItem rowTags[16];
+    Object *btn[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
+    struct TagItem rowTags[32];
     struct Window *win = NULL;
     BOOL done = FALSE;
     LONG result = 0, nButtons = 0, i;
     ULONG sig = 0;
-    char labels[4][64];
+    char labels[6][64];
     CONST_STRPTR p = buttons;
 
     if (!buf || bufSize == 0) return 0;
     buf[0] = '\0';
 
     /* Dividi i pulsanti; i campi vuoti valgono "OK". */
-    while (p && *p && nButtons < 4)
+    while (p && *p && nButtons < 6)
     {
         CONST_STRPTR sep = strchr(p, '|');
         ULONG n = sep ? (ULONG)(sep - p) : (ULONG)strlen(p);
@@ -450,7 +450,7 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
         WA_Title, (ULONG)((title && title[0]) ? title : LS(MSG_APP_TITLE)),
         WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
         WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
-        WA_InnerWidth, 480, WA_InnerHeight, 140,
+        WA_InnerWidth, 560, WA_InnerHeight, 140,
         WINDOW_Position, WPOS_CENTERSCREEN,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
