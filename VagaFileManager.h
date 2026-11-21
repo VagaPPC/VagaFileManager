@@ -439,7 +439,7 @@ void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statu
 void NavigateTo(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoUp(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoForward(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
+BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newInstance);
 LONG CountSelectedEntries(struct List *list);
 struct Node *GetFirstSelectedNode(struct List *list);
 void SelectAllEntries(struct List *list);
@@ -550,6 +550,7 @@ void AddBookmark(void);
 void LoadBookmarks(void);
 void SaveBookmarks(void);
 BOOL PromptBookmark(STRPTR nameBuf, ULONG nameSize, STRPTR pathBuf, ULONG pathSize);
+void LaunchInstance(CONST_STRPTR path, BOOL centerMouse);
 void LaunchNewInstance(void);
 void LoadPrefs(void);
 void SavePrefs(void);

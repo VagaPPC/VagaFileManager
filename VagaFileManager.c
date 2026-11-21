@@ -177,6 +177,11 @@ static void PaneInit(int p, CONST_STRPTR path)
 #define MAX_VOLUME_GEOM 64
 #define VOLUME_KEY_LEN 64
 
+/* Scostamento usato quando una nuova istanza viene centrata sul mouse,
+   per non sovrapporla esattamente alla finestra da cui e' partita. */
+#define MOUSE_OFFSET_X 24
+#define MOUSE_OFFSET_Y 24
+
 struct PathPrefs
 {
     char  path[PATH_MAX_LEN];
@@ -1376,7 +1381,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     else if (!IUtility->Stricmp(cmd, "OPEN"))
     {
         if (!args[0])
-            TryOpenSelected(listGad, pathGad, statusGad, win, fl);
+            TryOpenSelected(listGad, pathGad, statusGad, win, fl, FALSE);
         else
         {
             char full[PATH_MAX_LEN];
@@ -1681,6 +1686,7 @@ int main(int argc, char **argv)
     int p;
     CONST_STRPTR homePath = ""; /* home: assigns only */
     BOOL done = FALSE;
+    BOOL centerMouse = FALSE;
     char startPath[PATH_MAX_LEN];
 
     windows[WID_MAIN] = NULL; objects[OID_MAIN] = NULL;
@@ -1742,6 +1748,10 @@ int main(int argc, char **argv)
         strncpy(startPath, homePath, sizeof(startPath)-1);
     startPath[sizeof(startPath)-1] = '\0';
 
+    /* "-m" (secondo argomento) = nuova istanza centrata sul mouse. */
+    if (argc > 2 && argv[2] && !strcmp(argv[2], "-m"))
+        centerMouse = TRUE;
+
     LoadPrefs();
 
     /* Geometria della finestra: la chiave e' il volume del percorso
@@ -1749,6 +1759,9 @@ int main(int argc, char **argv)
        navigazione non la cambia. */
     GetVolumeKey(startPath, gInstanceVolume, sizeof(gInstanceVolume));
     ApplyVolumeGeom(gInstanceVolume);
+    /* Le istanze aperte con "-m" usano la dimensione del volume ma non
+       la posizione memorizzata: vengono centrate sul mouse. */
+    if (centerMouse) gWinPosValid = FALSE;
 
     gFbClass = MakeFileBrowserClass();
     if (!gFbClass)
@@ -1816,6 +1829,14 @@ int main(int argc, char **argv)
     }
     LoadMenuImages(gPubScreen);
     ClampWindowGeom();
+
+    if (centerMouse && gPubScreen)
+    {
+        gWinLeft = gPubScreen->MouseX - gWinInnerW / 2 + MOUSE_OFFSET_X;
+        gWinTop  = gPubScreen->MouseY - gWinInnerH / 2 + MOUSE_OFFSET_Y;
+        gWinPosValid = TRUE;
+        ClampWindowGeom();
+    }
 
     /* primo pannello */
     gActivePane = 0;
@@ -2100,7 +2121,7 @@ int main(int argc, char **argv)
                                             }
                                             case GID_BACK: GoUp(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_FORWARD: GoForward(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
-                                            case GID_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
+                                            case GID_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
                                             case GID_REFRESH: LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_HOME: NavigateTo(homePath,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_RENAME: DoRenameSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
@@ -2123,7 +2144,7 @@ int main(int argc, char **argv)
                                             case GID_LIST:
                                             {
                                                 uint32 relEvent=0; IIntuition->GetAttrs(listGad, LISTBROWSER_RelEvent, &relEvent, TAG_DONE);
-                                                if (relEvent==LBRE_DOUBLECLICK) TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl);
+                                                if (relEvent==LBRE_DOUBLECLICK) TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,FALSE);
                                                 /* selezionando qui si svuota la selezione dell'altro pannello */
                                                 ClearOtherPaneSelection(gp, windows[WID_MAIN]);
                                                 /* release of a potential drag started on the list/icon gadget */
@@ -2215,7 +2236,7 @@ int main(int argc, char **argv)
                                                 case MENU_CALCSIZE: DoCalculateSize(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_SCRIPT_REFRESH: ScanPlugins(); UpdateMenu(); break;
                                                 case MENU_SCRIPT_OPENDIR: CreateDirUnlocked(PLUGIN_DIR); NavigateTo((CONST_STRPTR)PLUGIN_DIR,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
-                                                case MENU_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
+                                                case MENU_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
                                                 case MENU_REFRESH: LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_TOGGLE_VIEW: DoToggleView(listGad, toggleGad, windows[WID_MAIN]); LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
                                                 case MENU_VIEW_ICONS: gViewFilter = VIEW_FILTER_ICONS_ONLY; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;

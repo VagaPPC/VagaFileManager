@@ -46,6 +46,10 @@ make dist       # solo la cartella di distribuzione VMF/
   `LBNA_Selected` non ridisegnano da sole la classe FileBrowser).
 - ARexx host `VAGAFILEMANAGER`; con più istanze la seconda usa un nome univoco (`VAGAFILEMANAGER.<task>`) e `Find.py` riceve il nome porta come argomento.
 - `PROGDIR:` viene risolto in assoluto prima di lanciare plugin (Python/RX).
+- Pulsante/menu "Apri" su un cassetto o un volume: apre una **nuova
+  istanza** di VFM su quel percorso, centrata sul mouse con offset
+  (+24,+24).  Anche "Nuova finestra" usa lo stesso comportamento.
+  Il doppio clic invece naviga nella finestra corrente.
 - Geometria finestra (dimensione + posizione) per volume: sezione `[Volume]`
   nel file prefs (`Name`, `Width`, `Height`, `Left`, `Top`, `HasPos`).
   La chiave e' il volume del percorso iniziale dell'istanza (es. `Workbench`,

@@ -845,7 +845,11 @@ void GoForward(Object *listGad, Object *pathGad, Object *statusGad, struct Windo
     }
 }
 
-BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+/* Apre la voce selezionata.  Con newInstance TRUE un cassetto (o un
+   volume nella vista radice) viene aperto in una nuova istanza di VFM;
+   con FALSE si naviga nella finestra corrente.  I file vengono sempre
+   aperti tramite Workbench. */
+BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newInstance)
 {
     struct Node *node = NULL;
     ULONG index = MAX_ENTRIES;
@@ -882,6 +886,13 @@ BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct
         {
             DBG("cannot launch '%s': workbench.library not available", newPath);
         }
+        return TRUE;
+    }
+
+    if (newInstance)
+    {
+        DBG("open drawer '%s' in a new instance", newPath);
+        LaunchInstance(newPath, TRUE);
         return TRUE;
     }
 

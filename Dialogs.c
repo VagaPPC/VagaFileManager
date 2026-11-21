@@ -1273,12 +1273,16 @@ void UpdateMenu(void)
         IIntuition->DisposeObject(old);
 }
 
-void LaunchNewInstance(void)
+/* Lancia una nuova istanza di VFM sul percorso indicato ("-" = vista
+   radice).  Salva prima le preferenze, cosi' la nuova istanza trova la
+   geometria aggiornata del proprio volume.  Con centerMouse TRUE la
+   nuova finestra viene centrata sul puntatore (con un piccolo offset),
+   invece di riusare la posizione memorizzata del volume. */
+void LaunchInstance(CONST_STRPTR path, BOOL centerMouse)
 {
     char exe[PATH_MAX_LEN];
     char cmd[PATH_MAX_LEN * 2 + 64];
     BPTR dir = IDOS->GetProgramDir();
-    CONST_STRPTR path = gPathBuffer;
 
     if (!dir) return;
     if (!IDOS->NameFromLock(dir, exe, sizeof(exe))) return;
@@ -1287,9 +1291,15 @@ void LaunchNewInstance(void)
     /* La nuova istanza deve partire con le impostazioni correnti. */
     SavePrefs();
 
-    snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\"", exe, (path && path[0]) ? path : "-");
+    snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\"%s", exe, (path && path[0]) ? path : "-",
+             centerMouse ? " -m" : "");
     IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
                      SYS_StackSize, 262144, TAG_DONE);
+}
+
+void LaunchNewInstance(void)
+{
+    LaunchInstance(gPathBuffer, TRUE);
 }
 
 /* ===== Immagini e pulsanti ===== */
