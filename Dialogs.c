@@ -893,14 +893,16 @@ void ShowAbout(struct Window *win)
     char byText[128];
     char suffixText[128];
     char verText[128];
+    char rexxText[128];
 
     snprintf(byText, sizeof(byText), "%s ", LS(MSG_ABOUT_BY));
     snprintf(suffixText, sizeof(suffixText), " %s", LS(MSG_ABOUT_AUTHOR_SUFFIX));
     snprintf(verText, sizeof(verText), LS(MSG_ABOUT_VERSION), VFM_VERSION_LONG);
+    snprintf(rexxText, sizeof(rexxText), "ARexx: %s", gRexxPortName);
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_APP_TITLE), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_InnerHeight, 190, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_InnerHeight, 210, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERSCREEN,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
 
@@ -908,6 +910,9 @@ void ShowAbout(struct Window *win)
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             LAYOUT_AddChild, (ULONG)MakeAboutLabel(verText, 0),
+                CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
+
+            LAYOUT_AddChild, (ULONG)MakeAboutLabel(rexxText, 0),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             /* by VagaPPC (Benedetto Lorello) -- "VagaPPC" in grassetto */
