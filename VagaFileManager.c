@@ -1841,6 +1841,15 @@ int main(int argc, char **argv)
     BOOL centerMouse = FALSE;
     char startPath[PATH_MAX_LEN];
 
+    /* Diagnostica: verifica la visibilita' di una porta pubblica da un
+       processo esterno.  Uso: VagaFileManager --findport VAGAFILEMANAGER */
+    if (argc > 2 && argv[1] && !strcmp(argv[1], "--findport"))
+    {
+        struct MsgPort *port = IExec->FindPort(argv[2]);
+        printf("FindPort(%s)=%p\n", argv[2], (void *)port);
+        return port ? 0 : 1;
+    }
+
     /* Dialogo standalone per gli addon: nessuna finestra principale,
        nessuna porta ARexx, solo window.class e il file risultato. */
     if (argc > 2 && argv[1] && !strcmp(argv[1], "--dialog"))
@@ -1975,10 +1984,17 @@ int main(int argc, char **argv)
         else
             snprintf(gRexxPortName, sizeof(gRexxPortName), "%s", REXX_PORT_NAME);
 
+        /* AddPort() esplicito: alcune versioni di exec non rendono
+           visibile ASOPORT_Public agli altri processi. */
         gRexxPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT,
             ASOPORT_Name, (ULONG)gRexxPortName,
-            ASOPORT_Public, TRUE,
             TAG_DONE);
+        if (gRexxPort)
+        {
+            gRexxPort->mp_Node.ln_Name = (STRPTR)gRexxPortName;
+            gRexxPort->mp_Node.ln_Pri = 1;
+            IExec->AddPort(gRexxPort);
+        }
 
         if (!gRexxPort && !strcmp(gRexxPortName, REXX_PORT_NAME))
         {
@@ -1987,8 +2003,13 @@ int main(int argc, char **argv)
                      REXX_PORT_NAME, (unsigned long)(ULONG)IExec->FindTask(NULL));
             gRexxPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT,
                 ASOPORT_Name, (ULONG)gRexxPortName,
-                ASOPORT_Public, TRUE,
                 TAG_DONE);
+            if (gRexxPort)
+            {
+                gRexxPort->mp_Node.ln_Name = (STRPTR)gRexxPortName;
+                gRexxPort->mp_Node.ln_Pri = 1;
+                IExec->AddPort(gRexxPort);
+            }
         }
         DBG("ARexx port '%s' %s (FindPort=%p)",
             gRexxPortName, gRexxPort ? "opened" : "FAILED",
@@ -2562,6 +2583,7 @@ int main(int argc, char **argv)
         struct Message *rm;
         while ((rm = IExec->GetMsg(gRexxPort)) != NULL)
             IExec->ReplyMsg(rm);
+        IExec->RemPort(gRexxPort);
         IExec->FreeSysObject(ASOT_PORT, gRexxPort);
         gRexxPort = NULL;
     }

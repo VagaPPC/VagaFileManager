@@ -265,7 +265,8 @@ def main():
 
     while True:
         reply = dialog(
-            'Path: ' + short_path(START_PATH) + '  -  ARexx command:',
+            'Path: ' + short_path(START_PATH) +
+            '  -  type a command here, then Send:',
             command,
             'Send|PATH|ENTRIES|SELECTED|Close')
 
@@ -307,7 +308,8 @@ def main():
 
         # Show rc/rc2 too: they are enough to prove that the ARexx port
         # accepted the command even when result is empty.
-        dialog('Result of ' + command + ' (rc=%s rc2=%s):' % (rc, rc2),
+        dialog('Result of ' + command +
+               ' (rc=%s rc2=%s; click OK to continue):' % (rc, rc2),
                result, 'OK')
 
     log('end')
