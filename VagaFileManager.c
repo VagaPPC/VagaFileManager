@@ -1984,17 +1984,10 @@ int main(int argc, char **argv)
         else
             snprintf(gRexxPortName, sizeof(gRexxPortName), "%s", REXX_PORT_NAME);
 
-        /* AddPort() esplicito: alcune versioni di exec non rendono
-           visibile ASOPORT_Public agli altri processi. */
         gRexxPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT,
             ASOPORT_Name, (ULONG)gRexxPortName,
+            ASOPORT_Public, TRUE,
             TAG_DONE);
-        if (gRexxPort)
-        {
-            gRexxPort->mp_Node.ln_Name = (STRPTR)gRexxPortName;
-            gRexxPort->mp_Node.ln_Pri = 1;
-            IExec->AddPort(gRexxPort);
-        }
 
         if (!gRexxPort && !strcmp(gRexxPortName, REXX_PORT_NAME))
         {
@@ -2003,13 +1996,8 @@ int main(int argc, char **argv)
                      REXX_PORT_NAME, (unsigned long)(ULONG)IExec->FindTask(NULL));
             gRexxPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT,
                 ASOPORT_Name, (ULONG)gRexxPortName,
+                ASOPORT_Public, TRUE,
                 TAG_DONE);
-            if (gRexxPort)
-            {
-                gRexxPort->mp_Node.ln_Name = (STRPTR)gRexxPortName;
-                gRexxPort->mp_Node.ln_Pri = 1;
-                IExec->AddPort(gRexxPort);
-            }
         }
         DBG("ARexx port '%s' %s (FindPort=%p)",
             gRexxPortName, gRexxPort ? "opened" : "FAILED",
@@ -2583,7 +2571,6 @@ int main(int argc, char **argv)
         struct Message *rm;
         while ((rm = IExec->GetMsg(gRexxPort)) != NULL)
             IExec->ReplyMsg(rm);
-        IExec->RemPort(gRexxPort);
         IExec->FreeSysObject(ASOT_PORT, gRexxPort);
         gRexxPort = NULL;
     }
