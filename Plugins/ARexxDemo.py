@@ -265,8 +265,7 @@ def main():
 
     while True:
         reply = dialog(
-            'Path: ' + short_path(START_PATH) +
-            '  -  VFM: ' + version + '\nARexx command:',
+            'Path: ' + short_path(START_PATH) + '  -  ARexx command:',
             command,
             'Send|PATH|ENTRIES|SELECTED|Close')
 
