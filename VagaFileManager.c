@@ -174,6 +174,8 @@ static void PaneInit(int p, CONST_STRPTR path)
 }
 
 #define MAX_PATH_PREFS 256
+#define MAX_VOLUME_GEOM 64
+#define VOLUME_KEY_LEN 64
 
 struct PathPrefs
 {
@@ -181,8 +183,107 @@ struct PathPrefs
     ULONG viewMode, viewFilter, sortMode, showInfoFiles;
 };
 
+/* Geometria della finestra memorizzata per volume.  Ogni istanza usa il
+   volume su cui e' stata aperta: navigare non cambia la geometria. */
+struct VolumeGeom
+{
+    char  volume[VOLUME_KEY_LEN];
+    LONG  width, height;
+    LONG  left, top;
+    BOOL  hasPos;
+};
+
 static struct PathPrefs gPathPrefs[MAX_PATH_PREFS];
 static LONG gPathPrefsCount = 0;
+static struct VolumeGeom gVolumeGeom[MAX_VOLUME_GEOM];
+static LONG gVolumeGeomCount = 0;
+
+static char gInstanceVolume[VOLUME_KEY_LEN] = "";
+static LONG gWinLeft = 0, gWinTop = 0;
+static BOOL gWinPosValid = FALSE;
+static BOOL gWinGeomCaptured = FALSE;
+
+/* Estrae la chiave del volume da un percorso: "Work:Projects" -> "Work".
+   La vista radice (percorso vuoto) usa "-".  Gli assign sono trattati
+   come volumi separati (la chiave e' il loro nome). */
+static void GetVolumeKey(CONST_STRPTR path, STRPTR out, ULONG outSize)
+{
+    CONST_STRPTR colon;
+    ULONG n;
+
+    if (!out || outSize == 0) return;
+    if (!path || !path[0])
+    {
+        strncpy(out, "-", outSize - 1);
+        out[outSize - 1] = '\0';
+        return;
+    }
+    colon = strchr(path, ':');
+    if (colon)
+    {
+        n = (ULONG)(colon - path);
+        if (n >= outSize) n = outSize - 1;
+        memcpy(out, path, n);
+        out[n] = '\0';
+    }
+    else
+    {
+        strncpy(out, path, outSize - 1);
+        out[outSize - 1] = '\0';
+    }
+}
+
+static void ClampWindowSize(LONG *w, LONG *h)
+{
+    if (*w < 400)  *w = 400;
+    if (*w > 4096) *w = 4096;
+    if (*h < 300)  *h = 300;
+    if (*h > 4096) *h = 4096;
+}
+
+static struct VolumeGeom *FindVolumeGeom(struct VolumeGeom *vols, LONG count, CONST_STRPTR key)
+{
+    LONG i;
+    for (i = 0; i < count; i++)
+        if (!IUtility->Stricmp(vols[i].volume, key))
+            return &vols[i];
+    return NULL;
+}
+
+static void StoreVolumeGeom(struct VolumeGeom *vols, LONG *count, CONST_STRPTR key,
+                            LONG w, LONG h, LONG left, LONG top, BOOL hasPos)
+{
+    struct VolumeGeom *vg = FindVolumeGeom(vols, *count, key);
+
+    if (!vg)
+    {
+        if (*count >= MAX_VOLUME_GEOM) return;
+        vg = &vols[(*count)++];
+        memset(vg, 0, sizeof(*vg));
+        strncpy(vg->volume, key, VOLUME_KEY_LEN - 1);
+        vg->volume[VOLUME_KEY_LEN - 1] = '\0';
+    }
+    vg->width  = w;
+    vg->height = h;
+    vg->left   = left;
+    vg->top    = top;
+    vg->hasPos = hasPos;
+}
+
+static void ApplyVolumeGeom(CONST_STRPTR key)
+{
+    struct VolumeGeom *vg = FindVolumeGeom(gVolumeGeom, gVolumeGeomCount, key);
+
+    if (!vg) return;
+    gWinInnerW = vg->width;
+    gWinInnerH = vg->height;
+    if (vg->hasPos)
+    {
+        gWinLeft = vg->left;
+        gWinTop  = vg->top;
+        gWinPosValid = TRUE;
+    }
+}
 
 static void PrefsDefaults(void)
 {
@@ -190,6 +291,11 @@ static void PrefsDefaults(void)
     gPrefs.width  = DEFAULT_WIN_WIDTH;
     gPrefs.height = DEFAULT_WIN_HEIGHT;
     gPathPrefsCount = 0;
+    gVolumeGeomCount = 0;
+    gInstanceVolume[0] = '\0';
+    gWinLeft = gWinTop = 0;
+    gWinPosValid = FALSE;
+    gWinGeomCaptured = FALSE;
 }
 
 static void CaptureWindowSize(struct Window *win)
@@ -197,18 +303,55 @@ static void CaptureWindowSize(struct Window *win)
     if (!win) return;
     gWinInnerW = win->Width  - win->BorderLeft - win->BorderRight;
     gWinInnerH = win->Height - win->BorderTop  - win->BorderBottom;
+    gWinLeft = win->LeftEdge;
+    gWinTop  = win->TopEdge;
+    gWinPosValid = TRUE;
+    gWinGeomCaptured = TRUE;
 }
 
-void LoadPrefs(void)
+/* Limita la geometria alla schermata pubblica corrente. */
+static void ClampWindowGeom(void)
+{
+    LONG sw, sh;
+
+    if (!gPubScreen) return;
+    sw = gPubScreen->Width;
+    sh = gPubScreen->Height;
+
+    if (gWinInnerW > sw - 40) gWinInnerW = sw - 40;
+    if (gWinInnerH > sh - 40) gWinInnerH = sh - 40;
+    ClampWindowSize(&gWinInnerW, &gWinInnerH);
+
+    if (gWinPosValid)
+    {
+        if (gWinLeft < 0) gWinLeft = 0;
+        if (gWinTop < 0)  gWinTop = 0;
+        if (gWinLeft + gWinInnerW > sw) gWinLeft = sw - gWinInnerW;
+        if (gWinTop + gWinInnerH > sh)  gWinTop = sh - gWinInnerH;
+        if (gWinLeft < 0) gWinLeft = 0;
+        if (gWinTop < 0)  gWinTop = 0;
+    }
+}
+
+/* Legge il file delle preferenze in strutture fornite dal chiamante.
+   Usata sia all'avvio sia prima del salvataggio (per fondere i dati di
+   altre istanze in esecuzione). */
+static void ParsePrefs(CONST_STRPTR file,
+                       struct VFMPrefs *prefs,
+                       struct PathPrefs *paths, LONG *pathCount,
+                       struct VolumeGeom *vols, LONG *volCount)
 {
     BPTR fh;
     char line[PATH_MAX_LEN + 64];
     struct PathPrefs *cur = NULL;
+    struct VolumeGeom *cvol = NULL;
+    BOOL inPath = FALSE, inVolume = FALSE;
     LONG i, out;
 
-    PrefsDefaults();
+    *pathCount = 0;
+    *volCount = 0;
 
-    fh = IDOS->Open(PREFS_FILE, MODE_OLDFILE);
+    fh = IDOS->Open((STRPTR)file, MODE_OLDFILE);
     if (fh)
     {
         while (IDOS->FGets(fh, line, sizeof(line)))
@@ -219,66 +362,107 @@ void LoadPrefs(void)
 
             if (!strncmp(line, "[Path]", 6))
             {
-                if (gPathPrefsCount < MAX_PATH_PREFS)
+                inPath = TRUE; inVolume = FALSE;
+                cur = NULL; cvol = NULL;
+                if (*pathCount < MAX_PATH_PREFS)
                 {
-                    cur = &gPathPrefs[gPathPrefsCount++];
+                    cur = &paths[(*pathCount)++];
                     memset(cur, 0, sizeof(*cur));
-                    cur->viewMode     = FBVM_ICONS;
-                    cur->viewFilter   = VIEW_FILTER_ICONS_ONLY;
-                    cur->sortMode     = SORT_BY_TYPE;
-                    cur->showInfoFiles= 0;
+                    cur->viewMode      = FBVM_ICONS;
+                    cur->viewFilter    = VIEW_FILTER_ICONS_ONLY;
+                    cur->sortMode      = SORT_BY_TYPE;
+                    cur->showInfoFiles = 0;
                 }
-                else
-                    cur = NULL;
             }
-            else if (cur && !strncmp(line, "Path=", 5))
+            else if (!strncmp(line, "[Volume]", 8))
+            {
+                inPath = FALSE; inVolume = TRUE;
+                cur = NULL; cvol = NULL;
+                if (*volCount < MAX_VOLUME_GEOM)
+                {
+                    cvol = &vols[(*volCount)++];
+                    memset(cvol, 0, sizeof(*cvol));
+                }
+            }
+            else if (inPath && cur && !strncmp(line, "Path=", 5))
             {
                 strncpy(cur->path, line + 5, PATH_MAX_LEN - 1);
                 cur->path[PATH_MAX_LEN - 1] = '\0';
             }
-            else if (cur && !strncmp(line, "View=", 5))
+            else if (inPath && cur && !strncmp(line, "View=", 5))
             {
                 cur->viewMode = (atoi(line + 5) == FBVM_ICONS) ? FBVM_ICONS : FBVM_DETAILS;
             }
-            else if (cur && !strncmp(line, "Filter=", 7))
+            else if (inPath && cur && !strncmp(line, "Filter=", 7))
             {
                 cur->viewFilter = (atoi(line + 7) == VIEW_FILTER_ALL_FILES) ? VIEW_FILTER_ALL_FILES : VIEW_FILTER_ICONS_ONLY;
             }
-            else if (cur && !strncmp(line, "Sort=", 5))
+            else if (inPath && cur && !strncmp(line, "Sort=", 5))
             {
                 LONG v = atoi(line + 5);
                 cur->sortMode = (v >= SORT_BY_TYPE && v <= SORT_BY_SIZE) ? (ULONG)v : SORT_BY_TYPE;
             }
-            else if (cur && !strncmp(line, "ShowInfo=", 9))
+            else if (inPath && cur && !strncmp(line, "ShowInfo=", 9))
             {
                 cur->showInfoFiles = atoi(line + 9) ? 1 : 0;
             }
-            else if (!strncmp(line, "Width=", 6))
-                gPrefs.width = atoi(line + 6);
-            else if (!strncmp(line, "Height=", 7))
-                gPrefs.height = atoi(line + 7);
-            else if (!strncmp(line, "Split=", 6))
-                gPrefs.split = atoi(line + 6) ? 1 : 0;
+            else if (inVolume && cvol && !strncmp(line, "Name=", 5))
+            {
+                strncpy(cvol->volume, line + 5, VOLUME_KEY_LEN - 1);
+                cvol->volume[VOLUME_KEY_LEN - 1] = '\0';
+            }
+            else if (inVolume && cvol && !strncmp(line, "Width=", 6))
+                cvol->width = atoi(line + 6);
+            else if (inVolume && cvol && !strncmp(line, "Height=", 7))
+                cvol->height = atoi(line + 7);
+            else if (inVolume && cvol && !strncmp(line, "Left=", 5))
+                cvol->left = atoi(line + 5);
+            else if (inVolume && cvol && !strncmp(line, "Top=", 4))
+                cvol->top = atoi(line + 4);
+            else if (inVolume && cvol && !strncmp(line, "HasPos=", 7))
+                cvol->hasPos = atoi(line + 7) ? TRUE : FALSE;
+            else if (!inPath && !inVolume && !strncmp(line, "Width=", 6))
+                prefs->width = atoi(line + 6);
+            else if (!inPath && !inVolume && !strncmp(line, "Height=", 7))
+                prefs->height = atoi(line + 7);
+            else if (!inPath && !inVolume && !strncmp(line, "Split=", 6))
+                prefs->split = atoi(line + 6) ? 1 : 0;
         }
         IDOS->Close(fh);
     }
 
-    /* scarta eventuali sezioni senza percorso */
+    /* scarta le sezioni senza percorso */
     out = 0;
-    for (i = 0; i < gPathPrefsCount; i++)
+    for (i = 0; i < *pathCount; i++)
     {
-        if (gPathPrefs[i].path[0])
+        if (paths[i].path[0])
         {
-            if (out != i) gPathPrefs[out] = gPathPrefs[i];
+            if (out != i) paths[out] = paths[i];
             out++;
         }
     }
-    gPathPrefsCount = out;
+    *pathCount = out;
 
-    if (gPrefs.width  < 400)  gPrefs.width  = 400;
-    if (gPrefs.width  > 4096) gPrefs.width  = 4096;
-    if (gPrefs.height < 300)  gPrefs.height = 300;
-    if (gPrefs.height > 4096) gPrefs.height = 4096;
+    /* scarta le sezioni senza nome e limita le dimensioni */
+    out = 0;
+    for (i = 0; i < *volCount; i++)
+    {
+        if (!vols[i].volume[0]) continue;
+        ClampWindowSize(&vols[i].width, &vols[i].height);
+        if (out != i) vols[out] = vols[i];
+        out++;
+    }
+    *volCount = out;
+
+    ClampWindowSize(&prefs->width, &prefs->height);
+}
+
+void LoadPrefs(void)
+{
+    PrefsDefaults();
+
+    ParsePrefs(PREFS_FILE, &gPrefs, gPathPrefs, &gPathPrefsCount,
+               gVolumeGeom, &gVolumeGeomCount);
 
     gWinInnerW = gPrefs.width;
     gWinInnerH = gPrefs.height;
@@ -334,20 +518,23 @@ void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, 
     pp->sortMode      = sort;
     pp->showInfoFiles = showinfo;
 }
+
 void SavePrefs(void)
 {
     BPTR fh;
     struct Window *win = NULL;
-    LONG i;
+    struct VFMPrefs diskPrefs;
+    struct PathPrefs *diskPaths = NULL;
+    struct VolumeGeom *diskVols = NULL;
+    LONG diskPathCount = 0, diskVolCount = 0;
+    BOOL merged = FALSE;
+    LONG i, j;
 
     if (gMainWinObj)
         IIntuition->GetAttr(WINDOW_Window, gMainWinObj, (ULONG *)&win);
     if (win) CaptureWindowSize(win);
 
-    if (gWinInnerW < 400)  gWinInnerW = 400;
-    if (gWinInnerW > 4096) gWinInnerW = 4096;
-    if (gWinInnerH < 300)  gWinInnerH = 300;
-    if (gWinInnerH > 4096) gWinInnerH = 4096;
+    ClampWindowSize(&gWinInnerW, &gWinInnerH);
 
     gPrefs.width  = gWinInnerW;
     gPrefs.height = gWinInnerH;
@@ -359,25 +546,88 @@ void SavePrefs(void)
         RememberPathPrefs(gPanes[1].pathBuffer, gPanes[1].viewMode, gPanes[1].viewFilter,
                           gPanes[1].sortMode, gPanes[1].showInfoFiles);
 
-    fh = IDOS->Open(PREFS_FILE, MODE_NEWFILE);
-    if (!fh) return;
+    /* Rilegge il file per fondere i dati di altre istanze in esecuzione. */
+    diskPaths = (struct PathPrefs *)IExec->AllocVecTags(
+        MAX_PATH_PREFS * sizeof(struct PathPrefs),
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    diskVols = (struct VolumeGeom *)IExec->AllocVecTags(
+        MAX_VOLUME_GEOM * sizeof(struct VolumeGeom),
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
 
-    IDOS->FPrintf(fh, "Width=%ld\n",  (long)gPrefs.width);
-    IDOS->FPrintf(fh, "Height=%ld\n", (long)gPrefs.height);
-    IDOS->FPrintf(fh, "Split=%ld\n",  (long)gPrefs.split);
-
-    for (i = 0; i < gPathPrefsCount; i++)
+    if (diskPaths && diskVols)
     {
-        if (!gPathPrefs[i].path[0]) continue;
-        IDOS->FPrintf(fh, "[Path]\n");
-        IDOS->FPrintf(fh, "Path=%s\n",        gPathPrefs[i].path);
-        IDOS->FPrintf(fh, "View=%ld\n",       (long)gPathPrefs[i].viewMode);
-        IDOS->FPrintf(fh, "Filter=%ld\n",     (long)gPathPrefs[i].viewFilter);
-        IDOS->FPrintf(fh, "Sort=%ld\n",       (long)gPathPrefs[i].sortMode);
-        IDOS->FPrintf(fh, "ShowInfo=%ld\n",   (long)gPathPrefs[i].showInfoFiles);
+        memset(&diskPrefs, 0, sizeof(diskPrefs));
+        ParsePrefs(PREFS_FILE, &diskPrefs, diskPaths, &diskPathCount,
+                   diskVols, &diskVolCount);
+
+        /* I valori globali di questa istanza vincono. */
+        diskPrefs.width  = gPrefs.width;
+        diskPrefs.height = gPrefs.height;
+        diskPrefs.split  = gPrefs.split;
+
+        /* La geometria vale per il volume su cui l'istanza e' stata
+           aperta, non per l'ultima cartella visitata. */
+        if (gWinGeomCaptured && gInstanceVolume[0])
+            StoreVolumeGeom(diskVols, &diskVolCount, gInstanceVolume,
+                            gWinInnerW, gWinInnerH, gWinLeft, gWinTop, gWinPosValid);
+
+        /* Unisce le preferenze di vista per percorso di questa istanza. */
+        for (i = 0; i < gPathPrefsCount; i++)
+        {
+            if (!gPathPrefs[i].path[0]) continue;
+            for (j = 0; j < diskPathCount; j++)
+                if (!IUtility->Stricmp(diskPaths[j].path, gPathPrefs[i].path))
+                    break;
+            if (j < diskPathCount)
+                diskPaths[j] = gPathPrefs[i];
+            else if (diskPathCount < MAX_PATH_PREFS)
+                diskPaths[diskPathCount++] = gPathPrefs[i];
+        }
+
+        merged = TRUE;
     }
 
-    IDOS->Close(fh);
+    fh = IDOS->Open(PREFS_FILE, MODE_NEWFILE);
+    if (fh)
+    {
+        const struct VFMPrefs *wp = merged ? &diskPrefs : &gPrefs;
+        const struct PathPrefs *pa = merged ? diskPaths : gPathPrefs;
+        const struct VolumeGeom *va = merged ? diskVols : gVolumeGeom;
+        LONG paCount = merged ? diskPathCount : gPathPrefsCount;
+        LONG vaCount = merged ? diskVolCount : gVolumeGeomCount;
+
+        IDOS->FPrintf(fh, "Width=%ld\n",  (long)wp->width);
+        IDOS->FPrintf(fh, "Height=%ld\n", (long)wp->height);
+        IDOS->FPrintf(fh, "Split=%ld\n",  (long)wp->split);
+
+        for (i = 0; i < vaCount; i++)
+        {
+            if (!va[i].volume[0]) continue;
+            IDOS->FPrintf(fh, "[Volume]\n");
+            IDOS->FPrintf(fh, "Name=%s\n",     va[i].volume);
+            IDOS->FPrintf(fh, "Width=%ld\n",   (long)va[i].width);
+            IDOS->FPrintf(fh, "Height=%ld\n",  (long)va[i].height);
+            IDOS->FPrintf(fh, "Left=%ld\n",    (long)va[i].left);
+            IDOS->FPrintf(fh, "Top=%ld\n",     (long)va[i].top);
+            IDOS->FPrintf(fh, "HasPos=%ld\n",  (long)(va[i].hasPos ? 1 : 0));
+        }
+
+        for (i = 0; i < paCount; i++)
+        {
+            if (!pa[i].path[0]) continue;
+            IDOS->FPrintf(fh, "[Path]\n");
+            IDOS->FPrintf(fh, "Path=%s\n",      pa[i].path);
+            IDOS->FPrintf(fh, "View=%ld\n",     (long)pa[i].viewMode);
+            IDOS->FPrintf(fh, "Filter=%ld\n",   (long)pa[i].viewFilter);
+            IDOS->FPrintf(fh, "Sort=%ld\n",     (long)pa[i].sortMode);
+            IDOS->FPrintf(fh, "ShowInfo=%ld\n", (long)pa[i].showInfoFiles);
+        }
+
+        IDOS->Close(fh);
+    }
+
+    if (diskPaths) IExec->FreeVec(diskPaths);
+    if (diskVols) IExec->FreeVec(diskVols);
 }
 
 /* ===== Costruzione dell'interfaccia dei pannelli =====
@@ -1494,6 +1744,12 @@ int main(int argc, char **argv)
 
     LoadPrefs();
 
+    /* Geometria della finestra: la chiave e' il volume del percorso
+       iniziale.  Le nuove istanze sullo stesso volume la riusano; la
+       navigazione non la cambia. */
+    GetVolumeKey(startPath, gInstanceVolume, sizeof(gInstanceVolume));
+    ApplyVolumeGeom(gInstanceVolume);
+
     gFbClass = MakeFileBrowserClass();
     if (!gFbClass)
     {
@@ -1559,6 +1815,7 @@ int main(int argc, char **argv)
         gBtnImgSel[ii] = LoadIconImage(gPubScreen, sel);
     }
     LoadMenuImages(gPubScreen);
+    ClampWindowGeom();
 
     /* primo pannello */
     gActivePane = 0;
@@ -1592,13 +1849,16 @@ int main(int argc, char **argv)
             WA_Title, (ULONG)LS(MSG_APP_TITLE),
             WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE, WA_SizeGadget, TRUE,
             WA_InnerWidth, (ULONG)gWinInnerW, WA_InnerHeight, (ULONG)gWinInnerH,
+            gWinPosValid ? WA_Left : TAG_IGNORE, gWinPosValid ? (ULONG)gWinLeft : 0,
+            gWinPosValid ? WA_Top  : TAG_IGNORE, gWinPosValid ? (ULONG)gWinTop  : 0,
             WINDOW_IconifyGadget, TRUE, WINDOW_AppPort, (ULONG)appPort, WINDOW_AppWindow, TRUE,
             WINDOW_MenuStrip, (ULONG)gMenuRoot,
             WA_IDCMP, IDCMP_INTUITICKS | IDCMP_MOUSEBUTTONS | IDCMP_NEWSIZE | IDCMP_IDCMPUPDATE,
             WINDOW_IDCMPHook, (ULONG)&gFilterIdcmpHook,
             WINDOW_IDCMPHookBits, IDCMP_IDCMPUPDATE,
             WINDOW_GadgetHelp, TRUE,
-            WINDOW_Position, WPOS_CENTERMOUSE,
+            gWinPosValid ? TAG_IGNORE : WINDOW_Position,
+            gWinPosValid ? (ULONG)0 : (ULONG)WPOS_CENTERMOUSE,
             WINDOW_Layout, (ULONG)gRootLayout,
             TAG_DONE);
 

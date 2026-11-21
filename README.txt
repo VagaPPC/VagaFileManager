@@ -22,6 +22,7 @@ Features
 - Automatic Window Updates: Real-time refreshes when directory contents change.
 - Smart List View: Automatically displays files even if they do not have an associated .info icon file.
 - Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
+- Per-Volume Window Geometry: window size and position are remembered separately for each volume a window is opened on; navigating does not change them.
 - Favorite Paths: Bookmark and quickly jump to your most-used directories.
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
 - Quick Filter: Instant filtering with wildcard and regex support.
@@ -51,6 +52,8 @@ Distribution folder (VMF/):
     Catalogs/<lang>/VagaFileManager.catalog
     Plugins/Find.py   (example ARexx/Python plugin)
   Note: VMF/ is deleted and regenerated on every build.
+  The drawer icon for VMF/ is VMF.info, stored next to the folder:
+  copy both VMF/ and VMF.info to the target directory.
 
 Installation:
 - Run VagaFileManager from the VMF/ folder (keep icons/ and Catalogs/ next

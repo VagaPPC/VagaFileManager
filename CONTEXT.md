@@ -46,6 +46,11 @@ make dist       # solo la cartella di distribuzione VMF/
   `LBNA_Selected` non ridisegnano da sole la classe FileBrowser).
 - ARexx host `VAGAFILEMANAGER`; con più istanze la seconda usa un nome univoco (`VAGAFILEMANAGER.<task>`) e `Find.py` riceve il nome porta come argomento.
 - `PROGDIR:` viene risolto in assoluto prima di lanciare plugin (Python/RX).
+- Geometria finestra (dimensione + posizione) per volume: sezione `[Volume]`
+  nel file prefs (`Name`, `Width`, `Height`, `Left`, `Top`, `HasPos`).
+  La chiave e' il volume del percorso iniziale dell'istanza (es. `Workbench`,
+  `Work`); navigare non cambia la geometria. Al salvataggio il file viene
+  riletto e fuso, cosi' piu' istanze non si sovrascrivono a vicenda.
 - Vista icone: drag dall’immagine = drag&drop file; drag da label/sfondo/lazo = selezione multipla. Shift/Ctrl+click = toggle.
 - `.info`: in vista lista compaiono solo con “Mostra file info”; in vista icone sempre nascosti.
 - Copia/move/rename: il `<file>.info` segue sempre l’oggetto (file o cassetto).
