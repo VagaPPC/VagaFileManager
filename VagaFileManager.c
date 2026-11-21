@@ -16,6 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Modulo: VagaFileManager.c
+ * -------------------------
+ * Nucleo dell'applicazione: variabili globali, preferenze, costruzione dei
+ * due pannelli, modalita' split, plugin, porta ARexx, attivazione del
+ * pannello e ciclo principale degli eventi.
+ */
+
 #define CATCOMP_NUMBERS
 #define CATCOMP_BLOCK
 #define CATCOMP_CODE
@@ -55,8 +63,6 @@ char gDropPortName[64];
 
 struct Bookmark gBookmarks[MAX_BOOKMARKS];
 LONG gBookmarkCount = 0;
-Object *gDragPointer = NULL;
-struct BitMap *gDragPtrBm = NULL;
 struct VFMWindowTag gWinTag;
 
 char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
@@ -76,7 +82,6 @@ volatile BOOL gProgActive = FALSE;
 volatile BOOL gProgCancel = FALSE;
 volatile BOOL gProgPause  = FALSE;
 Object *gProgWinObj = NULL;
-Object *gProgBarGad = NULL;
 Object *gProgPauseBtn = NULL;
 struct Window *gProgWin = NULL;
 ULONG gProgDone  = 0;
@@ -109,6 +114,8 @@ static Object *gTopBar = NULL;
 static Object *gTopCopyBtn = NULL, *gTopMoveBtn = NULL, *gTopDeleteBtn = NULL;
 static struct Screen *gPubScreen = NULL;
 
+/* ===== Log di debug ===== */
+
 void DBG(CONST_STRPTR fmt, ...)
 {
     BPTR fh;
@@ -129,6 +136,8 @@ void DBG(CONST_STRPTR fmt, ...)
         IDOS->Close(fh);
     }
 }
+
+/* ===== Inizializzazione e preferenze ===== */
 
 static void PaneInit(int p, CONST_STRPTR path)
 {
@@ -325,12 +334,6 @@ void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, 
     pp->sortMode      = sort;
     pp->showInfoFiles = showinfo;
 }
-
-void RememberCurrentPathPrefs(void)
-{
-    RememberPathPrefs(gPathBuffer, gViewMode, gViewFilter, gSortMode, gShowInfoFiles);
-}
-
 void SavePrefs(void)
 {
     BPTR fh;
@@ -377,6 +380,9 @@ void SavePrefs(void)
     IDOS->Close(fh);
 }
 
+/* ===== Costruzione dell'interfaccia dei pannelli =====
+   Costruisce i gadget e il layout di un pannello: lista, percorso,
+   pulsanti, filtro e barra di stato. */
 static Object *CreatePaneUI(int p)
 {
     struct Pane *pn = &gPanes[p];
@@ -518,8 +524,10 @@ static BOOL PointInPane(int p, WORD x, WORD y)
             y >= g->TopEdge  && y < g->TopEdge  + g->Height);
 }
 
-/* Crea e aggiunge la barra dei comandi condivisa (solo in vista divisa).
+/* ===== Barra condivisa e modalita' split =====
+   Crea e aggiunge la barra dei comandi condivisa (solo in vista divisa).
    Viene aggiunta in coda al layout verticale, cioe' in basso. */
+
 static void ShowTopBar(struct Window *win)
 {
     struct lmAddChild add;
@@ -576,6 +584,8 @@ static void HideTopBar(struct Window *win)
 /* attiva (o chiude) il secondo pannello */
 static void UpdateTopBar(struct Window *win);
 
+/* Attiva/disattiva la modalita' split: mostra o nasconde il secondo
+   pannello e la barra comandi condivisa. */
 static void ToggleSplit(struct Window *win, Object *winObj)
 {
     struct Pane *pn = &gPanes[1];
@@ -660,7 +670,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
     }
 }
 
-/* ---- shell ---- */
+/* ===== Comandi esterni (shell) e plugin ===== */
 
 static void OpenShellHere(void)
 {
@@ -834,7 +844,7 @@ void ScanPlugins(void)
     DBG("plugins found: %ld", (long)gPluginCount);
 }
 
-/* ---- ARexx ---- */
+/* ===== Porta ARexx ===== */
 
 static void RexxSetResult(struct RexxMsg *msg, CONST_STRPTR text)
 {
@@ -1043,6 +1053,8 @@ static int64 RexxSelectedSize(int gp)
     return any ? total : -1;
 }
 
+/* Esegue un comando ricevuto sulla porta ARexx.  Il comando e' la prima
+   parola dell'argomento, il resto sono i parametri. */
 static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
 {
     char line[1024], cmd[32];
@@ -1315,6 +1327,8 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     }
 }
 
+/* ===== Stato dei pannelli ===== */
+
 static void RefreshAfterSelection(Object *listGad, struct Window *win)
 {
     if (listGad)
@@ -1405,6 +1419,9 @@ static void UpdateTopBar(struct Window *win)
             GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
 }
 
+/* ===== Punto di ingresso =====
+   Apre le librerie, crea finestra e pannelli, poi gestisce il ciclo degli
+   eventi fino alla chiusura. */
 int main(int argc, char **argv)
 {
     struct Window *windows[WID_LAST];

@@ -63,11 +63,7 @@
 #include <gadgets/string.h>
 #include <gadgets/listbrowser.h>
 #include <gadgets/scroller.h>
-#include <images/glyph.h>
-#include <images/label.h>
 #include <images/bitmap.h>
-#include <gadgets/fuelgauge.h>
-#include <gadgets/slider.h>
 
 #include <workbench/startup.h>
 
@@ -85,8 +81,6 @@
 #include <proto/listbrowser.h>
 #include <proto/bitmap.h>
 #include <proto/wb.h>
-#include <proto/gadtools.h>
-#include <libraries/gadtools.h>
 
 #include <proto/locale.h>
 #include <libraries/locale.h>
@@ -99,7 +93,7 @@
 extern struct LocaleInfo gLoc;
 #define LS(id) GetString(&gLoc, (id))
 
-/* custom message for VFM -> VFM drag & drop */
+/* ---- messaggio drag & drop VFM -> VFM ---- */
 struct VFMDropMessage
 {
     struct Message vfm_Message;
@@ -110,6 +104,7 @@ struct VFMDropMessage
     char           vfm_Paths[1];
 };
 
+/* ---- ID di finestre, oggetti, gadget e menu ---- */
 enum { WID_MAIN = 0, WID_LAST };
 enum { OID_MAIN = 0, OID_LAST };
 
@@ -138,9 +133,6 @@ enum
     GID_RENAME_CANCEL,
     GID_PROG_CANCEL,
     GID_PROG_PAUSE,
-    GID_ASK_COPY,
-    GID_ASK_MOVE,
-    GID_ASK_CANCEL,
     GID_SPLIT,
     GID_CALCSIZE,
     GID_SHELL,
@@ -192,8 +184,8 @@ enum { COL_ICON = 0, COL_NAME, COL_TYPE, COL_SIZE, COL_DATE, COL_COMMENT, NUM_CO
 enum { VIEW_FILTER_ICONS_ONLY = 0, VIEW_FILTER_ALL_FILES = 1 };
 enum { SORT_BY_TYPE = 0, SORT_BY_NAME, SORT_BY_DATE, SORT_BY_SIZE };
 enum { CLIP_NONE = 0, CLIP_COPY, CLIP_CUT };
-enum { DROP_ACTION_COPY = 0, DROP_ACTION_MOVE = 1, DROP_ACTION_CANCEL = 2 };
 
+/* ---- limiti e costanti ---- */
 #define PATH_MAX_LEN 1024
 #define MAX_ENTRIES  1024
 #define NAME_MAX_LEN 256
@@ -204,6 +196,7 @@ enum { DROP_ACTION_COPY = 0, DROP_ACTION_MOVE = 1, DROP_ACTION_CANCEL = 2 };
 #define PLUGIN_DIR "PROGDIR:Plugins"
 #define REXX_PORT_NAME "VAGAFILEMANAGER"
 
+/* ---- voce di directory (copia in memoria per l'ordinamento) ---- */
 struct DirEntryInfo
 {
     char name[NAME_MAX_LEN];
@@ -236,11 +229,13 @@ struct VFMPrefs
     ULONG split;
 };
 
+/* ---- stato globale ---- */
 extern struct VFMPrefs gPrefs;
 extern LONG gWinInnerW, gWinInnerH;
 
 #define VFMDROP_TYPE 0x5646
 
+/* ---- marcatore delle finestre VFM (per il drag & drop) ---- */
 struct VFMWindowTag
 {
     uint32 vft_Magic;
@@ -385,8 +380,6 @@ extern struct Bookmark gBookmarks[MAX_BOOKMARKS];
 extern LONG gBookmarkCount;
 extern Object *gMenuRoot;
 extern Object *gMenuImg[MIMG_COUNT];
-extern Object *gDragPointer;
-extern struct BitMap *gDragPtrBm;
 extern struct VFMWindowTag gWinTag;
 
 extern char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
@@ -399,7 +392,6 @@ extern volatile BOOL gProgActive;
 extern volatile BOOL gProgCancel;
 extern volatile BOOL gProgPause;
 extern Object *gProgWinObj;
-extern Object *gProgBarGad;
 extern Object *gProgPauseBtn;
 extern struct Window *gProgWin;
 extern ULONG gProgDone;
@@ -412,8 +404,11 @@ extern Object *gBtnImgSel[IMG_COUNT];
 extern Object *gMainWinObj;
 
 /* ---- funzioni ---- */
+
+/* ---- Log e utilita ---- */
 void DBG(CONST_STRPTR fmt, ...);
 
+/* ---- Directory, voci e percorsi ---- */
 uint32 IconHookFunc(struct Hook *hook, APTR gadget, APTR node);
 CONST_STRPTR TypeStringEx(struct ExamineData *ed);
 uint32 TypeRankEx(struct ExamineData *ed);
@@ -437,49 +432,54 @@ void SetupNotify(CONST_STRPTR path);
 void UpdateWindowTitle(struct Window *win, CONST_STRPTR path);
 void SetPathGadget(Object *pathGad, struct Window *win, CONST_STRPTR path);
 void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win);
-void UpdateMenu(void);
+CONST_STRPTR FilePart(CONST_STRPTR path);
+
+/* ---- Navigazione e selezione ---- */
 void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void NavigateTo(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoUp(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoForward(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-CONST_STRPTR FilePart(CONST_STRPTR path);
-void ShowMessage(CONST_STRPTR title, CONST_STRPTR body);
 BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 LONG CountSelectedEntries(struct List *list);
 struct Node *GetFirstSelectedNode(struct List *list);
+void SelectAllEntries(struct List *list);
+void DeselectAllEntries(struct List *list);
+void InvertSelectionEntries(struct List *list);
+
+/* ---- Dialoghi e ricerca ---- */
+void ShowMessage(CONST_STRPTR title, CONST_STRPTR body);
 BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
 void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count);
+void ShowAbout(struct Window *win);
 void DoFindFile(struct Window *win);
 void DoGrep(struct Window *win);
+
+/* ---- Vista ---- */
+void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win);
+void SetViewMode(ULONG mode, Object *listGad, Object *toggleGad, struct Window *win);
+
+/* ---- Percorsi e operazioni sui file ---- */
 BOOL GetResolvedPath(CONST_STRPTR path, STRPTR out, ULONG outSize);
 BOOL CreateDirUnlocked(CONST_STRPTR path);
 BOOL IsPathSameOrInside(CONST_STRPTR path, CONST_STRPTR container);
 BOOL IsDestInsideSrcForCopy(CONST_STRPTR src, CONST_STRPTR dst);
 void CopyAttributes(CONST_STRPTR src, CONST_STRPTR dst);
-ULONG CountFilesRecursive(CONST_STRPTR src);
-uint64 CountBytesRecursive(CONST_STRPTR src);
-void ProgressUpdate(void);
-void ProgressSetBytes(uint64 total);
-void ProgressPoll(void);
-void ProgressAdvance(void);
-void ProgressOpen(struct Window *win, ULONG total);
-void ProgressClose(void);
-LONG AskCopyOrMove(struct Window *win, LONG mx, LONG my);
 BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst);
 void CopyInfoFileIfPresent(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
-BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth);
-ULONG CountDeleteObjects(CONST_STRPTR src);
-void SetDeleteProgress(BOOL on);
-void DeleteSiblingInfo(CONST_STRPTR path);
 BOOL MoveInfoFile(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst);
+BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth);
+void DeleteSiblingInfo(CONST_STRPTR path);
 BOOL MakeUniqueDestName(CONST_STRPTR dir, CONST_STRPTR baseName, STRPTR out, ULONG outSize);
+BOOL CalculatePathSize(CONST_STRPTR path, int64 *totalBytes, int64 *fileCount, int64 *dirCount);
+void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 
-/* Conflitti durante copia/sposta: cosa fare se la destinazione esiste. */
+/* ---- Conflitti di copia/spostamento ---- */
+/* Cosa fare se la destinazione esiste gia'. */
 enum {
     CONFLICT_ASK = 0,
     CONFLICT_OVERWRITE = 1,
@@ -491,24 +491,38 @@ enum {
 };
 LONG AskConflict(CONST_STRPTR name);
 void ResetCopyConflict(void);
-BOOL CalculatePathSize(CONST_STRPTR path, int64 *totalBytes, int64 *fileCount, int64 *dirCount);
-void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-void ScanPlugins(void);
-void RunPlugin(CONST_STRPTR path);
+
+/* ---- Conteggio e avanzamento ---- */
+ULONG CountFilesRecursive(CONST_STRPTR src);
+uint64 CountBytesRecursive(CONST_STRPTR src);
+ULONG CountDeleteObjects(CONST_STRPTR src);
+void SetDeleteProgress(BOOL on);
+void ProgressUpdate(void);
+void ProgressSetBytes(uint64 total);
+void ProgressPoll(void);
+void ProgressAdvance(void);
+void ProgressOpen(struct Window *win, ULONG total);
+void ProgressClose(void);
+void FreeProgressBarClass(void);
+
+/* ---- Azioni su selezione e appunti ---- */
 void DoRenameSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void DoNewDrawer(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void DoNewTextFile(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-void SelectAllEntries(struct List *list);
-void DeselectAllEntries(struct List *list);
-void InvertSelectionEntries(struct List *list);
 void DoDeleteSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void DoDuplicateSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-void SaveSharedClipboard(void);
-BOOL LoadSharedClipboard(void);
 void DoCopySelected(struct List *list);
+void DoCutSelected(struct List *list);
 void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR dstDir, BOOL move, struct Window *win);
-void DoCutSelected(struct List *list);
+void SaveSharedClipboard(void);
+BOOL LoadSharedClipboard(void);
+
+/* ---- Plugin e ARexx ---- */
+void ScanPlugins(void);
+void RunPlugin(CONST_STRPTR path);
+
+/* ---- Drag & drop ---- */
 BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LONG maxPaths, LONG *count);
 BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort);
 void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD screenY);
@@ -516,33 +530,30 @@ void PerformDragDrop(struct List *list, struct Window *win);
 void ShutdownDragDropInput(void);
 void DoInfo(struct List *list, struct Window *win);
 BOOL IsPointOverGadget(Object *gad, struct Window *win, WORD x, WORD y);
-void CopyDroppedToCurrent(CONST_STRPTR srcPath, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name);
-void LoadMenuImages(struct Screen *scr);
-void FreeMenuImages(void);
-Object *MakeIconButton(ULONG id, Object *img, Object *imgSel, CONST_STRPTR hint);
-void FreeProgressBarClass(void);
-Object *MakeIconLabel(Object *img, CONST_STRPTR hint);
-Object *MakeDragPointer(struct DiskObject *icon);
 void StartDragVisual(struct List *list, struct Window *win);
 void EndDragVisual(struct Window *win);
 void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD screenY);
 void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win);
-void ShowAbout(struct Window *win);
+
+/* ---- Immagini e pulsanti ---- */
+Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name);
+void LoadMenuImages(struct Screen *scr);
+void FreeMenuImages(void);
+Object *MakeIconButton(ULONG id, Object *img, Object *imgSel, CONST_STRPTR hint);
+
+/* ---- Menu, segnalibri e preferenze ---- */
+void BuildMenu(void);
+void UpdateMenu(void);
+void ManageBookmarks(Object *mainWinObj);
 void AddBookmark(void);
 void LoadBookmarks(void);
 void SaveBookmarks(void);
 BOOL PromptBookmark(STRPTR nameBuf, ULONG nameSize, STRPTR pathBuf, ULONG pathSize);
-void BuildMenu(void);
-void ManageBookmarks(Object *mainWinObj);
-void SetViewMode(ULONG mode, Object *listGad, Object *toggleGad, struct Window *win);
 void LaunchNewInstance(void);
 void LoadPrefs(void);
 void SavePrefs(void);
 BOOL ApplyPathPrefs(int p, CONST_STRPTR path);
 void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, ULONG showinfo);
-void RememberCurrentPathPrefs(void);
 
 #endif /* VAGAFILEMANAGER_H */

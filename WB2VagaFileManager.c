@@ -73,6 +73,8 @@ typedef struct Window *(*OpenWindowTagListFunc)(struct IntuitionIFace *,
                                                 const struct TagItem *);
 static OpenWindowTagListFunc gOrigOpenWindowTagList = NULL;
 
+/* ===== Log ===== */
+
 static void Log(CONST_STRPTR fmt, ...)
 {
     BPTR fh;
@@ -93,6 +95,8 @@ static void Log(CONST_STRPTR fmt, ...)
         IDOS->Close(fh);
     }
 }
+
+/* ===== Avvio di VFM ===== */
 
 static void LaunchVFM(CONST_STRPTR path)
 {
@@ -168,6 +172,8 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
         gOrigOpenWindowTagList(Self, newWindow, tagList) : NULL;
 }
 
+/* ===== Patch di OpenWindowTagList ===== */
+
 static BOOL InstallPatch(void)
 {
     if (gActive || !IIntuition) return FALSE;
@@ -210,6 +216,8 @@ static void Shutdown(void)
     if (gICx) { IExec->DropInterface((struct Interface *)gICx); gICx = NULL; }
     if (gCxBase) { IExec->CloseLibrary(gCxBase); gCxBase = NULL; }
 }
+
+/* ===== Punto di ingresso ===== */
 
 int main(int argc, char **argv)
 {

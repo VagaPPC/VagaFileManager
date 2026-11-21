@@ -2,7 +2,7 @@
 
 ## Progetto
 File manager AmigaOS 4.1 (Reaction/BOOPSI) a due pannelli verticali.
-Cartella: `VagaFileManager/`. Non è un repository git.
+Cartella: `VagaFileManager/`. Repository git; licenza GNU GPLv3 (vedi `LICENSE`).
 
 ## Build
 ```sh

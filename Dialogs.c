@@ -16,9 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Modulo: Dialogs.c
+ * -----------------
+ * Interfaccia utente: gadget della progress bar, finestra di avanzamento,
+ * dialoghi (messaggi, conferme, rinomina, conflitti), About, segnalibri,
+ * menu, cambio vista e helper per immagini/pulsanti.
+ */
+
 #include "VagaFileManager.h"
 
-/* ---- gadget "progressbar" ---- */
+/* ===== Gadget progress bar personalizzato ===== */
 
 #define PB_Dummy   (TAG_USER + 0x50420000)
 #define PB_Level   (PB_Dummy + 1)
@@ -145,6 +153,8 @@ void FreeProgressBarClass(void)
         gProgressBarClass = NULL;
     }
 }
+
+/* ===== Dialoghi semplici ===== */
 
 void ShowMessage(CONST_STRPTR title, CONST_STRPTR body)
 {
@@ -410,6 +420,8 @@ static Object *gProgBar = NULL;
 static Object *gProgInfoGad = NULL;
 static ULONG gProgTotal = 0;
 
+/* ===== Finestra di avanzamento ===== */
+
 static void FormatBytes(uint64 n, STRPTR buf, ULONG size)
 {
     if (n >= (uint64)1024 * 1024 * 1024)
@@ -422,6 +434,7 @@ static void FormatBytes(uint64 n, STRPTR buf, ULONG size)
         snprintf(buf, size, "%lu B", (unsigned long)n);
 }
 
+/* Compone la riga informativa mostrata sotto la progress bar. */
 static void BuildProgInfo(STRPTR buf, ULONG size)
 {
     ULONG pct = gProgTotal ? (ULONG)(((uint64)gProgDone * 100) / gProgTotal) : 0;
@@ -450,6 +463,8 @@ void ProgressSetBytes(uint64 total)
     ProgressUpdate();
 }
 
+/* Ridisegna la progress bar e la riga informativa (percentuale, byte,
+   elementi). */
 void ProgressUpdate(void)
 {
     static char infoText[160];
@@ -549,6 +564,7 @@ void ProgressAdvance(void)
     ProgressPoll();
 }
 
+/* Apre la finestra di avanzamento con il numero totale di elementi. */
 void ProgressOpen(struct Window *win, ULONG total)
 {
     Object *progGad = NULL;
@@ -626,63 +642,7 @@ void ProgressClose(void)
     gProgActive = FALSE; gProgCancel = FALSE; gProgPause = FALSE;
 }
 
-LONG AskCopyOrMove(struct Window *win, LONG mx, LONG my)
-{
-    Object *winObj = NULL, *buttons = NULL;
-    struct Window *awin = NULL;
-    ULONG sig = 0;
-    LONG action = DROP_ACTION_CANCEL;
-    BOOL done = FALSE;
-
-    (void)mx; (void)my;
-
-    buttons = IIntuition->NewObject(NULL, "layout.gadget",
-        LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE, LAYOUT_EvenSize, TRUE,
-        LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_ASK_COPY, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_COPY), TAG_DONE),
-        LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_ASK_MOVE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_MOVE), TAG_DONE),
-        LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_ASK_CANCEL, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_BTN_CANCEL), TAG_DONE),
-        TAG_DONE);
-
-    /* compare centrato sotto il puntatore del mouse (posizione di rilascio) */
-    winObj = IIntuition->NewObject(NULL, "window.class",
-        WA_Title, (ULONG)LS(MSG_PROG_TITLE), WA_Activate, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE, WA_DepthGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_StayTop, TRUE, WA_PubScreen, (ULONG)(win ? win->WScreen : NULL),
-        WINDOW_Position, WPOS_CENTERMOUSE,
-        WINDOW_Layout, (ULONG)buttons, TAG_DONE);
-
-    if (winObj)
-    {
-        awin = (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN);
-        if (awin)
-        {
-            IIntuition->GetAttr(WINDOW_SigMask, winObj, &sig);
-            while (!done)
-            {
-                ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
-                if (wait & SIGBREAKF_CTRL_C) done = TRUE;
-                if (wait & sig)
-                {
-                    ULONG res; WORD code = 0;
-                    while ((res = IIntuition->IDoMethod(winObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
-                    {
-                        switch (res & WMHI_CLASSMASK)
-                        {
-                            case WMHI_CLOSEWINDOW: done = TRUE; break;
-                            case WMHI_GADGETUP:
-                                if ((res & WMHI_GADGETMASK) == GID_ASK_COPY) { action = DROP_ACTION_COPY; done = TRUE; }
-                                else if ((res & WMHI_GADGETMASK) == GID_ASK_MOVE) { action = DROP_ACTION_MOVE; done = TRUE; }
-                                else if ((res & WMHI_GADGETMASK) == GID_ASK_CANCEL) { action = DROP_ACTION_CANCEL; done = TRUE; }
-                                break;
-                            default: break;
-                        }
-                    }
-                }
-            }
-        }
-        IIntuition->DisposeObject(winObj);
-    }
-    return action;
-}
+/* ===== Cambio vista ===== */
 
 void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win)
 {
@@ -707,9 +667,11 @@ void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win)
             GA_HintInfo, (ULONG)LS(MSG_BTN_ICONS), TAG_DONE);
 }
 
-/* Etichetta di sola lettura: un button trasparente senza bordo (come la
+/* ===== Finestra About =====
+   Etichetta di sola lettura: un button trasparente senza bordo (come la
    barra di stato).  Evita label.image, che su alcuni sistemi resta vuota,
    e permette il grassetto tramite BUTTON_SoftStyle. */
+
 static Object *MakeAboutLabel(CONST_STRPTR text, ULONG style)
 {
     return IIntuition->NewObject(NULL, "button.gadget",
@@ -800,6 +762,8 @@ void ShowAbout(struct Window *win)
         IIntuition->DisposeObject(winObj);
     }
 }
+
+/* ===== Segnalibri ===== */
 
 void AddBookmark(void)
 {
@@ -950,6 +914,8 @@ static CONST_STRPTR gMenuImgFiles[MIMG_COUNT] =
     "m_icons", "m_showinfo", "m_filter", "m_sort", "m_bookmark",
     "m_bookmarkadd", "m_settings", "m_script", "m_folder", "m_shell"
 };
+
+/* ===== Menu ===== */
 
 void LoadMenuImages(struct Screen *scr)
 {
@@ -1126,9 +1092,12 @@ void BuildMenu(void)
     IExec->FreeVec(tags);
 }
 
+/* ===== Gestione segnalibri (dialogo) ===== */
+
 void ManageBookmarks(Object *mainWinObj)
 {
     struct List bmlist;
+    (void)mainWinObj;
     struct ColumnInfo *bci = NULL;
     Object *winObj = NULL, *bmGad = NULL;
     struct Window *win = NULL;
@@ -1258,6 +1227,8 @@ void ManageBookmarks(Object *mainWinObj)
     if (bci) IListBrowser->FreeLBColumnInfo(bci);
 }
 
+/* ===== Vista, menu e nuove istanze ===== */
+
 void SetViewMode(ULONG mode, Object *listGad, Object *toggleGad, struct Window *win)
 {
     gViewMode = mode;
@@ -1321,6 +1292,8 @@ void LaunchNewInstance(void)
                      SYS_StackSize, 262144, TAG_DONE);
 }
 
+/* ===== Immagini e pulsanti ===== */
+
 Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name)
 {
     char path[300];
@@ -1342,16 +1315,5 @@ Object *MakeIconButton(ULONG id, Object *img, Object *imgSel, CONST_STRPTR hint)
         BUTTON_Transparent, TRUE,
         BUTTON_RenderImage, (ULONG)img,
         BUTTON_SelectImage, (ULONG)imgSel,
-        TAG_DONE);
-}
-
-Object *MakeIconLabel(Object *img, CONST_STRPTR hint)
-{
-    return IIntuition->NewObject(NULL, "button.gadget",
-        GA_ReadOnly, TRUE,
-        GA_HintInfo, (ULONG)hint,
-        BUTTON_BevelStyle, BVS_NONE,
-        BUTTON_Transparent, TRUE,
-        BUTTON_RenderImage, (ULONG)img,
         TAG_DONE);
 }

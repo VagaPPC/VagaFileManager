@@ -16,6 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Modulo: FileOps.c
+ * -----------------
+ * Operazioni sul filesystem: copia e spostamento (con gestione dei
+ * conflitti), cancellazione in stile DOpus4, appunti condivisi, rinomina,
+ * creazione di file/cassetti, calcolo dimensioni e ricerca/grep.
+ */
+
 #include "VagaFileManager.h"
 #include <ctype.h>
 
@@ -23,6 +31,8 @@ static struct ExamineData *ExamineRawObject(CONST_STRPTR path, ULONG fields);
 static BOOL IsLinkPath(CONST_STRPTR path);
 static void ClearWriteDelete(CONST_STRPTR path);
 static BOOL PathExists(CONST_STRPTR path);
+
+/* ===== Percorsi e sicurezza ===== */
 
 BOOL GetResolvedPath(CONST_STRPTR path, STRPTR out, ULONG outSize)
 {
@@ -119,6 +129,8 @@ void CopyAttributes(CONST_STRPTR src, CONST_STRPTR dst)
         IDOS->FreeDosObject(DOS_EXAMINEDATA, ed);
     }
 }
+
+/* ===== Conteggio e copia ===== */
 
 ULONG CountFilesRecursive(CONST_STRPTR src)
 {
@@ -323,7 +335,7 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
     return ok;
 }
 
-/* ---- gestione dei conflitti copia/sposta ---- */
+/* ===== Gestione dei conflitti copia/sposta ===== */
 
 /* 0 = chiedi per ogni file; altrimenti la scelta valida per tutti i
    successivi ("sovrascrivi tutti"/"aggiorna tutti"). */
@@ -435,6 +447,8 @@ static int ResolveCopyConflict(CONST_STRPTR src, STRPTR dst, ULONG dstSize)
     }
 }
 
+/* Copia una voce (file o directory) gestendo i conflitti con la
+   destinazione.  Ritorna FALSE in caso di errore o di annullamento. */
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
 {
     char srcRes[PATH_MAX_LEN], dstRes[PATH_MAX_LEN];
@@ -532,6 +546,8 @@ done:
     gCopyDepth--;
     return ok;
 }
+
+/* ===== Cancellazione (stile DOpus4) ===== */
 
 void DeleteSiblingInfo(CONST_STRPTR path)
 {
@@ -684,6 +700,8 @@ static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
     return ok;
 }
 
+/* Cancella un file o un intero albero di directory aggiornando la
+   progress bar. */
 BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth)
 {
     if (!src || !src[0]) return FALSE;
@@ -769,6 +787,10 @@ ULONG CountDeleteObjects(CONST_STRPTR src)
     return count;
 }
 
+/* ===== Spostamento e rinomina ===== */
+
+/* Sposta src in dst: rename diretto sullo stesso device, altrimenti
+   copia + cancellazione.  Gestisce i conflitti come la copia. */
 BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
 {
     if (IDOS->Rename(src, dst))
@@ -1075,6 +1097,8 @@ void DoDuplicateSelected(Object *listGad, Object *pathGad, Object *statusGad, st
     LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
 }
 
+/* ===== Appunti condivisi ===== */
+
 void SaveSharedClipboard(void)
 {
     BPTR fh;
@@ -1291,7 +1315,7 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
     }
 }
 
-/* ---- calcolo dimensione cartelle/volumi ---- */
+/* ===== Calcolo dimensioni cartelle/volumi ===== */
 
 static BOOL CalcSizeRec(CONST_STRPTR path, ULONG depth, int64 *bytes, int64 *files, int64 *dirs)
 {
@@ -1417,7 +1441,7 @@ void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct
 }
 
 
-/* ---- ricerca file e grep (usati anche dai plugin ARexx) ---- */
+/* ===== Ricerca file e grep (usati anche dai plugin ARexx) ===== */
 
 static BOOL NameContains(CONST_STRPTR hay, CONST_STRPTR needle)
 {

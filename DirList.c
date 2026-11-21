@@ -16,12 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Modulo: DirList.c
+ * -----------------
+ * Modello delle directory: lettura e filtro delle voci, hook di disegno e
+ * ordinamento, helper sui percorsi, notifiche del filesystem, navigazione,
+ * titolo/barra di stato e selezione.
+ */
+
 #include "VagaFileManager.h"
 
-/* Gli hook di disegno/ordinamento sono per-pannello: h_Data contiene
-   l'indice del pannello.  Ogni volta che un hook viene invocato rendiamo
-   attivo il pannello corretto, cosi' le macro gNames/gIcons/... puntano
-   ai dati giusti anche con due pannelli aperti. */
+/* ===== Hook di disegno e ordinamento =====
+   Gli hook sono per-pannello: h_Data contiene l'indice del pannello.  Ogni
+   volta che un hook viene invocato rendiamo attivo il pannello corretto,
+   cosi' le macro gNames/gIcons/... puntano ai dati giusti anche con due
+   pannelli aperti. */
+
 static void ActivatePaneFromHook(struct Hook *hook)
 {
     ULONG p = (ULONG)hook->h_Data;
@@ -31,6 +41,7 @@ static void ActivatePaneFromHook(struct Hook *hook)
 uint32 IconHookFunc(struct Hook *hook, APTR gadget, APTR node)
 {
     uint32 index = MAX_ENTRIES;
+    (void)gadget;
     uint32 result = 0;
     int save = gActivePane;
 
@@ -165,6 +176,7 @@ uint32 ListIconRenderHook(struct Hook *hook, struct Node *node, struct LBDrawMsg
 uint32 SortCompareHook(struct Hook *hook, APTR obj, struct LBSortMsg *msg)
 {
     ULONG a = (ULONG)msg->lbsm_UserDataA;
+    (void)obj;
     ULONG b = (ULONG)msg->lbsm_UserDataB;
     int32 c = 0;
     int save = gActivePane;
@@ -212,6 +224,8 @@ uint32 SortCompareHook(struct Hook *hook, APTR obj, struct LBSortMsg *msg)
     if (c > 0) return 1;
     return 0;
 }
+
+/* ===== Percorsi e file .info ===== */
 
 BOOL HasInfoFile(CONST_STRPTR fullPath)
 {
@@ -364,6 +378,8 @@ static char gLastFilter[NAME_MAX_LEN];
 static char gLastParsed[NAME_MAX_LEN * 4 + 8];
 static BOOL gLastFilterValid = FALSE;
 
+/* ===== Lettura e filtro delle directory ===== */
+
 static BOOL EntryMatchesFilter(CONST_STRPTR name)
 {
     char translated[NAME_MAX_LEN * 2 + 2];
@@ -441,6 +457,8 @@ static BOOL EntryMatchesFilter(CONST_STRPTR name)
     return IDOS->MatchPatternNoCase(gLastParsed, name) ? TRUE : FALSE;
 }
 
+/* Legge il contenuto di una directory, applica il filtro della vista e
+   riempie i nodi del ListBrowser.  Ritorna il numero di voci lette. */
 LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
 {
     APTR context;
@@ -625,6 +643,8 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
     return gEntryCount;
 }
 
+/* ===== Notifiche del filesystem ===== */
+
 void SetupNotify(CONST_STRPTR path)
 {
     if (gNotifyActive)
@@ -693,6 +713,10 @@ static void UpdateGadgetDisabled(Object *gad, struct Window *win, BOOL disabled)
         IIntuition->SetAttrs(gad, GA_Disabled, disabled ? TRUE : FALSE, TAG_DONE);
 }
 
+/* ===== Titolo, percorso e barra di stato ===== */
+
+/* Aggiorna la barra di stato del pannello attivo (numero di voci,
+   selezione e dimensione totale). */
 void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
 {
     ULONG numSel = 0;
@@ -748,6 +772,10 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
     }
 }
 
+/* ===== Navigazione ===== */
+
+/* Cambia la directory del pannello attivo: aggiorna percorso, titolo,
+   contenuto, barra di stato e notifiche. */
 void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
 {
     CONST_STRPTR usePath = path;
@@ -860,6 +888,8 @@ BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct
     NavigateTo(newPath, listGad, pathGad, statusGad, win, list);
     return TRUE;
 }
+
+/* ===== Selezione ===== */
 
 LONG CountSelectedEntries(struct List *list)
 {

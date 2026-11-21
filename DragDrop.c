@@ -16,6 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Modulo: DragDrop.c
+ * ------------------
+ * Drag & drop: raccolta dei percorsi selezionati, identificazione della
+ * finestra di destinazione, trasferimento VFM->VFM (sposta sullo stesso
+ * device, copia su device diversi), drop da/verso Workbench e altre app e
+ * drop testuale su finestre esterne (Shell/requester ASL).
+ */
+
 #include "VagaFileManager.h"
 #include <exec/tasks.h>
 #include <exec/io.h>
@@ -31,6 +40,8 @@ static struct KeymapIFace *gKeymap = NULL;
 static struct MsgPort *gInputPort = NULL;
 static struct IOStdReq gInputIO;
 static BOOL gInputOpen = FALSE;
+
+/* ===== Input device e drop testuale ===== */
 
 static BOOL EnsureInputLibraries(void)
 {
@@ -79,6 +90,8 @@ void ShutdownDragDropInput(void)
     }
 }
 
+
+/* ===== Percorsi selezionati e trasferimento ===== */
 
 BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LONG maxPaths, LONG *count)
 {
@@ -157,7 +170,7 @@ static BOOL DragTransfer(CONST_STRPTR src, CONST_STRPTR dst)
     return CopyEntryRecursive(src, dst);
 }
 
-/* ---- drop testuale su finestre esterne (Shell e file requester) ----
+/* ===== Riconoscimento finestre Shell / requester =====
    Non esiste un'API pubblica per avviare un drag Workbench "nativo" da
    un'applicazione: Workbench gestisce internamente il trascinamento delle
    icone. Per le finestre che accettano testo (Shell, requester ASL) la via
@@ -357,6 +370,8 @@ static BOOL DropTextToExternalWindow(struct Window *w, char (*paths)[PATH_MAX_LE
     return TypeTextIntoWindow(text);
 }
 
+/* ===== Finestra sotto il puntatore ===== */
+
 static struct Window *WindowAtPoint(struct Screen *s, WORD x, WORD y)
 {
     struct Window *w;
@@ -444,6 +459,10 @@ static struct Window *FindDropWindow(struct Window *ownWin, WORD *px, WORD *py)
     return fallback;
 }
 
+/* ===== Avvio e gestione del drag ===== */
+
+/* Gestisce il rilascio del drag: individua la destinazione (cassetto del
+   Workbench, finestra VFM o finestra esterna) e trasferisce i percorsi. */
 void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD screenY)
 {
 
@@ -655,22 +674,6 @@ BOOL IsPointOverGadget(Object *gad, struct Window *win, WORD x, WORD y)
     return (x >= g->LeftEdge && x < g->LeftEdge + g->Width &&
             y >= g->TopEdge  && y < g->TopEdge  + g->Height);
 }
-
-void CopyDroppedToCurrent(CONST_STRPTR srcPath, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
-{
-    char dst[PATH_MAX_LEN]; CONST_STRPTR base = FilePart(srcPath);
-    ULONG total;
-    if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst))) return;
-    total = CountFilesRecursive(srcPath);
-    ProgressOpen(win, total);
-    ProgressSetBytes(CountBytesRecursive(srcPath));
-    ResetCopyConflict();
-    if (!CopyEntryRecursive(srcPath, dst))
-        ShowMessage(LS(MSG_COPY), LS(MSG_DROP_COPY_FAILED));
-    ProgressClose();
-    LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
-}
-
 void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
 {
     LONG i;
@@ -769,6 +772,8 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
     LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
 }
 
+/* ===== Cursore di trascinamento e messaggi VFM->VFM ===== */
+
 void StartDragVisual(struct List *list, struct Window *win)
 {
     /* Use the standard, always-visible drag & drop cursor.
@@ -783,16 +788,6 @@ void StartDragVisual(struct List *list, struct Window *win)
 void EndDragVisual(struct Window *win)
 {
     IIntuition->SetWindowPointer(win, WA_PointerType, POINTERTYPE_NORMAL, TAG_DONE);
-    if (gDragPointer)
-    {
-        IIntuition->DisposeObject(gDragPointer);
-        gDragPointer = NULL;
-    }
-    if (gDragPtrBm)
-    {
-        IGraphics->FreeBitMap(gDragPtrBm);
-        gDragPtrBm = NULL;
-    }
 }
 
 void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD screenY)
@@ -840,10 +835,10 @@ void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD scr
     IExec->FreeVec(paths);
 }
 
+/* Esegue un drop VFM->VFM sul pannello di destinazione. */
 void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
 {
     LONG i;
-    char *p = drop->vfm_Paths;
     BOOL anyErr = FALSE;
 
     DBG("VFM drop received: %ld path(s)", (long)drop->vfm_NumPaths);
@@ -897,44 +892,4 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
     }
     LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
     IExec->FreeVec(drop);
-}
-
-Object *MakeDragPointer(struct DiskObject *icon)
-{
-    struct BitMap *bm;
-    struct RastPort rp;
-    int32 w, h, ww;
-    Object *ptr;
-
-    if (!icon) return NULL;
-    w = 24;
-    h = 24;
-
-    bm = IGraphics->AllocBitMap(w, h, 2, BMF_CLEAR, NULL);
-    if (!bm) return NULL;
-
-    IGraphics->InitRastPort(&rp);
-    rp.BitMap = bm;
-
-    IIcon->DrawIconState(&rp, icon, NULL, 0, 0, IDS_NORMAL,
-        ICONDRAWA_Borderless, TRUE,
-        ICONDRAWA_EraseBackground, FALSE,
-        ICONDRAWA_Width, w,
-        ICONDRAWA_Height, h,
-        TAG_DONE);
-
-    ww = (w + 15) / 16;
-    ptr = IIntuition->NewObject(NULL, "pointerclass",
-        POINTERA_BitMap, (ULONG)bm,
-        POINTERA_WordWidth, (ULONG)ww,
-        POINTERA_XOffset, 0,
-        POINTERA_YOffset, 0,
-        TAG_DONE);
-
-    if (ptr)
-        gDragPtrBm = bm;
-    else
-        IGraphics->FreeBitMap(bm);
-
-    return ptr;
 }
