@@ -1,5 +1,40 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
+A modernization project for AmigaOS 4.1.
+
+About the Project
+The old OS3 file management system was functional back in the floppy disk era, and despite the improvements introduced over time, as the number of files grew it became increasingly difficult to launch applications and manage files efficiently.
+It is no coincidence that many file managers (and even full Workbench replacements and upgrades like DOpus Magellan and Scalos) were created on Amiga to allow dynamic filesystem navigation alongside icon views.
+VFM is my personal attempt to fill this gap and put an end to having dozens of open windows where you constantly have to arrange icons, snapshot positions, resize windows, and so on. MorphOS found an excellent solution with Ambient, whereas OS4 (suffering from a state of near-abandonment by its parent company) has been left behind.
+To keep the core program lightweight and fast, I am introducing a plugin system to add external features without bloating the main application. Plugins can be written in ARexx and Python.
+Note: I am not a hardcore developer, and I made use of LLMs during the development of this project.
+
+Features
+- Directory Navigation: Fast and dynamic browsing across your filesystem.
+- Context-Sensitive Buttons: Dynamic file management buttons tailored to your current selection.
+- "Split" Mode: Dual-pane workflow inspired by DOpus.
+- Update Copy Mode: Copy only newer or modified files (currently under testing).
+- Workbench Replacement: Commodity patch to seamlessly intercept and replace standard Workbench windows.
+- Scripting & Extensibility:
+- Built-in ARexx port.
+- Python plugin support (Work In Progress).
+- Drag & Drop: Intuitive file and folder manipulation.
+- Automatic Window Updates: Real-time refreshes when directory contents change.
+- Smart List View: Automatically displays files even if they do not have an associated .info icon file.
+- Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
+- Favorite Paths: Bookmark and quickly jump to your most-used directories.
+- Queue Control: Cancel or pause ongoing file operations and resume them later.
+- Quick Filter: Instant filtering with wildcard and regex support.
+- Performance: Faster and more responsive than the standard Workbench.
+- Actively Maintained: Supported directly by the author.
+
+Roadmap
+Remote & Archive Support: I would like VFM to eventually handle protocols like FTP/SFTP/SSH as well as archives such as LHA, LZX, ZIP, etc.
+Architectural Considerations: Beyond the implementation complexity, building all of this directly into the executable would make the program heavier and somewhat redundant, since AmigaOS can already handle these formats through dedicated filesystem handlers. I am currently evaluating the cleanest way to integrate this functionality.
+Current Focus: For now, development priority is focused on finalizing and expanding the add-on/plugin system.
+Feedback & Contributions
+Any suggestions, bug reports, ideas, and constructive criticism are very welcome! Feel free to open an Issue or start a Discussion in this repository.
+
 Build (makefile included):
   make            ; builds the program, all catalogs and the VMF/ folder
   make dist       ; only (re)build the VMF/ distribution folder
