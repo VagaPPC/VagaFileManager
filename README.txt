@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 4 (21.11.2026)
+Version 1.0 build 5 (21.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -89,17 +89,26 @@ Views:
 
 Python / ARexx addons:
 - Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
-- VFM passes the ARexx port and the active path to Python addons
-  (C:Python "<script>" "<port>" "<path>").
+- VFM passes the ARexx port, the active path and the VFM executable to
+  Python addons:
+    C:Python "<script>" "<port>" "<path>" "<vfm-executable>"
 - VFM looks for C:Python, then C:Python3.
 - The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
-  Reaction interface, use the ARexx DIALOG command:
+  Reaction interface an addon can either use the ARexx command
     DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
+  or, without ARexx, launch VFM in dialog mode:
+    VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
+    VagaFileManager --dialog "@<spec-file>"
+  The spec-file form has five lines (result, title, prompt, value,
+  buttons); it avoids quoting problems when the text contains '|' or '"'.
+  VFM writes "<index>|<typed-text>" to the result file; 0 = cancelled.
   <buttons> accepts up to six labels separated by '|'.
-  See Plugins/ARexxDemo.py for a complete, commented example; it writes
+  See Plugins/ARexxDemo.py for a complete, commented example: it uses the
+  file-based dialog for the Reaction window and still sends ARexx commands
+  (the stock Python 2.5 arexx module may return an empty reply).  It writes
   diagnostics to T:ARexxDemo.log.
 - If no window appears, run it once from a Shell to see Python errors:
-    C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR:
+    C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
   and check T:ARexxDemo.log.
 
 Localization:

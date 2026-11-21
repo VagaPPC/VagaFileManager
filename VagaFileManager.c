@@ -1032,7 +1032,8 @@ static void RefreshPaneAfterFilter(int p, struct Window *win)
 void RunPlugin(CONST_STRPTR path)
 {
     char absPath[PATH_MAX_LEN];
-    char cmd[PATH_MAX_LEN * 2 + 128];
+    char exePath[PATH_MAX_LEN];
+    char cmd[PATH_MAX_LEN * 4 + 256];
     ULONG len, stack = 524288;
     BPTR dir;
 
@@ -1083,10 +1084,19 @@ void RunPlugin(CONST_STRPTR path)
             return;
         }
 
+        /* Terzo argomento: l'eseguibile VFM, cosi' l'addon puo' aprire
+           un dialogo Reaction con "--dialog" senza passare da ARexx. */
+        exePath[0] = '\0';
+        dir = IDOS->GetProgramDir();
+        if (!dir || !IDOS->NameFromLock(dir, exePath, sizeof(exePath)) ||
+            !IDOS->AddPart(exePath, "VagaFileManager", sizeof(exePath)))
+            strncpy(exePath, "VagaFileManager", sizeof(exePath) - 1);
+        exePath[sizeof(exePath) - 1] = '\0';
+
         /* I plugin Python ricevono anche il path del pannello attivo:
            e' il path della finestra al momento del lancio. */
-        snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\" \"%s\"",
-                 py, absPath, gRexxPortName, gPathBuffer);
+        snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+                 py, absPath, gRexxPortName, gPathBuffer, exePath);
         stack = 1024 * 1024;
     }
     else
@@ -1758,6 +1768,64 @@ static void UpdateTopBar(struct Window *win)
             GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
 }
 
+/* ---- Modalita' dialogo standalone ----
+   Un addon puo' chiedere una finestra Reaction senza usare ARexx:
+       VagaFileManager --dialog "<risultato>|<titolo>|<testo>|<valore>|<pulsanti>"
+   oppure, per testi che contengono '|' o '"':
+       VagaFileManager --dialog "@<file-specifica>"
+   La specifica su file ha cinque righe: risultato, titolo, testo, valore,
+   pulsanti.  Alla chiusura scrive "<indice>|<testo>" nel file risultato.
+   Indice 0 = annullato, 1 = Invio/primo pulsante. */
+static BOOL ReadDialogSpec(CONST_STRPTR spec, char *resultFile, ULONG resultSize,
+                           char *title, ULONG titleSize,
+                           char *prompt, ULONG promptSize,
+                           char *value, ULONG valueSize,
+                           char *buttons, ULONG buttonsSize)
+{
+    char *fields[5];
+    ULONG sizes[5];
+    int i;
+
+    fields[0] = resultFile; sizes[0] = resultSize;
+    fields[1] = title;      sizes[1] = titleSize;
+    fields[2] = prompt;     sizes[2] = promptSize;
+    fields[3] = value;      sizes[3] = valueSize;
+    fields[4] = buttons;    sizes[4] = buttonsSize;
+
+    for (i = 0; i < 5; i++) fields[i][0] = '\0';
+
+    if (spec && spec[0] == '@')
+    {
+        BPTR fh = IDOS->Open(spec + 1, MODE_OLDFILE);
+        if (!fh) return FALSE;
+        for (i = 0; i < 5; i++)
+        {
+            ULONG n;
+            if (!IDOS->FGets(fh, fields[i], sizes[i]))
+            {
+                fields[i][0] = '\0';
+                continue;
+            }
+            n = strlen(fields[i]);
+            while (n && (fields[i][n - 1] == '\n' || fields[i][n - 1] == '\r'))
+                fields[i][--n] = '\0';
+        }
+        IDOS->Close(fh);
+        return TRUE;
+    }
+
+    for (i = 0; i < 5 && spec; i++)
+    {
+        CONST_STRPTR sep = (i < 4) ? strchr(spec, '|') : NULL;
+        ULONG n = sep ? (ULONG)(sep - spec) : (ULONG)strlen(spec);
+        if (n >= sizes[i]) n = sizes[i] - 1;
+        memcpy(fields[i], spec, n);
+        fields[i][n] = '\0';
+        spec = sep ? sep + 1 : NULL;
+    }
+    return TRUE;
+}
+
 /* ===== Punto di ingresso =====
    Apre le librerie, crea finestra e pannelli, poi gestisce il ciclo degli
    eventi fino alla chiusura. */
@@ -1772,6 +1840,34 @@ int main(int argc, char **argv)
     BOOL done = FALSE;
     BOOL centerMouse = FALSE;
     char startPath[PATH_MAX_LEN];
+
+    /* Dialogo standalone per gli addon: nessuna finestra principale,
+       nessuna porta ARexx, solo window.class e il file risultato. */
+    if (argc > 2 && argv[1] && !strcmp(argv[1], "--dialog"))
+    {
+        char resultFile[PATH_MAX_LEN] = "";
+        char title[128] = "VFM";
+        char prompt[256] = "";
+        char value[512] = "";
+        char buttons[128] = "OK|Cancel";
+        LONG idx;
+        BPTR out;
+
+        if (!ReadDialogSpec(argv[2], resultFile, sizeof(resultFile),
+                            title, sizeof(title), prompt, sizeof(prompt),
+                            value, sizeof(value), buttons, sizeof(buttons)) ||
+            !resultFile[0])
+            return 20;
+
+        idx = PromptDialog(title, prompt, value, sizeof(value), buttons);
+        out = IDOS->Open(resultFile, MODE_NEWFILE);
+        if (out)
+        {
+            IDOS->FPrintf(out, "%ld|%s", (long)idx, value);
+            IDOS->Close(out);
+        }
+        return 0;
+    }
 
     windows[WID_MAIN] = NULL; objects[OID_MAIN] = NULL;
     gActivePane = 0;

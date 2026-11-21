@@ -62,18 +62,23 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - Porta pubblica `VAGAFILEMANAGER`; con più istanze `VAGAFILEMANAGER.<task>`.
 - I plugin stanno in `PROGDIR:Plugins`; menu Script → Refresh.
   `PROGDIR:` viene risolto in assoluto prima del lancio:
-  - `.py` → `C:Python` (o `C:Python3`) `"<script>" "<porta>" "<path pannello>"`
+  - `.py` → `C:Python` (o `C:Python3`) `"<script>" "<porta>" "<path pannello>" "<eseguibile VFM>"`
   - `.rexx` → `C:RX "<script>"`
   - se Python non c'è, VFM mostra un messaggio (non resta muto).
 - Il Python OS4 standard espone solo `amiga`, `arexx`, `asl`, `catalog`, `icon`,
   `installer`: **niente BOOPSI/ReAction diretto**.
-- Per l'interfaccia grafica VFM espone il comando `DIALOG` (finestra Reaction:
-  label, string gadget, max 6 pulsanti):
-  `DIALOG <title>|<prompt>|<default>|<buttons>` → `<index>|<text>`.
-  Implementato da `PromptDialog()` in `Dialogs.c`.
-- `ARexxDemo.py`: esempio puro Python con interfaccia Reaction via `DIALOG`;
-  usa `arexx.dorexx` e i comandi PATH/ENTRIES/SELECTED.  Log diagnostico in
-  `T:ARexxDemo.log`; se `DIALOG` fallisce mostra un messaggio ASL.
+- Per l'interfaccia grafica VFM espone due strade (entrambe `PromptDialog()`
+  in `Dialogs.c`, label + string gadget + max 6 pulsanti):
+  - ARexx: `DIALOG <title>|<prompt>|<default>|<buttons>` → `<index>|<text>`;
+  - senza ARexx: `VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"`
+    oppure `VagaFileManager --dialog "@<spec-file>"` (5 righe, evita problemi
+    di quoting).  Scrive `<index>|<testo>` nel file risultato; non apre la
+    finestra principale né la porta ARexx.
+- `ARexxDemo.py`: esempio puro Python con finestra Reaction via `--dialog`
+  su file; usa `arexx.dorexx` per inviare comandi e PATH/ENTRIES/SELECTED.
+  Se `arexx` non restituisce il risultato (Python 2.5.6), mostra il path di
+  lancio o `os.listdir()`.  Log diagnostico in `T:ARexxDemo.log`; se il
+  dialogo fallisce mostra un messaggio ASL.
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
   `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
   `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,
@@ -102,6 +107,6 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 4. Calcola dimensione: barra animata, Cancel/Pausa.
 5. Copia/sposta/duplica/cancella: progress, conflitti, `.info` segue.
 6. Viste icone/lista, filtro rapido, `.info`.
-7. Plugin → ARexxDemo: dialoghi Reaction e risposte ARexx.
+7. Plugin → ARexxDemo: dialoghi Reaction su file; comandi ARexx (PATH/ENTRIES).
 8. `Find.py`: cerca e rivela.
 9. WB2: ToolType `DONOTWAIT`, Exchange mostra la versione.
