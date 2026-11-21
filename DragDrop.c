@@ -238,6 +238,21 @@ static BOOL AppendText(char *buf, ULONG size, CONST_STRPTR text)
     return TRUE;
 }
 
+/* TRUE if the text contains characters that are not plain text when typed
+   into a window: C0 controls (Return, Ctrl-J, Esc...), DEL and C1 controls
+   (0x80-0x9F, including CSI 0x9B). A file name containing them, dropped on
+   a Shell, would run commands. */
+static BOOL HasControlChars(CONST_STRPTR s)
+{
+    const UBYTE *p;
+    for (p = (const UBYTE *)s; *p; p++)
+    {
+        if (*p < 0x20 || *p == 0x7F || (*p >= 0x80 && *p <= 0x9F))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 static BOOL BuildDropText(char *buf, ULONG size, char (*paths)[PATH_MAX_LEN],
                           LONG count, BOOL forShell)
 {
@@ -245,6 +260,15 @@ static BOOL BuildDropText(char *buf, ULONG size, char (*paths)[PATH_MAX_LEN],
 
     if (!buf || size == 0) return FALSE;
     buf[0] = '\0';
+
+    for (i = 0; i < count; i++)
+    {
+        if (HasControlChars(paths[i]))
+        {
+            DBG("drop text: path with control characters rejected");
+            return FALSE;
+        }
+    }
 
     for (i = 0; i < count; i++)
     {
@@ -295,6 +319,8 @@ static BOOL TypeTextIntoWindow(CONST_STRPTR text)
     LONG n, i;
 
     if (!text || !text[0]) return FALSE;
+    /* last line of defence: never type a control character */
+    if (HasControlChars(text)) return FALSE;
     if (!EnsureInputLibraries())
     {
         DBG("drop text: keymap/input.device non disponibili");
