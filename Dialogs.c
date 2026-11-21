@@ -391,7 +391,9 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
     CONST_STRPTR p = buttons;
 
     if (!buf || bufSize == 0) return 0;
-    buf[0] = '\0';
+    /* Keep the caller's default text: the string gadget uses buf directly.
+       If the window is closed, the caller still gets the current text. */
+    buf[bufSize - 1] = '\0';
 
     /* Dividi i pulsanti; i campi vuoti valgono "OK". */
     while (p && *p && nButtons < 6)
