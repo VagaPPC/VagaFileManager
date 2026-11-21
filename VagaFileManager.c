@@ -666,7 +666,12 @@ static Object *CreatePaneUI(int p)
     pn->pathGad = IIntuition->NewObject(NULL, "string.gadget",
         GA_ID, GID_PATH + off, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
         STRINGA_MaxChars, PATH_MAX_LEN - 1, STRINGA_TextVal, (ULONG)pn->pathBuffer,
-        STRINGA_Buffer, (ULONG)pn->pathBuffer, TAG_DONE);
+        TAG_DONE);
+    /* No STRINGA_Buffer = pn->pathBuffer: the gadget needs a buffer of its
+       own. Otherwise the root view label, or a path typed but not yet
+       confirmed with Return, would end up in gPathBuffer, and IsRootPath()
+       and every file operation would act on a different path from the one
+       shown in the list. */
 
     pn->statusGad = IIntuition->NewObject(NULL, "button.gadget",
         GA_ID, GID_STATUS + off, GA_ReadOnly, TRUE, GA_Text, (ULONG)LS(MSG_STATUS_EMPTY),

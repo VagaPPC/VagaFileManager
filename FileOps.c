@@ -705,6 +705,8 @@ static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
 BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth)
 {
     if (!src || !src[0]) return FALSE;
+    /* never delete the root of a volume or an assign ("Work:") */
+    if (src[strlen(src) - 1] == ':') return FALSE;
     if (gDeleteProgress && gProgCancel) return FALSE;
 
     /* DOpus4: prova SUBITO a cancellare. Delete() agisce direttamente sul
@@ -1260,7 +1262,12 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
     uint64 bytes = 0;
     BOOL anyErr = FALSE, useProgress = FALSE;
 
-    if (!srcList || !srcDir || !dstDir || !srcDir[0] || !dstDir[0]) return;
+    if (!srcList || !srcDir || !dstDir) return;
+    if (IsRootPath(srcDir) || IsRootPath(dstDir))
+    {
+        ShowMessage(LS(MSG_PASTE), LS(MSG_DUPLICATE_ROOT));
+        return;
+    }
     /* spostare nella stessa cartella non ha senso */
     if (move && IUtility->Stricmp(srcDir, dstDir) == 0) return;
 

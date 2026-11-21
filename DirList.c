@@ -325,7 +325,10 @@ BOOL IsDirectoryPath(CONST_STRPTR path)
 
 BOOL IsRootPath(CONST_STRPTR path)
 {
-    return (path == NULL || path[0] == '\0');
+    /* defence in depth: the label shown in the path gadget also means
+       the root view */
+    return (path == NULL || path[0] == '\0' ||
+            strcmp(path, LS(MSG_ROOT_ASSIGNS)) == 0);
 }
 
 void FreeEntries(struct List *list)
@@ -778,9 +781,14 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
    contenuto, barra di stato e notifiche. */
 void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
 {
-    CONST_STRPTR usePath = path;
+    char pathCopy[PATH_MAX_LEN];
+    CONST_STRPTR usePath;
     if (!path || !listGad || !list) return;
-    if (strcmp(path, LS(MSG_ROOT_ASSIGNS)) == 0) usePath = "";
+    /* path may point to the gadget buffer, which SetPathGadget rewrites:
+       work on a copy */
+    strncpy(pathCopy, path, sizeof(pathCopy) - 1);
+    pathCopy[sizeof(pathCopy) - 1] = '\0';
+    usePath = IsRootPath(pathCopy) ? "" : pathCopy;
 
     /* Se stiamo navigando verso un altro percorso:
        - se ha impostazioni salvate, hanno la precedenza;
