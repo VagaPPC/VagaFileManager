@@ -1364,7 +1364,9 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | PATH | ENTRIES | SELECTED | "
             "RENAME <name> | DELETE | DUPLICATE | COPY | CUT | PASTE | INFO | SIZE | "
             "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | "
-            "SPLIT | NEW | SCRIPT <file> | ASK <prompt> | REVEAL <path> | SEARCHPATH | FIND | GREP | QUIT | VERSION");
+            "SPLIT | NEW | SCRIPT <file> | ASK <prompt> | "
+            "DIALOG <title>|<prompt>|<text>|<buttons> | "
+            "REVEAL <path> | SEARCHPATH | FIND | GREP | QUIT | VERSION");
     }
     else if (!IUtility->Stricmp(cmd, "VERSION"))
         RexxSetResult(msg, "VagaFileManager 1.0");
@@ -1438,6 +1440,49 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         {
             msg->rm_Result1 = RC_ERROR;
             RexxSetResult(msg, "");
+        }
+    }
+    else if (!IUtility->Stricmp(cmd, "DIALOG"))
+    {
+        char title[128] = "VFM";
+        char prompt[256] = "";
+        char text[256] = "";
+        char buttons[128] = "OK|Cancel";
+        char *fields[4];
+        ULONG sizes[4];
+        LONG f;
+        char *s = args;
+
+        fields[0] = title;   sizes[0] = sizeof(title);
+        fields[1] = prompt;  sizes[1] = sizeof(prompt);
+        fields[2] = text;    sizes[2] = sizeof(text);
+        fields[3] = buttons; sizes[3] = sizeof(buttons);
+
+        /* Formato: titolo|prompt|testo|pulsanti (i campi mancanti
+           mantengono i valori di default). */
+        for (f = 0; f < 4 && s; f++)
+        {
+            char *sep = strchr(s, '|');
+            ULONG n = sep ? (ULONG)(sep - s) : (ULONG)strlen(s);
+            if (n >= sizes[f]) n = sizes[f] - 1;
+            memcpy(fields[f], s, n);
+            fields[f][n] = '\0';
+            s = sep ? sep + 1 : NULL;
+        }
+
+        {
+            LONG idx = PromptDialog(title, prompt, text, sizeof(text), buttons);
+            if (idx > 0)
+            {
+                char result[512];
+                snprintf(result, sizeof(result), "%ld|%s", (long)idx, text);
+                RexxSetResult(msg, result);
+            }
+            else
+            {
+                msg->rm_Result1 = RC_ERROR;
+                RexxSetResult(msg, "");
+            }
         }
     }
     else if (!IUtility->Stricmp(cmd, "REVEAL"))

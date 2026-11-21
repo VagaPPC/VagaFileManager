@@ -1,165 +1,103 @@
-# VagaFileManager — contesto compatto
+# VagaFileManager — contesto
 
 ## Progetto
-File manager AmigaOS 4.1 (Reaction/BOOPSI) a due pannelli verticali.
-Cartella: `VagaFileManager/`. Repository git; licenza GNU GPLv3 (vedi `LICENSE`).
+File manager AmigaOS 4.1 (Reaction/BOOPSI) a due pannelli.
+Repo git, licenza GNU GPLv3 (`LICENSE`). Cartella `VagaFileManager/`.
 
 ## Build
-```sh
-make            # compila, genera cataloghi e ricrea la cartella VMF/
-make dist       # solo la cartella di distribuzione VMF/
-```
-- `gcc` + `-lauto`; cataloghi con `CatComp`.
-- `CFLAGS = -O3 -fomit-frame-pointer -fno-strict-aliasing` (ottimizzazione runtime).
+- Amiga: `make` → cataloghi (CatComp) + eseguibili + `VMF/` (solo runtime).
+  `make dist` ricrea solo `VMF/`; `make clean` pulisce.
+- CFLAGS `-O3 -fomit-frame-pointer -fno-strict-aliasing`; link `-lauto`.
 - Eseguibili: `VagaFileManager`, `WB2VagaFileManager`.
-- Dopo la compilazione `make` ricrea `VMF/` con SOLO i file runtime:
-  - `VagaFileManager`, `VagaFileManager.info`
-  - `WB2VagaFileManager`, `WB2VagaFileManager.info`
-  - `icons/` (toolbar + `m_*.png` per il menu)
-  - `Catalogs/<lang>/VagaFileManager.catalog`
-  - `Plugins/Find.py`
-  - La cartella `VMF/` viene cancellata e rigenerata a ogni build.
+- Cross-build Linux: `/home/vagappc/toolchains/build-vfm.sh`
+  (ppc-amigaos-gcc 11.5.0 + header SDK nativo `/home/vagappc/src/SDK`),
+  output in `VMF/`. I cataloghi richiedono CatComp su Amiga.
+- `VMF/`: eseguibili + `.info`, `icons/`, `Catalogs/<lang>/`, `Plugins/`, `LICENSE`.
+  L'icona del cassetto è `VMF.info`, da copiare accanto a `VMF/`.
 
-## File principali
-- `VagaFileManager.c`: main, loop eventi, due pannelli, ARexx, plugin, preferenze.
+## File
+- `VagaFileManager.c`: main, loop eventi, pannelli, split, ARexx, plugin, preferenze.
 - `VagaFileManager.h`: struct `Pane`, macro pannello attivo, enum GID/MENU/MIMG, prototipi.
-- `Dialogs.c`: finestre, About, menu `menuclass`, `UpdateMenu`, `SetViewMode`, `LaunchNewInstance`.
-- `DirList.c`: `ReadDirectory`, `LoadPath`, hook, `UpdateStatus`, `.info` in lista.
-- `FileOps.c`: copia/move/delete ricorsivi, `.info`, rinomina, find/grep C.
-- `FileBrowser.c`: classe listbrowser con vista icone, lazo, multiselezione.
+- `Dialogs.c`: progress bar custom, dialoghi, About, segnalibri, menu, viste.
+- `DirList.c`: lettura/filtro directory, hook, path, notify, navigazione, stato.
+- `FileOps.c`: copia/move/delete, conflitti, appunti, rinomina, size, find/grep.
+- `FileBrowser.c/.h`: listbrowser con vista icone (public domain OpenAmiga).
 - `DragDrop.c`: drag&drop interno/esterno.
-- `WB2VagaFileManager.c`: utility Commodities che sostituisce le finestre Workbench;
-  l'icona `.info` ha il ToolType `DONOTWAIT`; la commodity espone `$VER` (1.0).
-- `Plugins/Find.py`: find ricorsivo Python + ARexx.
-- `VagaFileManager.cd` + `Catalogs/*/VagaFileManager.ct`: cataloghi (ID 0–128; non rinumerare).
-- `VagaFileManager_strings.h`: generato da CatComp, ma hand-edited in passato.
+- `WB2VagaFileManager.c`: commodity che sostituisce le finestre Workbench.
+- `Plugins/Find.py`, `Plugins/ARexxDemo.py`: esempi di addon.
+- `VagaFileManager.cd` + `Catalogs/*/*.ct`: cataloghi.
+  `VagaFileManager_strings.h` è generato da CatComp: rigenerare dopo modifiche al `.cd`.
 
-## Scelte/architettura
-- Stato per pannello in `gPanes[2]` + `gActivePane`; macro (`gPathBuffer`, `gIcons`, …) puntano al pannello attivo.
-- Split: `LM_ADDCHILD`/`LM_REMOVECHILD` + `WM_RETHINK`; gadget pannello 2 con `+PANE_ID_OFFSET` (1000).
-- Menu: `menuclass` BOOPSI con `MA_Image` (AISS 20×20) e `MA_EmbeddedKey=FALSE` (etichette di 1 carattere, es. segnalibro “S”, non devono diventare shortcut).
-- Scorciatoie menu esplicite con `MA_Key` (`N`, `I`, `E`, `A`).
-- Menu Edit: `Nuovo` (submenu `Cassetto` / `File testo`), `Seleziona tutto`,
-  `Inverti selezione`, `Annulla selezione`.
-- Le voci “Info” (toolbar e menu Edit) sono tradotte in italiano come “Informazioni”.
-- Dopo i comandi di selezione da menu si chiama `RefreshGList` (le modifiche a
-  `LBNA_Selected` non ridisegnano da sole la classe FileBrowser).
-- ARexx host `VAGAFILEMANAGER`; con più istanze la seconda usa un nome univoco (`VAGAFILEMANAGER.<task>`) e `Find.py` riceve il nome porta come argomento.
-- `PROGDIR:` viene risolto in assoluto prima di lanciare plugin (Python/RX).
-- Pulsante/menu "Apri" su un cassetto o un volume: apre una **nuova
-  istanza** di VFM su quel percorso, centrata sul mouse con offset
-  (+24,+24).  Anche "Nuova finestra" usa lo stesso comportamento.
-  Il doppio clic invece naviga nella finestra corrente.
-- "Calcola dimensione": barra indeterminata (blocco scorrevole) con
-  conteggio file/byte aggiornato ogni 8 oggetti.  Nessun conteggio
-  preliminare: un solo passaggio.  Cancel e Pausa funzionano.
-- Geometria finestra (dimensione + posizione) per volume: sezione `[Volume]`
-  nel file prefs (`Name`, `Width`, `Height`, `Left`, `Top`, `HasPos`).
-  La chiave e' il volume del percorso iniziale dell'istanza (es. `Workbench`,
-  `Work`); navigare non cambia la geometria. Al salvataggio il file viene
-  riletto e fuso, cosi' piu' istanze non si sovrascrivono a vicenda.
-- Vista icone: drag dall’immagine = drag&drop file; drag da label/sfondo/lazo = selezione multipla. Shift/Ctrl+click = toggle.
-- `.info`: in vista lista compaiono solo con “Mostra file info”; in vista icone sempre nascosti.
-- Copia/move/rename: il `<file>.info` segue sempre l’oggetto (file o cassetto).
-- Cancellazione: `DeleteEntryRecursive` gestisce esplicitamente anche i cassetti vuoti
-  (delete diretto al primo livello, senza tenere aperto il contesto di directory).
-  Prima di scendere in un cassetto e prima del `Delete` finale vengono azzerati i bit
-  di protezione di tutti i cassetti antenati (dall'alto verso il basso) e del cassetto
-  stesso (le directory estratte da archivi sono spesso read-only: senza write bit sul
-  parent le voci non si possono rimuovere).
-  Il `Delete` viene ritentato piu' volte, con un secondo passaggio sui figli rimasti;
-  se l'oggetto non esiste piu' il risultato e' considerato riuscito. Prima della
-  cancellazione i `NotifyRequest` dei due pannelli vengono sospesi e riattivati dopo.
-- Operazioni massive (cancella, copia, sposta, duplica): barra di progressione
-  con Pausa/Continua; il pulsante Cancel o la chiusura della finestra interrompono
-  l'operazione (`gProgCancel`). Usa `slider.gadget` come barra principale,
-  `fuelgauge.gadget` come alternativa e, se mancano entrambi, un gadget di testo
-  con percentuale; la finestra si apre sullo screen pubblico predefinito e viene
-  portata in primo piano.
-- Preferenze: `ENVARC:VagaFileManager.prefs`
-  - globali: `Width`, `Height`, `Split`
-  - per path: sezioni `[Path]` con `Path`, `View`, `Filter`, `Sort`, `ShowInfo`
-  - caricamento all’avvio; salvataggio all’uscita e prima di “Nuova”
-  - impostazioni di vista per-path; dimensione/split globali (finestra)
-- “Nuova” replica path del pannello attivo (e impostazioni correnti, salvate prima del lancio); `-` = vista radice.
-- Bookmark: `ENVARC:VagaFileManager.bookmarks`; al ripristino le impostazioni del bookmark hanno precedenza sul path.
-- Shell: pulsante AISS `shell` nella toolbar (prima di Dividi) e voce menu Edit → Shell.
-  Apre `C:NewShell WINDOW "CON:x/y/w/h/title/CLOSE"` con `SYS_CurrentDir` sul path del pannello attivo;
-  finestra circa 2/3 x 3/5 dello schermo, centrata (min 640x400).
-- Locale: `locale.library` viene aperta esplicitamente (`gLocale`), senza dipendere dal global `ILocale`.
-- Filtro rapido in fondo a ogni pannello: label `MSG_FILTER` + string.gadget,
-  sotto la lista e sopra la barra di stato Selezione/Elementi.
-  Filtra in tempo reale (IDCMP_IDCMPUPDATE) e accetta wildcard Amiga (`#?`, `?`, `[]`, `~`)
-  oltre a `*` e `?`; `*` viene tradotto in `#?` prima di `ParsePatternNoCase`.
-  Senza wildcard è una ricerca "contiene". Il testo del filtro non è salvato nelle preferenze.
-- Python plugin: il path del pannello attivo viene passato come `argv[2]` al lancio;
-  `Find.py` usa quello e, come fallback, `PATH` via ARexx.
-  `SEARCHPATH` resta disponibile per altri script (cassetto/volume selezionato o path corrente).
-
-## Comandi ARexx utili
-`PATH`, `SEARCHPATH`, `ASK <prompt>`, `REVEAL <path>`, `CD`, `OPEN`, `UP`, `FORWARD`, `REFRESH`,
-`ENTRIES`, `SELECTED`, `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `SIZE`,
-`VIEW ICONS|ALLFILES`, `SORT TYPE|NAME|DATE|SIZE`, `MODE ICONS|DETAILS`, `SPLIT`, `NEW`,
-`SCRIPT <file>`, `FIND`, `GREP`, `QUIT`, `VERSION`.
-
-## API/note OS4
-- `ObtainDirContextTags`/`ExamineDir` (non usare Examine/ExNext obsoleti).
-- Lock: `SHARED_LOCK`/`EXCLUSIVE_LOCK` (non `ACCESS_READ`).
-- Menu: `intuition/menuclass.h`, `MM_NEWMENU`, `MM_NEXTSELECT`, `WINDOW_MenuStrip`.
-- Requester stringa: `PromptString()` interna (window.class + string.gadget).
-- Python OS4: moduli `arexx`, `asl`, `amiga`; eseguibile `C:Python`.
-
-## Stato attuale (ultime modifiche)
-- Menu con icone AISS; segnalibri a 1 carattere corretti.
-- `Find.py` in inglese, riceve il path della finestra come argomento (fallback `PATH`), porta ARexx per istanza.
-- Preferenze per-path con sezioni `[Path]`; window size/split globali.
-- “Nuova” passa il path e salva prima le impostazioni.
-- Vista icone/lista aggiornata anche nel gadget durante `LoadPath`.
-- Menu Edit: Nuovo (Cassetto/File testo) e comandi di selezione.
-- Drop verso Shell/file requester tramite input sintetico (attivazione finestra + `IND_WRITEEVENT`).
-- Commodity WB2 con `$VER` 1.0 e versione nella descrizione.
-
-## Caveat / possibili TODO
-- `menuclass` richiede OS4.1 Final Edition; se manca, il menu può non apparire (manca fallback GadTools).
-- Preferenze con più istanze: l’ultima chiusura sovrascrive il file (last-close-wins).
-- Il path del secondo pannello non viene salvato; al ripristino split usa il path del pannello 0.
-- Se serve dimensione/split per-path, va esteso il formato `[Path]`.
-- Il drag&drop in uscita verso Workbench/VFM e' gestito direttamente (copia/move).
-  Verso Shell e file requester usa l'attivazione della finestra di destinazione + input sintetico
-  (`keymap.library/MapANSI` + `input.device/IND_WRITEEVENT`, con due Shift
-  iniziali “di cortesia” per non perdere il primo carattere). Le finestre Shell
-  vengono riconosciute dal task (`Shell Process`, `con-handler`, `CON`) o
-  dall'assenza di gadget/title; le finestre Workbench (task `Workbench`) sono escluse.
-  Non e' un drag
-  Workbench nativo (non esiste API pubblica): inserisce il percorso come testo
-  nel gadget attivo (per la Shell tutti i percorsi, quotati; per i requester il primo).
-- In ingresso VagaFileManager ha `WINDOW_AppWindow, TRUE`: riceve già drop
-  `AMTYPE_APPWINDOW` da Workbench/FileRequest/altre app tramite `HandleAppDrop`.
-- Vecchie chiavi `Pane0*`/`Pane1*` nel prefs vengono ignorate (tranne Width/Height/Split).
-- `VagaFileManager_strings.h` contiene `CatCompBlock` con tutti gli ID: aggiungendo stringhe al `.cd`
-  va rigenerato (ora `make` esegue `catalogs` prima della compilazione). Un ID mancante nel block
-  fa crashare `GetString` (successo con Shell).
+## Architettura
+- Stato per pannello `gPanes[2]` + `gActivePane`; macro `gPathBuffer`, `gIcons`, ...
+- Split: `LM_ADDCHILD`/`LM_REMOVECHILD` + `WM_RETHINK`; ID pannello 2 + `PANE_ID_OFFSET` (1000).
+- Menu `menuclass` (OS4.1 FE) con icone AISS 20×20 e `MA_Key` esplicite.
+- Vista icone: `.info` nascosti; filtro "solo icone" per cartella (se esiste almeno un `.info`).
+  Vista lista: mostra tutto; `.info` solo con "Mostra file info".
+- Copia/move/rename: il `.info` segue sempre l'oggetto.
+- Conflitti copia: Sovrascrivi / tutti, Aggiorna / tutti, Rinomina, Salta.
+- Cancellazione DOpus-style: Delete diretto, poi `DeleteDirectoryContents` con
+  `EX_DoCurrentDir`; azzera i bit di protezione, ritenta, sospende le notify.
+- Drag&drop: stesso device → move, altri → copy; supporta più selezione.
+- Apri (pulsante/menu) su cassetto/volume → nuova istanza VFM centrata sul mouse
+  (+24,+24); doppio clic naviga. Anche "Nuova finestra".
+- "Calcola dimensione": barra indeterminata (blocco scorrevole + contatori),
+  un solo passaggio; Cancel/Pausa.
+- Geometria finestra per volume (size + posizione): sezioni `[Volume]` nel prefs
+  (`Name`, `Width`, `Height`, `Left`, `Top`, `HasPos`). Chiave = volume del path
+  iniziale dell'istanza; navigare non cambia la geometria. Al salvataggio il file
+  viene riletto e fuso, così più istanze non si sovrascrivono.
+- Preferenze `ENVARC:VagaFileManager.prefs`: globali `Width/Height/Split`;
+  `[Volume]`; `[Path]` con `Path/View/Filter/Sort/ShowInfo`.
+  Il path del secondo pannello non è salvato (lo split riparte dal pannello 0).
+- Bookmark `ENVARC:VagaFileManager.bookmarks`.
+- Filtro rapido in fondo a ogni pannello: wildcard Amiga (`#?`, `?`, `[]`, `~`, `*`),
+  ricerca "contiene" senza wildcard; non salvato.
+- Shell: `C:NewShell` sul path attivo, finestra ~2/3×3/5 centrata.
 - Log: `T:VagaFileManager.log`, `T:WB2VagaFileManager.log`.
 
+## Plugin / ARexx
+- Porta pubblica `VAGAFILEMANAGER`; con più istanze `VAGAFILEMANAGER.<task>`.
+- I plugin stanno in `PROGDIR:Plugins`; menu Script → Refresh.
+  `PROGDIR:` viene risolto in assoluto prima del lancio:
+  - `.py` → `C:Python "<script>" "<porta>" "<path pannello>"`
+  - `.rexx` → `C:RX "<script>"`
+- Il Python OS4 standard espone solo `amiga`, `arexx`, `asl`, `catalog`, `icon`,
+  `installer`: **niente BOOPSI/ReAction diretto**.
+- Per l'interfaccia grafica VFM espone il comando `DIALOG` (finestra Reaction:
+  label, string gadget, max 4 pulsanti):
+  `DIALOG <title>|<prompt>|<default>|<buttons>` → `<index>|<text>`.
+  Implementato da `PromptDialog()` in `Dialogs.c`.
+- `ARexxDemo.py`: esempio puro Python con interfaccia Reaction via `DIALOG`;
+  usa `arexx.dorexx` e i comandi PATH/ENTRIES/SELECTED.
+- Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
+  `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
+  `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,
+  `SIZE`, `VIEW`, `SORT`, `MODE`, `SCRIPT`.
+
+## API OS4
+- `ObtainDirContextTags`/`ExamineDir` (non `Examine`/`ExNext`).
+- Lock `SHARED_LOCK`/`EXCLUSIVE_LOCK` (non `ACCESS_READ`).
+- `PromptString`/`PromptDialog` = `window.class` + gadget ReAction.
+- `CreateDirUnlocked` per non tenere lock aperti (evita `ERROR_OBJECT_IN_USE`).
+- Menu: `intuition/menuclass.h`, `MM_NEWMENU`, `MM_NEXTSELECT`, `WINDOW_MenuStrip`.
+
+## Caveat / TODO
+- `menuclass` richiede OS4.1 Final Edition (nessun fallback GadTools).
+- `MAX_ENTRIES` 1024: directory più grandi troncate senza avviso.
+- Il path del secondo pannello non è salvato.
+- Drag verso Shell/requester = input sintetico (non drag Workbench nativo).
+- `IsVFMWindow` usa nome task + magic in `UserData`.
+- Preferenze: il merge è best-effort (due istanze che chiudono nello stesso
+  istante possono ancora sovrascriversi).
+
 ## Test rapido
-1. `make`.
-2. Menu: icone presenti, check/ghost, segnalibro “S” corretto.
-3. Vista lista + “Mostra file info”: compaiono `.info`; vista icone: nascosti.
-4. Sposta/rinomina file con `.info`.
-5. Multiselezione: lazo da sfondo/label, Shift/Ctrl+click, drag da icona selezionata.
-6. `Find.py`: entra in un cassetto (senza selezionare nulla); requester nome; reveal.
-7. Shell: icona prima di Dividi e menu Edit → Shell; deve aprirsi sul path del pannello,
-   in una finestra rettangolare centrata (circa 2/3 x 3/5 dello schermo) con gadget di chiusura.
-8. Filtro in basso (sopra la barra Selezione/Elementi): scrivere `*.info`, `#?.jpg`, `?a*`;
-   la lista deve aggiornarsi mentre si scrive.
-9. Cancellazione: selezionare un cassetto vuoto e usare Delete; deve sparire senza errori.
-   Con un cassetto pieno: niente errore "potrebbe non essere vuoto"; barra di progressione.
-10. Barra di progressione su copia/sposta/duplica/cancella massivi: chiudendola
-   l'operazione si interrompe.
-11. Drop da FileRequest/Shell/altra app sopra la finestra: deve comparire la scelta Copia/Sposta.
-12. Naviga A/B con viste diverse; torna indietro; chiudi/riapri; “Nuova”.
-13. `WB2VagaFileManager.info`: Info mostra il ToolType `DONOTWAIT`.
-14. Edit → Nuovo → Cassetto/File testo: crea l'elemento e aggiorna la lista.
-15. Edit → Seleziona tutto / Inverti selezione / Annulla selezione.
-16. Drag su una Shell: inserisce i percorsi quotati; su un file requester: il primo percorso.
-17. Commodity WB2: Exchange/Exchanger mostra il nome con versione `$VER`.
+1. `make`; apri VFM su due volumi: geometrie separate.
+2. Apri un cassetto col pulsante/menu Apri: nuova istanza centrata sul mouse.
+3. Naviga: la finestra non cambia dimensione.
+4. Calcola dimensione: barra animata, Cancel/Pausa.
+5. Copia/sposta/duplica/cancella: progress, conflitti, `.info` segue.
+6. Viste icone/lista, filtro rapido, `.info`.
+7. Plugin → ARexxDemo: dialoghi Reaction e risposte ARexx.
+8. `Find.py`: cerca e rivela.
+9. WB2: ToolType `DONOTWAIT`, Exchange mostra la versione.

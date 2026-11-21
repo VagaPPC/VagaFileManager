@@ -370,6 +370,145 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
     return ok;
 }
 
+/* Dialogo Reaction generico per gli addon (comando ARexx DIALOG).
+   Campi: titolo, prompt, testo iniziale, pulsanti separati da '|'
+   (massimo 4).  Ritorna l'indice del pulsante (1..n) e lascia in buf
+   il testo inserito; 0 se la finestra viene chiusa. */
+#define GID_DLG_STR 2000
+#define GID_DLG_BTN 2001
+
+LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
+                  STRPTR buf, ULONG bufSize, CONST_STRPTR buttons)
+{
+    Object *winObj = NULL, *strGad = NULL, *labelGad = NULL, *btnRow = NULL;
+    Object *btn[4] = { NULL, NULL, NULL, NULL };
+    struct TagItem rowTags[16];
+    struct Window *win = NULL;
+    BOOL done = FALSE;
+    LONG result = 0, nButtons = 0, i;
+    ULONG sig = 0;
+    char labels[4][64];
+    CONST_STRPTR p = buttons;
+
+    if (!buf || bufSize == 0) return 0;
+    buf[0] = '\0';
+
+    /* Dividi i pulsanti; i campi vuoti valgono "OK". */
+    while (p && *p && nButtons < 4)
+    {
+        CONST_STRPTR sep = strchr(p, '|');
+        ULONG n = sep ? (ULONG)(sep - p) : (ULONG)strlen(p);
+        if (n >= sizeof(labels[0])) n = sizeof(labels[0]) - 1;
+        memcpy(labels[nButtons], p, n);
+        labels[nButtons][n] = '\0';
+        if (!labels[nButtons][0])
+            strncpy(labels[nButtons], "OK", sizeof(labels[0]) - 1);
+        labels[nButtons][sizeof(labels[0]) - 1] = '\0';
+        nButtons++;
+        p = sep ? sep + 1 : NULL;
+    }
+    if (nButtons == 0)
+    {
+        strncpy(labels[0], "OK", sizeof(labels[0]) - 1);
+        labels[0][sizeof(labels[0]) - 1] = '\0';
+        nButtons = 1;
+    }
+
+    strGad = IIntuition->NewObject(NULL, "string.gadget",
+        GA_ID, GID_DLG_STR, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
+        STRINGA_MaxChars, bufSize - 1,
+        STRINGA_TextVal, (ULONG)buf, STRINGA_Buffer, (ULONG)buf, TAG_DONE);
+
+    labelGad = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ReadOnly, TRUE,
+        GA_Text, (ULONG)((prompt && prompt[0]) ? prompt : ""),
+        BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
+        TAG_DONE);
+
+    for (i = 0; i < nButtons; i++)
+    {
+        btn[i] = IIntuition->NewObject(NULL, "button.gadget",
+            GA_ID, (ULONG)(GID_DLG_BTN + i), GA_RelVerify, TRUE,
+            GA_Text, (ULONG)labels[i], TAG_DONE);
+    }
+
+    /* Riga dei pulsanti costruita dinamicamente: solo quelli presenti. */
+    {
+        int n = 0;
+        rowTags[n].ti_Tag = LAYOUT_Orientation; rowTags[n++].ti_Data = LAYOUT_ORIENT_HORIZ;
+        rowTags[n].ti_Tag = LAYOUT_EvenSize;    rowTags[n++].ti_Data = TRUE;
+        for (i = 0; i < nButtons; i++)
+        {
+            rowTags[n].ti_Tag = LAYOUT_AddChild;     rowTags[n++].ti_Data = (ULONG)btn[i];
+            rowTags[n].ti_Tag = CHILD_WeightedWidth; rowTags[n++].ti_Data = 0;
+        }
+        rowTags[n].ti_Tag = TAG_DONE; rowTags[n++].ti_Data = 0;
+        btnRow = IIntuition->NewObjectA(NULL, "layout.gadget", rowTags);
+    }
+
+    winObj = IIntuition->NewObject(NULL, "window.class",
+        WA_Title, (ULONG)((title && title[0]) ? title : LS(MSG_APP_TITLE)),
+        WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
+        WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
+        WA_InnerWidth, 480, WA_InnerHeight, 140,
+        WINDOW_Position, WPOS_CENTERSCREEN,
+        WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
+            LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
+            LAYOUT_AddChild, (ULONG)labelGad, CHILD_WeightedHeight, 0,
+            LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
+            LAYOUT_AddChild, (ULONG)btnRow, CHILD_WeightedHeight, 0,
+            TAG_DONE),
+        TAG_DONE);
+
+    if (winObj)
+    {
+        win = (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN);
+        if (win)
+        {
+            IIntuition->GetAttr(WINDOW_SigMask, winObj, &sig);
+            while (!done)
+            {
+                ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
+                if (wait & SIGBREAKF_CTRL_C) { done = TRUE; result = 0; }
+                if (wait & sig)
+                {
+                    ULONG res; WORD code = 0;
+                    while ((res = IIntuition->IDoMethod(winObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
+                    {
+                        switch (res & WMHI_CLASSMASK)
+                        {
+                            case WMHI_CLOSEWINDOW:
+                                done = TRUE; result = 0; win = NULL; break;
+                            case WMHI_GADGETUP:
+                            {
+                                ULONG id = res & WMHI_GADGETMASK;
+                                STRPTR t = NULL;
+                                IIntuition->GetAttr(STRINGA_TextVal, strGad, (ULONG *)&t);
+                                if (t)
+                                {
+                                    strncpy(buf, t, bufSize - 1);
+                                    buf[bufSize - 1] = '\0';
+                                }
+                                if (id == GID_DLG_STR)
+                                    result = 1;  /* Invio = primo pulsante */
+                                else if (id >= GID_DLG_BTN && id < GID_DLG_BTN + (ULONG)nButtons)
+                                    result = (LONG)(id - GID_DLG_BTN) + 1;
+                                else
+                                    result = 0;
+                                done = TRUE;
+                                break;
+                            }
+                            default: break;
+                        }
+                    }
+                }
+            }
+        }
+        IIntuition->DisposeObject(winObj);
+    }
+    return result;
+}
+
 void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count)
 {
     Object *winObj = NULL, *listGad = NULL;

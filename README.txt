@@ -52,7 +52,7 @@ Distribution folder (VMF/):
     WB2VagaFileManager, WB2VagaFileManager.info
     icons/            (toolbar and menu PNGs)
     Catalogs/<lang>/VagaFileManager.catalog
-    Plugins/Find.py   (example ARexx/Python plugin)
+    Plugins/          (example ARexx/Python plugins)
   Note: VMF/ is deleted and regenerated on every build.
   The drawer icon for VMF/ is VMF.info, stored next to the folder:
   copy both VMF/ and VMF.info to the target directory.
@@ -84,6 +84,15 @@ Views:
   the text height.
 - Clicking a column title (Name/Type/Size/Date) sorts by that column
   (click again to reverse).
+
+Python / ARexx addons:
+- Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
+- VFM passes the ARexx port and the active path to Python addons
+  (C:Python "<script>" "<port>" "<path>").
+- The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
+  Reaction interface, use the ARexx DIALOG command:
+    DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
+  See Plugins/ARexxDemo.py for a complete, commented example.
 
 Localization:
 - Built-in language: english (fallback)

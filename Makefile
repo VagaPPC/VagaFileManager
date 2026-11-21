@@ -72,7 +72,8 @@ dist: catalogs $(PROG) $(WB2)
 	Copy Catalogs/german/VagaFileManager.catalog $(DIST)/Catalogs/german
 	Copy Catalogs/polish/VagaFileManager.catalog $(DIST)/Catalogs/polish
 	Copy Catalogs/spanish/VagaFileManager.catalog $(DIST)/Catalogs/spanish
-	Copy Plugins/Find.py $(DIST)/Plugins
+	Copy Plugins/#?.py $(DIST)/Plugins
+	-Copy Plugins/#?.rexx $(DIST)/Plugins
 	Copy LICENSE $(DIST)
 
 clean:
