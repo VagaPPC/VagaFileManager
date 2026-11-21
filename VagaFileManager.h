@@ -501,6 +501,7 @@ void ProgressUpdate(void);
 void ProgressSetBytes(uint64 total);
 void ProgressPoll(void);
 void ProgressAdvance(void);
+void ProgressSetIndeterminate(BOOL on);
 void ProgressOpen(struct Window *win, ULONG total);
 void ProgressClose(void);
 void FreeProgressBarClass(void);

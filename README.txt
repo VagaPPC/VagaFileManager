@@ -24,6 +24,7 @@ Features
 - Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
 - Per-Volume Window Geometry: window size and position are remembered separately for each volume a window is opened on; navigating does not change them.
 - Open in a New Window: the Open button/menu opens a selected drawer (or volume) in a new VFM instance, centered on the mouse with a small offset; double-click navigates in the current window.
+- Size Calculation: recursive drawer/volume size with an animated activity bar (single pass, cancel and pause supported).
 - Favorite Paths: Bookmark and quickly jump to your most-used directories.
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
 - Quick Filter: Instant filtering with wildcard and regex support.

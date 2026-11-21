@@ -1317,6 +1317,11 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
 
 /* ===== Calcolo dimensioni cartelle/volumi ===== */
 
+/* La barra e' in modalita' indeterminata: avanza di un oggetto per
+   volta e ridisegna ogni 8 oggetti. */
+static BOOL  gSizeProgress = FALSE;
+static ULONG gSizeStep = 0;
+
 static BOOL CalcSizeRec(CONST_STRPTR path, ULONG depth, int64 *bytes, int64 *files, int64 *dirs)
 {
     APTR ctx;
@@ -1331,6 +1336,16 @@ static BOOL CalcSizeRec(CONST_STRPTR path, ULONG depth, int64 *bytes, int64 *fil
 
     while ((ed = IDOS->ExamineDir(ctx)) != NULL)
     {
+        if (gSizeProgress)
+        {
+            if (gProgCancel) break;
+            gProgDone++;
+            if ((++gSizeStep & 0x07) == 0)
+            {
+                ProgressUpdate();
+                ProgressPoll();
+            }
+        }
         if (EXD_IS_DIRECTORY(ed))
         {
             char sub[PATH_MAX_LEN];
@@ -1344,6 +1359,7 @@ static BOOL CalcSizeRec(CONST_STRPTR path, ULONG depth, int64 *bytes, int64 *fil
         {
             (*files)++;
             *bytes += ed->FileSize;
+            if (gSizeProgress) gProgBytesDone += (uint64)ed->FileSize;
         }
     }
     IDOS->ReleaseDirContext(ctx);
@@ -1389,13 +1405,42 @@ void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct
 {
     struct Node *n;
     int64 total = 0, files = 0, dirs = 0;
-    BOOL any = FALSE;
+    BOOL any = FALSE, foundDir = FALSE, canceled = FALSE;
     char sizeStr[64], msg[512];
     CONST_STRPTR title = LS(MSG_SIZE_TITLE);
 
-    (void)listGad; (void)pathGad; (void)statusGad; (void)win;
+    (void)listGad; (void)pathGad; (void)statusGad;
 
     if (!list) return;
+
+    /* Controlla subito se c'e' almeno una directory selezionata. */
+    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES;
+
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
+        if (!sel) continue;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index, TAG_DONE);
+        if (index < (ULONG)gEntryCount && gIsDir[index])
+        {
+            foundDir = TRUE;
+            break;
+        }
+    }
+
+    if (!foundDir)
+    {
+        ShowMessage(title, LS(MSG_SIZE_SELECT_DIR));
+        return;
+    }
+
+    /* Un solo passaggio: niente conteggio preliminare.  La barra e'
+       indeterminata (blocco scorrevole + contatori), cosi' si vede subito
+       che il programma sta lavorando. */
+    ProgressOpen(win, 1);
+    ProgressSetIndeterminate(TRUE);
+    gSizeProgress = TRUE;
+    gSizeStep = 0;
 
     for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
@@ -1403,6 +1448,7 @@ void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct
         STRPTR name = NULL;
         char full[PATH_MAX_LEN];
 
+        if (gProgCancel) { canceled = TRUE; break; }
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
         if (!sel) continue;
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
@@ -1426,8 +1472,19 @@ void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct
                 any = TRUE;
             }
         }
+        if (gProgCancel) canceled = TRUE;
     }
 
+    gSizeProgress = FALSE;
+    if (!canceled)
+    {
+        ProgressUpdate();
+        ProgressPoll();
+        if (gProgCancel) canceled = TRUE;
+    }
+    ProgressClose();
+
+    if (canceled) return;
     if (!any)
     {
         ShowMessage(title, LS(MSG_SIZE_SELECT_DIR));

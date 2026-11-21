@@ -50,6 +50,9 @@ make dist       # solo la cartella di distribuzione VMF/
   istanza** di VFM su quel percorso, centrata sul mouse con offset
   (+24,+24).  Anche "Nuova finestra" usa lo stesso comportamento.
   Il doppio clic invece naviga nella finestra corrente.
+- "Calcola dimensione": barra indeterminata (blocco scorrevole) con
+  conteggio file/byte aggiornato ogni 8 oggetti.  Nessun conteggio
+  preliminare: un solo passaggio.  Cancel e Pausa funzionano.
 - Geometria finestra (dimensione + posizione) per volume: sezione `[Volume]`
   nel file prefs (`Name`, `Width`, `Height`, `Left`, `Top`, `HasPos`).
   La chiave e' il volume del percorso iniziale dell'istanza (es. `Workbench`,

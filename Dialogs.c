@@ -28,11 +28,12 @@
 
 /* ===== Gadget progress bar personalizzato ===== */
 
-#define PB_Dummy   (TAG_USER + 0x50420000)
-#define PB_Level   (PB_Dummy + 1)
-#define PB_Max     (PB_Dummy + 2)
+#define PB_Dummy        (TAG_USER + 0x50420000)
+#define PB_Level        (PB_Dummy + 1)
+#define PB_Max          (PB_Dummy + 2)
+#define PB_Indeterminate (PB_Dummy + 3)
 
-typedef struct { ULONG level, max; } PBData;
+typedef struct { ULONG level, max; BOOL indeterminate; } PBData;
 
 static Class *gProgressBarClass = NULL;
 
@@ -55,12 +56,33 @@ static void PB_Render(PBData *d, Object *o, struct GadgetInfo *gi, struct RastPo
     IGraphics->SetAPen(rp, dri->dri_Pens[BACKGROUNDPEN]);
     IGraphics->RectFill(rp, x0 + 2, y0 + 2, x1 - 2, y1 - 2);
 
-    /* riempimento */
-    fill = (d->max > 0) ? (int32)((int64)d->level * (x1 - x0 - 3) / d->max) : 0;
-    if (fill > 0)
+    /* riempimento / animazione */
+    if (d->indeterminate)
     {
-        IGraphics->SetAPen(rp, dri->dri_Pens[FILLPEN]);
-        IGraphics->RectFill(rp, x0 + 2, y0 + 2, x0 + 2 + fill - 1, y1 - 2);
+        int32 span = x1 - x0 - 3;
+        int32 block = span / 4;
+        int32 pos, sx, ex;
+
+        if (block < 8) block = 8;
+        pos = (int32)(d->level % (ULONG)(span + block));
+        sx = x0 + 2 + pos - block;
+        ex = sx + block - 1;
+        if (sx < x0 + 2) sx = x0 + 2;
+        if (ex > x1 - 2) ex = x1 - 2;
+        if (ex >= sx)
+        {
+            IGraphics->SetAPen(rp, dri->dri_Pens[FILLPEN]);
+            IGraphics->RectFill(rp, sx, y0 + 2, ex, y1 - 2);
+        }
+    }
+    else
+    {
+        fill = (d->max > 0) ? (int32)((int64)d->level * (x1 - x0 - 3) / d->max) : 0;
+        if (fill > 0)
+        {
+            IGraphics->SetAPen(rp, dri->dri_Pens[FILLPEN]);
+            IGraphics->RectFill(rp, x0 + 2, y0 + 2, x0 + 2 + fill - 1, y1 - 2);
+        }
     }
 }
 
@@ -86,6 +108,7 @@ static uint32 PB_Dispatch(Class *cl, Object *o, Msg msg)
             {
                 if (tag->ti_Tag == PB_Level) d->level = (ULONG)tag->ti_Data;
                 else if (tag->ti_Tag == PB_Max) d->max = (ULONG)tag->ti_Data;
+                else if (tag->ti_Tag == PB_Indeterminate) d->indeterminate = tag->ti_Data ? TRUE : FALSE;
             }
         }
         return result;
@@ -103,6 +126,7 @@ static uint32 PB_Dispatch(Class *cl, Object *o, Msg msg)
         {
             if (tag->ti_Tag == PB_Level) d->level = (ULONG)tag->ti_Data;
             else if (tag->ti_Tag == PB_Max) d->max = (ULONG)tag->ti_Data;
+            else if (tag->ti_Tag == PB_Indeterminate) d->indeterminate = tag->ti_Data ? TRUE : FALSE;
         }
         if (ops->ops_GInfo)
         {
@@ -419,6 +443,8 @@ static Object *gProgTextGad = NULL;
 static Object *gProgBar = NULL;
 static Object *gProgInfoGad = NULL;
 static ULONG gProgTotal = 0;
+static BOOL gProgIndeterminate = FALSE;
+static ULONG gProgPhase = 0;
 
 /* ===== Finestra di avanzamento ===== */
 
@@ -437,7 +463,19 @@ static void FormatBytes(uint64 n, STRPTR buf, ULONG size)
 /* Compone la riga informativa mostrata sotto la progress bar. */
 static void BuildProgInfo(STRPTR buf, ULONG size)
 {
-    ULONG pct = gProgTotal ? (ULONG)(((uint64)gProgDone * 100) / gProgTotal) : 0;
+    ULONG pct;
+
+    if (gProgIndeterminate)
+    {
+        static const char *dots[4] = { "", ".", "..", "..." };
+        char a[32];
+        FormatBytes(gProgBytesDone, a, sizeof(a));
+        snprintf(buf, size, "%lu file   %s %s",
+                 (unsigned long)gProgDone, a, dots[gProgPhase & 3]);
+        return;
+    }
+
+    pct = gProgTotal ? (ULONG)(((uint64)gProgDone * 100) / gProgTotal) : 0;
 
     if (gProgBytesTotal)
     {
@@ -472,8 +510,9 @@ void ProgressUpdate(void)
     if (!gProgWin) return;
     if (gProgBar)
     {
+        ULONG level = gProgIndeterminate ? gProgPhase : gProgDone;
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
-            PB_Level, gProgDone, TAG_DONE);
+            PB_Level, level, TAG_DONE);
         IIntuition->RefreshGList((struct Gadget *)gProgBar, gProgWin, NULL, 1);
     }
     BuildProgInfo(infoText, sizeof(infoText));
@@ -487,6 +526,7 @@ void ProgressUpdate(void)
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgTextGad, gProgWin, NULL,
             GA_Text, (ULONG)infoText, TAG_DONE);
     }
+    if (gProgIndeterminate) gProgPhase++;
 }
 
 void ProgressPoll(void)
@@ -559,9 +599,22 @@ void ProgressPoll(void)
 void ProgressAdvance(void)
 {
     if (!gProgActive) return;
-    gProgDone++;
+    if (gProgDone < gProgTotal) gProgDone++;
     ProgressUpdate();
     ProgressPoll();
+}
+
+/* Attiva/disattiva la modalita' indeterminata: la barra mostra un blocco
+   che scorre, senza percentuale.  Usata dal calcolo dimensioni, dove il
+   totale non e' noto in anticipo. */
+void ProgressSetIndeterminate(BOOL on)
+{
+    gProgIndeterminate = on;
+    gProgPhase = 0;
+    if (gProgBar)
+        IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
+            PB_Indeterminate, on, PB_Max, on ? 1 : gProgTotal, PB_Level, 0, TAG_DONE);
+    ProgressUpdate();
 }
 
 /* Apre la finestra di avanzamento con il numero totale di elementi. */
@@ -578,6 +631,8 @@ void ProgressOpen(struct Window *win, ULONG total)
     gProgTotal = (total > 0 ? total : 1);
     gProgBytesDone = 0;
     gProgBytesTotal = 0;
+    gProgIndeterminate = FALSE;
+    gProgPhase = 0;
 
     /* Barra di progresso vera (gadget custom); fallback di solo testo. */
     gProgBar = IIntuition->NewObject(MakeProgressBarClass(), NULL,
@@ -639,6 +694,7 @@ void ProgressClose(void)
     gProgWin = NULL; gProgPauseBtn = NULL;
     gProgBar = NULL; gProgTextGad = NULL; gProgInfoGad = NULL; gProgTotal = 0;
     gProgBytesDone = 0; gProgBytesTotal = 0;
+    gProgIndeterminate = FALSE; gProgPhase = 0;
     gProgActive = FALSE; gProgCancel = FALSE; gProgPause = FALSE;
 }
 
