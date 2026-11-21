@@ -104,9 +104,11 @@ Python / ARexx addons:
   VFM writes "<index>|<typed-text>" to the result file; 0 = cancelled.
   <buttons> accepts up to six labels separated by '|'.
   See Plugins/ARexxDemo.py for a complete, commented example: it uses the
-  file-based dialog for the Reaction window and still sends ARexx commands
-  (the stock Python 2.5 arexx module may return an empty reply).  It writes
-  diagnostics to T:ARexxDemo.log.
+  file-based dialog for the Reaction window and sends ARexx commands with
+  a generated script run by C:RX (the stock Python 2.5 arexx module may
+  return an empty reply).  The script and its output are
+  T:VFM_ARexxDemo.cmd and T:VFM_ARexxDemo.out; diagnostics are in
+  T:ARexxDemo.log.
 - If no window appears, run it once from a Shell to see Python errors:
     C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
   and check T:ARexxDemo.log.

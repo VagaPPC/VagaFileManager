@@ -75,10 +75,11 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
     di quoting).  Scrive `<index>|<testo>` nel file risultato; non apre la
     finestra principale né la porta ARexx.
 - `ARexxDemo.py`: esempio puro Python con finestra Reaction via `--dialog`
-  su file; usa `arexx.dorexx` per inviare comandi e PATH/ENTRIES/SELECTED.
-  Se `arexx` non restituisce il risultato (Python 2.5.6), mostra il path di
-  lancio o `os.listdir()`.  Log diagnostico in `T:ARexxDemo.log`; se il
-  dialogo fallisce mostra un messaggio ASL.
+  su file; invia i comandi con `C:RX` e uno script generato
+  (`T:VFM_ARexxDemo.cmd` → `T:VFM_ARexxDemo.out`), non con `arexx.dorexx`
+  (che su Python 2.5.6 restituisce risultato vuoto).  Se il risultato manca,
+  mostra il path di lancio o `os.listdir()`.  Log diagnostico in
+  `T:ARexxDemo.log`; se il dialogo fallisce mostra un messaggio ASL.
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
   `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
   `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,
