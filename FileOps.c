@@ -330,6 +330,13 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
         }
         if (!CopyEntryRecursive(s, d)) ok = FALSE;
     }
+    /* The loop ends on cancel, at the end of the listing or on a read
+       error: only the end of the listing means "everything was copied".
+       Otherwise a move would also delete the entries never copied. */
+    if (gProgCancel)
+        ok = FALSE;
+    else if (IDOS->IoErr() != ERROR_NO_MORE_ENTRIES)
+        ok = FALSE;
     IDOS->ReleaseDirContext(ctx);
     CopyAttributes(src, dst);
     return ok;
@@ -809,6 +816,10 @@ BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
     if (CopyEntryRecursive(src, dst))
     {
         CONST_STRPTR finalDst = gCopyResolvedDst[0] ? gCopyResolvedDst : dst;
+
+        /* operation cancelled: the copy may be partial, the source must
+           never be deleted */
+        if (gProgCancel) return FALSE;
 
         /* se qualcosa e' stato saltato (conflitto), non eliminare il
            sorgente: resterebbe incompleto */
