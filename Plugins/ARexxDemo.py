@@ -219,7 +219,9 @@ def send(command):
         pass
 
     try:
-        f = open(RXSCRIPT, 'w')
+        # Binary mode forces LF even if Python's text mode would write
+        # CRLF: "address HOST\r" is not a valid ARexx host name.
+        f = open(RXSCRIPT, 'wb')
         f.write('address ' + PORT + '\n')
         f.write(arexx_quote(command) + '\n')
         f.write("say 'RC='rc\n")
