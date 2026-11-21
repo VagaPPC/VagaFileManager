@@ -49,7 +49,9 @@
 # ---------------
 #   Every startup and every error is appended to T:ARexxDemo.log.
 #   If no window appears, check that log first: it tells whether the
-#   arexx module was imported and whether the VFM DIALOG command worked.
+#   arexx module was imported, which VFM version answered (it must be
+#   "1.0 build 1" or newer, otherwise DIALOG is missing) and whether
+#   the DIALOG command worked.
 # ---------------------------------------------------------------------------
 
 import sys
@@ -145,6 +147,11 @@ def main():
         message('The arexx module is not available in this Python.')
         return
 
+    # Ask the VFM instance for its version.  This immediately tells us
+    # whether the ARexx port belongs to an old binary without DIALOG.
+    version = vfm('VERSION') or '(unknown)'
+    log('VFM version: %s' % version)
+
     # Show the launch path once, as a small demonstration of argv[2].
     # The PATH command is used for the first dialog too, so the user
     # always sees the path of the active pane.
@@ -159,8 +166,10 @@ def main():
 
         if reply is None:
             message('Cannot open the Reaction dialog.\n'
-                    'Use a VFM build with the DIALOG command, or check '
-                    'the ARexx port and T:ARexxDemo.log.')
+                    'VFM version: ' + version + '\n'
+                    'Use the latest VMF/VagaFileManager (About must show '
+                    'build 1), close all other VFM instances and check '
+                    'T:VagaFileManager.log.')
             return
 
         idx, text = reply
