@@ -1,0 +1,41 @@
+VagaFileManager - 4 correzioni per la build 6 (commit 8d86b64)
+================================================================
+
+Le patch sono generate con "git format-patch" sopra il tuo commit 8d86b64
+("Keep the default text in PromptDialog; bump build to 6") e si applicano
+senza conflitti.
+
+Per applicarle, dalla cartella del repository:
+
+    git checkout -b fix-critici
+    git am 0001-*.patch 0002-*.patch 0003-*.patch 0004-*.patch
+
+Ogni patch diventa un commit separato con la spiegazione nel messaggio, cosi'
+puoi rivederle una per una (git log -p) o scartarne qualcuna.
+Per annullare tutto: git checkout main && git branch -D fix-critici
+
+Contenuto
+---------
+0001  La vista radice non permette piu' di cancellare o copiare volumi
+      (il gadget del percorso aveva lo stesso buffer di gPathBuffer).
+      VagaFileManager.c, DirList.c, FileOps.c
+
+0002  Annullare uno spostamento non cancella piu' il sorgente
+      (CopyDirectoryRecursive restituiva TRUE anche dopo Annulla).
+      FileOps.c
+
+0003  I nomi di file con caratteri di controllo non vengono piu' digitati
+      nella Shell durante il drag&drop (un a capo eseguiva comandi).
+      DragDrop.c
+
+0004  Copiare cartelle profonde non manda piu' in stack overflow
+      (buffer delle funzioni ricorsive sull'heap, limite di 256 livelli;
+      il tuo cookie $STACK:1048576 resta com'e').
+      FileOps.c, VagaFileManager.h
+
+Verificate su AmigaOS 4.1 FE Update 3 (QEMU Pegasos II) con la build 6
+piu' le patch, avviata da Shell:
+- ARexx DELETE in vista radice su un assign: rifiutato, dati intatti
+- Annulla a meta' di uno spostamento di 1500 file: sorgente intatto
+- copia di un albero di 150 livelli: completa, sistema sempre reattivo
+  (con la build 6 senza patch lo stesso test bloccava tutto il sistema)

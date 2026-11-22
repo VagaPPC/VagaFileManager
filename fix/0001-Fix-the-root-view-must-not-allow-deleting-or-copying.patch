@@ -1,0 +1,104 @@
+From fd71485dffbfcbf462ff7652e1f4884b12895d5b Mon Sep 17 00:00:00 2001
+From: Michele Dipace <michele.dipace@kaffeine.net>
+Date: Sat, 21 Nov 2026 16:23:58 +0100
+Subject: [PATCH 1/4] Fix: the root view must not allow deleting or copying
+ whole volumes
+
+The path gadget shared its buffer with gPathBuffer (STRINGA_Buffer): in the
+root view the "(Devices and assigns)" label ended up in gPathBuffer,
+IsRootPath() returned FALSE and ARexx DELETE emptied the selected assign or
+volume without asking. A path typed but not confirmed also changed at once
+the drawer the file operations acted on.
+
+- the path gadget uses a buffer of its own
+- LoadPath works on a copy of the path
+- IsRootPath also recognises the root view label
+- DeleteEntryRecursive refuses volume/assign roots ("Work:")
+- DoTransferToPane (Copy/Move bar) refuses the root view
+---
+ DirList.c         | 14 +++++++++++---
+ FileOps.c         |  9 ++++++++-
+ VagaFileManager.c |  7 ++++++-
+ 3 files changed, 25 insertions(+), 5 deletions(-)
+
+diff --git a/DirList.c b/DirList.c
+index 8466d31..b56ded3 100644
+--- a/DirList.c
++++ b/DirList.c
+@@ -325,7 +325,10 @@ BOOL IsDirectoryPath(CONST_STRPTR path)
+ 
+ BOOL IsRootPath(CONST_STRPTR path)
+ {
+-    return (path == NULL || path[0] == '\0');
++    /* defence in depth: the label shown in the path gadget also means
++       the root view */
++    return (path == NULL || path[0] == '\0' ||
++            strcmp(path, LS(MSG_ROOT_ASSIGNS)) == 0);
+ }
+ 
+ void FreeEntries(struct List *list)
+@@ -778,9 +781,14 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
+    contenuto, barra di stato e notifiche. */
+ void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+ {
+-    CONST_STRPTR usePath = path;
++    char pathCopy[PATH_MAX_LEN];
++    CONST_STRPTR usePath;
+     if (!path || !listGad || !list) return;
+-    if (strcmp(path, LS(MSG_ROOT_ASSIGNS)) == 0) usePath = "";
++    /* path may point to the gadget buffer, which SetPathGadget rewrites:
++       work on a copy */
++    strncpy(pathCopy, path, sizeof(pathCopy) - 1);
++    pathCopy[sizeof(pathCopy) - 1] = '\0';
++    usePath = IsRootPath(pathCopy) ? "" : pathCopy;
+ 
+     /* Se stiamo navigando verso un altro percorso:
+        - se ha impostazioni salvate, hanno la precedenza;
+diff --git a/FileOps.c b/FileOps.c
+index 1b17800..4049afd 100644
+--- a/FileOps.c
++++ b/FileOps.c
+@@ -705,6 +705,8 @@ static BOOL DeleteDirectoryContents(CONST_STRPTR directory, ULONG depth)
+ BOOL DeleteEntryRecursive(CONST_STRPTR src, ULONG depth)
+ {
+     if (!src || !src[0]) return FALSE;
++    /* never delete the root of a volume or an assign ("Work:") */
++    if (src[strlen(src) - 1] == ':') return FALSE;
+     if (gDeleteProgress && gProgCancel) return FALSE;
+ 
+     /* DOpus4: prova SUBITO a cancellare. Delete() agisce direttamente sul
+@@ -1260,7 +1262,12 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
+     uint64 bytes = 0;
+     BOOL anyErr = FALSE, useProgress = FALSE;
+ 
+-    if (!srcList || !srcDir || !dstDir || !srcDir[0] || !dstDir[0]) return;
++    if (!srcList || !srcDir || !dstDir) return;
++    if (IsRootPath(srcDir) || IsRootPath(dstDir))
++    {
++        ShowMessage(LS(MSG_PASTE), LS(MSG_DUPLICATE_ROOT));
++        return;
++    }
+     /* spostare nella stessa cartella non ha senso */
+     if (move && IUtility->Stricmp(srcDir, dstDir) == 0) return;
+ 
+diff --git a/VagaFileManager.c b/VagaFileManager.c
+index 77be384..72719ee 100644
+--- a/VagaFileManager.c
++++ b/VagaFileManager.c
+@@ -666,7 +666,12 @@ static Object *CreatePaneUI(int p)
+     pn->pathGad = IIntuition->NewObject(NULL, "string.gadget",
+         GA_ID, GID_PATH + off, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
+         STRINGA_MaxChars, PATH_MAX_LEN - 1, STRINGA_TextVal, (ULONG)pn->pathBuffer,
+-        STRINGA_Buffer, (ULONG)pn->pathBuffer, TAG_DONE);
++        TAG_DONE);
++    /* No STRINGA_Buffer = pn->pathBuffer: the gadget needs a buffer of its
++       own. Otherwise the root view label, or a path typed but not yet
++       confirmed with Return, would end up in gPathBuffer, and IsRootPath()
++       and every file operation would act on a different path from the one
++       shown in the list. */
+ 
+     pn->statusGad = IIntuition->NewObject(NULL, "button.gadget",
+         GA_ID, GID_STATUS + off, GA_ReadOnly, TRUE, GA_Text, (ULONG)LS(MSG_STATUS_EMPTY),
+-- 
+2.53.0
+
