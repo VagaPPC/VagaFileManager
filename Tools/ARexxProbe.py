@@ -5,7 +5,7 @@
 #
 # Uso, da un Shell, con VFM gia' avviato:
 #
-#   C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VMF/VagaFileManager
+#   C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VFM/VagaFileManager
 #
 # Il secondo argomento e' il percorso dell'eseguibile VFM; serve per il
 # test --findport. Se lo ometti, il test --findport viene saltato.

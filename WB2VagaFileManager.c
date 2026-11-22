@@ -60,7 +60,7 @@
 #define WB2_VERSION "1.0"
 
 static const char wb2_version_tag[] __attribute__((used)) =
-    "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(VFM_BUILD) " (20.11.2026)";
+    "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(VFM_BUILD) " (" VFM_VERSION_DATE ")";
 
 static BOOL gActive = FALSE;
 static char gExePath[PATH_MAX_LEN];

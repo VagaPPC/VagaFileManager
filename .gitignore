@@ -1,4 +1,5 @@
 # Build outputs (make on Amiga, build-vfm.sh on Linux)
+VFM/
 VMF/
 build-cross/
 *.o

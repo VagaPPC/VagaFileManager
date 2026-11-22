@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 8 (21.11.2026)
+Version 1.0 build 9 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -41,26 +41,29 @@ Feedback & Contributions
 Any suggestions, bug reports, ideas, and constructive criticism are very welcome! Feel free to open an Issue or start a Discussion in this repository.
 
 Build (makefile included):
-  make            ; builds the program, all catalogs and the VMF/ folder
-  make dist       ; only (re)build the VMF/ distribution folder
+  make            ; builds the program, all catalogs and the VFM/ folder
+  make dist       ; only (re)build the VFM/ distribution folder
   make catalogs   ; only (re)generate the .catalog files (requires CatComp)
-  make clean      ; remove built files (and VMF/)
+  make clean      ; remove built files (and VFM/)
   or manually: make catalogs ; gcc -o VagaFileManager VagaFileManager.c DirList.c FileOps.c Dialogs.c DragDrop.c FileBrowser.c -lauto
 
-Distribution folder (VMF/):
-  After a successful build, make recreates VMF/ containing ONLY the files
+Distribution folder (VFM/):
+  After a successful build, make recreates VFM/ containing ONLY the files
   needed to run the program:
     VagaFileManager, VagaFileManager.info
     WB2VagaFileManager, WB2VagaFileManager.info
     icons/            (toolbar and menu PNGs)
     Catalogs/<lang>/VagaFileManager.catalog
     Plugins/          (example ARexx/Python plugins)
-  Note: VMF/ is deleted and regenerated on every build.
-  The drawer icon for VMF/ is VMF.info, stored next to the folder:
-  copy both VMF/ and VMF.info to the target directory.
+    README.txt        (general documentation)
+    README.Aminet     (readme for Aminet/OS4Depot uploads)
+    LICENSE
+  Note: VFM/ is deleted and regenerated on every build.
+  The drawer icon for VFM/ is VFM.info, stored next to the folder:
+  copy both VFM/ and VFM.info to the target directory.
 
 Installation:
-- Run VagaFileManager from the VMF/ folder (keep icons/ and Catalogs/ next
+- Run VagaFileManager from the VFM/ folder (keep icons/ and Catalogs/ next
   to the executable; PROGDIR:icons and PROGDIR:Catalogs are used).
 - Put the "icons" folder next to the executable (PROGDIR:icons).
   The toolbar buttons load their images from PROGDIR:icons/*.png
@@ -115,7 +118,7 @@ Python / ARexx addons:
 
 ARexx diagnostics:
 - With VFM running, from the project directory:
-    C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VMF/VagaFileManager
+    C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VFM/VagaFileManager
   The probe uses VFM --findport for VAGAFILEMANAGER and WORKBENCH, then
   runs two clean RX scripts (LF only) against WORKBENCH and VFM.
   Results go to T:ARexxProbe.log and to the Shell.
@@ -149,7 +152,7 @@ You should have received a copy of the GNU General Public License along
 with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 The full license text is in the LICENSE file, which is also copied into
-the VMF/ distribution folder.
+the VFM/ distribution folder.
 
 Note: FileBrowser.c and FileBrowser.h are a separate work by OpenAmiga.org
 ("Listbrowser gadget with cell mode") released into the public domain;

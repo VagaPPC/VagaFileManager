@@ -1,0 +1,119 @@
+Short:        Two-pane file manager for AmigaOS 4
+Author:       vagappc
+Uploader:     vagappc
+Type:         util/dir
+Version:      1.0
+Requires:     AmigaOS 4.1 Final Edition, ReAction
+Architecture: ppc-amigaos >= 4.1
+Date:         22-Nov-2026
+Distribution: Aminet
+
+VagaFileManager 1.0 build 9
+===========================
+
+VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
+with ReAction/BOOPSI.  It is intended for users who prefer a fast,
+keyboard-friendly directory browser to dozens of Workbench windows.
+
+Main features
+-------------
+- Single-pane or split two-pane browsing.
+- Icon view and detailed list view (name, type, size, date).
+- Dynamic toolbar: the available actions follow the current selection.
+- Copy, move, duplicate, rename and recursive delete.
+- Conflict handling with Overwrite / Overwrite all / Update / Update all /
+  Rename / Skip.
+- Progress window with file count, transferred size and percentage;
+  cancel and pause/resume.
+- Recursive size calculation with an animated activity bar.
+- Drag and drop: move on the same device, copy across devices; multiple
+  selection is supported.
+- Quick filter with AmigaDOS wildcards (#?, ?, [], ~, *) or plain text.
+- Bookmarks, history navigation, root/volume view.
+- Per-volume window size and position; navigation does not resize the
+  window.
+- "Open" on a drawer opens a new VFM instance centered on the pointer;
+  double-click navigates in the current window.
+- Optional Workbench drawer-window replacement (WB2VagaFileManager).
+- Built-in ARexx port (VAGAFILEMANAGER) and Python plugin support.
+
+Requirements
+------------
+- AmigaOS 4.1 Final Edition.
+- ReAction classes (window.class, layout.gadget, button.gadget,
+  string.gadget, listbrowser.gadget) included in AmigaOS 4.1 FE.
+- Python is optional and only needed for Python plugins (C:Python or
+  C:Python3).  ARexx plugins use C:RX.
+
+Installation
+------------
+1. Copy the VFM drawer and VFM.info together to a location of your choice,
+   for example Work:Utilities/.
+2. Keep the drawer structure intact:
+     VFM/VagaFileManager
+     VFM/WB2VagaFileManager
+     VFM/icons/
+     VFM/Catalogs/
+     VFM/Plugins/
+3. Start VFM/VagaFileManager.  The drawer icon is VFM.info.
+
+Catalogs
+--------
+English is the built-in fallback.  The Amiga release build includes
+catalogs for English, Italian, French, German, Polish and Spanish under
+Catalogs/<language>/VagaFileManager.catalog.  A cross-built test archive
+may not contain them; catalogs are optional and the program falls back to
+the built-in English strings when a catalog is missing.
+
+Plugins
+-------
+Scripts are read from VFM/Plugins.  After copying a .py or .rexx file,
+use "Scripts -> Refresh" in VFM and select it from the menu.
+
+The included ARexxDemo.py shows a Python addon with a real Reaction
+dialog.  It uses the VFM --dialog file API, so the window does not depend
+on the Python arexx module:
+    VagaFileManager --dialog "@T:specfile"
+The generated ARexx script and its output are written to
+T:VFM_ARexxDemo.cmd and T:VFM_ARexxDemo.out.
+
+The ARexx port is public and named VAGAFILEMANAGER (a suffixed name is
+used when several instances are running).  Typical commands are CD, OPEN,
+UP, REFRESH, PATH, ENTRIES, SELECTED, REVEAL, SIZE, VIEW, SORT, MODE and
+SCRIPT.  Send VERSION for the program version.
+
+Notes
+-----
+- The old name of the distribution drawer was VMF.  Starting with build 9
+  the drawer is called VFM (Vaga File Manager).  Remove the old VMF
+  drawer to avoid starting an old copy by mistake.
+- The optional WB2VagaFileManager is a commodity/drawer patch; read its
+  tooltypes and test it on a copy of your Workbench setup first.
+- Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
+  per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 9
+------------------
+- Distribution drawer renamed from VMF to VFM (VFM.info).
+- Added the Aminet/OS4Depot readme.
+- WB2 version string now uses the shared version date.
+
+License
+-------
+VagaFileManager is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.  See LICENSE.
+
+FileBrowser.c and FileBrowser.h are a separate public-domain work by
+OpenAmiga.org and are GPLv3-compatible.
+
+Special thanks: ldg72, Flash, Kaffeine and ACube.
+
+Feedback
+--------
+Bug reports, suggestions and contributions are welcome through the
+project repository.
+
+This readme can be used for both Aminet and OS4Depot (category:
+File managers).

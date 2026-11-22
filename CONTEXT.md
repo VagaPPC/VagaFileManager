@@ -7,15 +7,16 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 `VFM_VERSION_DATE`); usati da `$VER`, About e comando ARexx `VERSION`.
 
 ## Build
-- Amiga: `make` → cataloghi (CatComp) + eseguibili + `VMF/` (solo runtime).
-  `make dist` ricrea solo `VMF/`; `make clean` pulisce.
+- Amiga: `make` → cataloghi (CatComp) + eseguibili + `VFM/` (solo runtime).
+  `make dist` ricrea solo `VFM/`; `make clean` pulisce.
 - CFLAGS `-O3 -fomit-frame-pointer -fno-strict-aliasing`; link `-lauto`.
 - Eseguibili: `VagaFileManager`, `WB2VagaFileManager`.
 - Cross-build Linux: `/home/vagappc/toolchains/build-vfm.sh`
   (ppc-amigaos-gcc 11.5.0 + header SDK nativo `/home/vagappc/src/SDK`),
-  output in `VMF/`. I cataloghi richiedono CatComp su Amiga.
-- `VMF/`: eseguibili + `.info`, `icons/`, `Catalogs/<lang>/`, `Plugins/`, `LICENSE`.
-  L'icona del cassetto è `VMF.info`, da copiare accanto a `VMF/`.
+  output in `VFM/`. I cataloghi richiedono CatComp su Amiga.
+- `VFM/`: eseguibili + `.info`, `icons/`, `Catalogs/<lang>/`, `Plugins/`,
+  `README.txt`, `README.Aminet`, `LICENSE`.
+  L'icona del cassetto è `VFM.info`, da copiare accanto a `VFM/`.
 
 ## File
 - `VagaFileManager.c`: main, loop eventi, pannelli, split, ARexx, plugin, preferenze.

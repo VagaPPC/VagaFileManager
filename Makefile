@@ -5,7 +5,7 @@ PROG    = VagaFileManager
 WB2     = WB2VagaFileManager
 
 # Cartella che raccoglie SOLO i file necessari all'esecuzione (distribuzione)
-DIST    = VMF
+DIST    = VFM
 
 # Ottimizzazione runtime:
 #  -O3                  inline, loop/vector optimization, CSE ecc.
@@ -45,10 +45,10 @@ catalogs:
 	$(CATCOMP) VagaFileManager.cd Catalogs/polish/VagaFileManager.ct CATALOG Catalogs/polish/VagaFileManager.catalog
 	$(CATCOMP) VagaFileManager.cd Catalogs/spanish/VagaFileManager.ct CATALOG Catalogs/spanish/VagaFileManager.catalog
 
-# Crea la cartella di distribuzione VMF con i soli file per l'esecuzione:
+# Crea la cartella di distribuzione VFM con i soli file per l'esecuzione:
 # eseguibili + icone, immagini della toolbar/menu, cataloghi, plugin.
 # Le righe con "-" ignorano l'errore (es. cartella gia' esistente); prima
-# la vecchia VMF viene cancellata per non lasciare file obsoleti.
+# la vecchia VFM viene cancellata per non lasciare file obsoleti.
 dist: catalogs $(PROG) $(WB2)
 	-Delete $(DIST) ALL quiet
 	-MakeDir $(DIST) >NIL:
@@ -75,6 +75,8 @@ dist: catalogs $(PROG) $(WB2)
 	Copy Plugins/#?.py $(DIST)/Plugins
 	-Copy Plugins/#?.rexx $(DIST)/Plugins
 	Copy LICENSE $(DIST)
+	Copy README.txt $(DIST)
+	Copy README.Aminet $(DIST)
 
 clean:
 	Delete $(PROG) $(WB2) $(OBJS) $(WB2OBJS) Catalogs/english/VagaFileManager.catalog Catalogs/italian/VagaFileManager.catalog Catalogs/french/VagaFileManager.catalog Catalogs/german/VagaFileManager.catalog Catalogs/polish/VagaFileManager.catalog Catalogs/spanish/VagaFileManager.catalog quiet
