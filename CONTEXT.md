@@ -55,8 +55,8 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   Il path del secondo pannello non è salvato (lo split riparte dal pannello 0).
 - Bookmark `ENVARC:VagaFileManager.bookmarks`.
 - Filtro rapido in fondo a ogni pannello: wildcard Amiga (`#?`, `?`, `[]`, `~`, `*`),
-  ricerca "contiene" senza wildcard; applicato in tempo reale mentre si
-  digita (`STRINGA_WorkBuffer` + confronto a ogni Intuition tick); non salvato.
+  ricerca "contiene" senza wildcard; applicato mentre si digita con
+  debounce di 0,3 s (`STRINGA_WorkBuffer` + tick + `DateStamp`); non salvato.
 - Shell: `C:NewShell` sul path attivo, finestra ~2/3×3/5 centrata.
 - Log: `T:VagaFileManager.log`, `T:WB2VagaFileManager.log`.
 
@@ -97,7 +97,8 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   anche dal comando `REVEAL`.
 - `VFMParsePattern()` in `DirList.c` traduce wildcard AmigaDOS (`#?`, `?`,
   `[]`, `~`) e `*` in `#?` e tokenizza con `ParsePatternNoCase`; usata da
-  quick filter e Find.
+  quick filter e Find.  Find usa `NameContains()` (substring) quando il
+  pattern non ha wildcard, il matcher dos solo per i pattern wildcard.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per

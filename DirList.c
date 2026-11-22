@@ -383,6 +383,15 @@ static BOOL gLastFilterValid = FALSE;
 
 /* ===== Lettura e filtro delle directory ===== */
 
+/* TRUE se il pattern contiene una wildcard (Amiga o *). */
+BOOL VFMHasWildcard(CONST_STRPTR pattern)
+{
+    if (!pattern) return FALSE;
+    for (; *pattern; pattern++)
+        if (strchr("*?#[~'", *pattern)) return TRUE;
+    return FALSE;
+}
+
 /* Traduce un pattern utente in un pattern dos.library e lo tokenizza.
    Accetta le wildcard AmigaDOS (#?, ?, [], ~, ...) e anche * (convertito
    in #?).  Senza wildcard il pattern diventa "contiene": #?testo#?.
@@ -391,18 +400,11 @@ BOOL VFMParsePattern(CONST_STRPTR pattern, STRPTR parsed, LONG parsedSize)
 {
     char translated[NAME_MAX_LEN * 2 + 2];
     ULONG i, o = 0;
-    BOOL inClass = FALSE, quote = FALSE, hasWildcard = FALSE;
+    BOOL inClass = FALSE, quote = FALSE, hasWildcard;
 
     if (!pattern || !parsed || parsedSize <= 0) return FALSE;
 
-    for (i = 0; pattern[i]; i++)
-    {
-        if (strchr("*?#[~'", pattern[i]))
-        {
-            hasWildcard = TRUE;
-            break;
-        }
-    }
+    hasWildcard = VFMHasWildcard(pattern);
     if (!hasWildcard)
     {
         translated[o++] = '#';

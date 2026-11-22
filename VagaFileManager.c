@@ -164,6 +164,8 @@ static void PaneInit(int p, CONST_STRPTR path)
     pn->pathBuffer[0] = '\0';
     pn->filterBuffer[0] = '\0';
     pn->filterApplied[0] = '\0';
+    pn->filterSeen[0] = '\0';
+    pn->filterChangeTicks = 0;
     if (path)
     {
         strncpy(pn->pathBuffer, path, PATH_MAX_LEN - 1);
@@ -2691,13 +2693,29 @@ int main(int argc, char **argv)
                                     {
                                         int gp = -1;
                                         int fp;
-                                        /* filtro rapido live: il work buffer
-                                           cambia mentre si digita */
+                                        struct DateStamp ds;
+                                        ULONG nowTicks;
+
+                                        /* Filtro live con debounce: si aggiorna
+                                           dopo 15 tick (0,3 s) senza nuove
+                                           digitazioni, non a ogni carattere. */
+                                        IDOS->DateStamp(&ds);
+                                        nowTicks = (ULONG)ds.ds_Minute * 3000UL + ds.ds_Tick;
                                         for (fp = 0; fp < 2; fp++)
                                         {
                                             if (!gPanes[fp].listGad) continue;
                                             if (strcmp(gPanes[fp].filterBuffer,
-                                                       gPanes[fp].filterApplied) != 0)
+                                                       gPanes[fp].filterSeen) != 0)
+                                            {
+                                                strncpy(gPanes[fp].filterSeen,
+                                                        gPanes[fp].filterBuffer,
+                                                        sizeof(gPanes[fp].filterSeen) - 1);
+                                                gPanes[fp].filterSeen[sizeof(gPanes[fp].filterSeen) - 1] = '\0';
+                                                gPanes[fp].filterChangeTicks = nowTicks;
+                                            }
+                                            if (strcmp(gPanes[fp].filterBuffer,
+                                                       gPanes[fp].filterApplied) != 0 &&
+                                                (nowTicks - gPanes[fp].filterChangeTicks) >= 15)
                                                 RefreshPaneAfterFilter(fp, windows[WID_MAIN]);
                                         }
                                         for (p = 0; p < 2; p++)
@@ -2764,15 +2782,8 @@ int main(int argc, char **argv)
                                 default: break;
                             }
                         }
-                        if (gFilterPendingPane >= 0 && windows[WID_MAIN])
-                        {
-                            int fp = gFilterPendingPane;
-                            gFilterPendingPane = -1;
-                            if ((fp == 0 || gPanes[1].listGad) &&
-                                strcmp(gPanes[fp].filterBuffer,
-                                       gPanes[fp].filterApplied) != 0)
-                                RefreshPaneAfterFilter(fp, windows[WID_MAIN]);
-                        }
+                        if (gFilterPendingPane >= 0)
+                            gFilterPendingPane = -1;   /* il debounce e' nel tick */
                         if (needStatus && windows[WID_MAIN])
                         {
                             int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;

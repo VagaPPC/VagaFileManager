@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 16 - 2026-11-22
+
+### Changed
+- Quick filter: 300 ms debounce.  The directory is no longer re-read on
+  every keystroke; the list updates as soon as typing pauses.
+- Find: patterns without wildcards use the fast substring search again;
+  `dos.library` pattern matching is used only when wildcards are present.
+
 ## 1.0 build 15 - 2026-11-22
 
 ### Added

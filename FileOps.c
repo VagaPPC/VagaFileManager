@@ -1584,8 +1584,17 @@ static void AddResultRow(struct List *list, LONG *count, CONST_STRPTR text)
     }
 }
 
-static void FindRec(CONST_STRPTR dir, CONST_STRPTR pattern, struct List *list,
-                    LONG *count, ULONG depth)
+static BOOL FindNameMatches(CONST_STRPTR name, CONST_STRPTR textPattern,
+                            CONST_STRPTR parsedPattern, BOOL usePattern)
+{
+    if (usePattern)
+        return IDOS->MatchPatternNoCase(parsedPattern, name) ? TRUE : FALSE;
+    return NameContains(name, textPattern);
+}
+
+static void FindRec(CONST_STRPTR dir, CONST_STRPTR textPattern,
+                    CONST_STRPTR parsedPattern, BOOL usePattern,
+                    struct List *list, LONG *count, ULONG depth)
 {
     APTR ctx;
     struct ExamineData *ed;
@@ -1606,11 +1615,11 @@ static void FindRec(CONST_STRPTR dir, CONST_STRPTR pattern, struct List *list,
 
         if (EXD_IS_DIRECTORY(ed))
         {
-            if (IDOS->MatchPatternNoCase(pattern, ed->Name))
+            if (FindNameMatches(ed->Name, textPattern, parsedPattern, usePattern))
                 AddResultRow(list, count, sub);
-            FindRec(sub, pattern, list, count, depth + 1);
+            FindRec(sub, textPattern, parsedPattern, usePattern, list, count, depth + 1);
         }
-        else if (IDOS->MatchPatternNoCase(pattern, ed->Name))
+        else if (FindNameMatches(ed->Name, textPattern, parsedPattern, usePattern))
         {
             AddResultRow(list, count, sub);
         }
@@ -1625,17 +1634,21 @@ void DoFindFile(struct Window *win)
     char picked[PATH_MAX_LEN];
     struct List list;
     LONG count = 0;
+    BOOL usePattern;
 
     if (!PromptString(LS(MSG_FIND_TITLE), pattern, sizeof(pattern))) return;
     if (!pattern[0]) return;
-    if (!VFMParsePattern(pattern, parsed, (LONG)sizeof(parsed)))
+
+    parsed[0] = '\0';
+    usePattern = VFMHasWildcard(pattern);
+    if (usePattern && !VFMParsePattern(pattern, parsed, (LONG)sizeof(parsed)))
     {
         ShowMessage(LS(MSG_FIND_TITLE), "Invalid search pattern.");
         return;
     }
 
     IExec->NewList(&list);
-    FindRec(gPathBuffer, parsed, &list, &count, 0);
+    FindRec(gPathBuffer, pattern, parsed, usePattern, &list, &count, 0);
 
     if (count == 0)
     {
