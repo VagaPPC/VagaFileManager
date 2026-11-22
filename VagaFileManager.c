@@ -1716,7 +1716,10 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
         return;
     }
 
-    msg->rm_Action = RXCOMM;
+    /* RXFF_RESULT e' indispensabile: RexxSetResult() scrive rm_Result2
+       solo se il flag e' presente.  Senza, VERSION/PATH/ENTRIES/SELECTED
+       restituiscono una stringa vuota. */
+    msg->rm_Action = RXCOMM | RXFF_RESULT;
     msg->rm_Args[0] = gIRexx->CreateArgstring(cmd, strlen(cmd));
     if (!msg->rm_Args[0])
     {
