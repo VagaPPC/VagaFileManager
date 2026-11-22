@@ -476,8 +476,10 @@ def main():
                 result = python_entries(START_PATH)
             elif idx == 4 or command.upper() == 'SELECTED':
                 result = '(no reply; use the VFM window to see the selection)'
+            elif rc == 0 or rc == '0':
+                result = '(command executed; no text reply)'
             else:
-                result = '(command sent; no reply)'
+                result = '(command failed; rc=%s)' % rc
 
         # Show rc too: it proves whether VFM accepted the command even
         # when the returned string is empty.
