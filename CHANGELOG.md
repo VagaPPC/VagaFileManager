@@ -3,6 +3,17 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 23 - 2026-11-22
+
+### Fixed
+- WB2 commodity: intercepting a drawer/device returned NULL to Workbench,
+  which briefly displayed "This drawer cannot be opened".  It now returns
+  a valid hidden 1x1 off-screen window and opens VFM normally.
+
+### Added
+- `WB2_BUILD` for the commodity, shown in `$VER` and in the Commodity
+  Exchange title/description (currently build 23).
+
 ## 1.0 build 22 - 2026-11-22
 
 ### Added

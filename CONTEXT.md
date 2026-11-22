@@ -101,6 +101,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   pattern non ha wildcard, il matcher dos solo per i pattern wildcard.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
+- WB2 commodity: `WB2_BUILD` proprio (mostrato in `$VER`/Exchange).  Quando
+  intercetta device/cassetto restituisce una finestra nascosta 1×1 fuori
+  schermo (non NULL), altrimenti Workbench mostra "cassetto non apribile".
 - Click sul vuoto: la vista icone lo gestisce già in `FileBrowser.c`
   (`idx < 0` → `SelectNone`); la vista lista usa
   `LISTBROWSER_AllowNoSelection, TRUE`.

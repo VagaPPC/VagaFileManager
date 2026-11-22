@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 22 (22.11.2026)
+Version 1.0 build 23 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
