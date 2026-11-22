@@ -3,6 +3,18 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 31 - 2026-11-22
+
+### Fixed
+- VFM-to-AmiDock drop now uses the native Workbench AppWindow protocol:
+  VFM sends an `AMTYPE_APPWINDOW` `AppMessage` with `WBArg` locks/names
+  to AmiDock's AppPort, exactly as Workbench does when an icon is dropped
+  on the dock.  The ARexx `ADDOBJECT` path is no longer used.
+- The AppPort is located among the private ports owned by the AmiDock
+  task; the IDCMP port and the public `AMIDOCK` ARexx port are skipped.
+- The AppMessage reply port is asynchronous, so VFM never waits inside
+  the drop and cannot freeze if AmiDock does not answer.
+
 ## 1.0 build 30 - 2026-11-22
 
 ### Fixed

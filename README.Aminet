@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 30
+VagaFileManager 1.0 build 31
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -27,8 +27,9 @@ Main features
   cancel and pause/resume.
 - Recursive size calculation with an animated activity bar.
 - Drag and drop: move on the same device, copy across devices; multiple
-  selection is supported.  Dropping on AmiDock adds the object to the
-  dock through AmiDock's `ADDOBJECT` ARexx command.
+  selection is supported.  Dropping on AmiDock sends the same native
+  Workbench `AppMessage` that an icon drop produces, so the object is
+  added to the dock.
 - Quick filter with AmigaDOS wildcards (#?, ?, [], ~, *) or plain text.
 - Recursive Find with a results window and AmigaDOS wildcards; selecting a
   result reveals the file in the active pane.
@@ -99,6 +100,17 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 31
+-------------------
+- VFM-to-AmiDock now uses the real Workbench AppWindow drop protocol:
+  VFM sends an AMTYPE_APPWINDOW AppMessage with WBArg locks/names to
+  AmiDock's AppPort, just like Workbench does when an icon is dropped on
+  the dock.  The ARexx ADDOBJECT path has been removed.
+- The AppPort is found among the private ports owned by the AmiDock task;
+  the window IDCMP port and the public AMIDOCK ARexx port are skipped.
+- The AppMessage reply is asynchronous, so VFM never blocks while waiting
+  for AmiDock.
 
 Changes in build 30
 -------------------

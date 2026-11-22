@@ -27,6 +27,7 @@
 
 #include "VagaFileManager.h"
 #include <exec/tasks.h>
+#include <exec/execbase.h>
 #include <exec/io.h>
 #include <devices/input.h>
 #include <devices/inputevent.h>
@@ -40,6 +41,12 @@ static struct KeymapIFace *gKeymap = NULL;
 static struct MsgPort *gInputPort = NULL;
 static struct IOStdReq gInputIO;
 static BOOL gInputOpen = FALSE;
+
+/* Porta per le risposte agli AppMessage inviati ad AmiDock.  Il drop e'
+   asincrono: VFM non aspetta la risposta e non si blocca se la dock non
+   risponde. */
+static struct MsgPort *gAppDropPort = NULL;
+static LONG gAppDropPending = 0;
 
 /* ===== Input device e drop testuale ===== */
 
@@ -87,6 +94,27 @@ void ShutdownDragDropInput(void)
     {
         IExec->CloseLibrary(gKeymapBase);
         gKeymapBase = NULL;
+    }
+
+    if (gAppDropPort)
+    {
+        LONG i;
+        for (i = 0; i < 20 && gAppDropPending > 0; i++)
+        {
+            ProcessAppDropReplies();
+            if (gAppDropPending > 0) IDOS->Delay(1);
+        }
+        ProcessAppDropReplies();
+        if (gAppDropPending <= 0)
+        {
+            IExec->FreeSysObject(ASOT_PORT, gAppDropPort);
+            gAppDropPort = NULL;
+        }
+        else
+        {
+            DBG("AmiDock: %ld AppMessage senza risposta alla chiusura",
+                (long)gAppDropPending);
+        }
     }
 }
 
@@ -253,9 +281,11 @@ static BOOL HasControlChars(CONST_STRPTR s)
     return FALSE;
 }
 
-/* AmiDock accetta i file tramite il comando ARexx ADDOBJECT (porta AMIDOCK).
-   Non usa lo stesso drag del Workbench, quindi senza questo caso un file
-   trascinato da VFM verrebbe trattato come testo e rifiutato. */
+/* AmiDock accetta gli oggetti trascinati come un normale AppWindow del
+   Workbench: bisogna inviare un AppMessage AMTYPE_APPWINDOW alla sua
+   AppPort, con WBArg (lock + nome) per ogni oggetto.  AmiDock crea questa
+   porta con CreateMsgPort(): non ha un nome pubblico, quindi la si cerca
+   nell'elenco delle porte Exec appartenenti al task AmiDock. */
 static BOOL IsAmiDockWindow(struct Window *w)
 {
     CONST_STRPTR task;
@@ -269,58 +299,244 @@ static BOOL IsAmiDockWindow(struct Window *w)
     return FALSE;
 }
 
-static BOOL BuildAmiDockAddCommand(char *buf, ULONG size, CONST_STRPTR path)
+static BOOL EnsureAppDropPort(void)
 {
-    if (!buf || size == 0 || !path || !path[0]) return FALSE;
-    /* ADDOBJECT FILE/A: il percorso va fra virgolette.  Non accettiamo
-       virgolette o caratteri di controllo nel nome, per non rompere la
-       sintassi del comando ARexx. */
-    if (HasControlChars(path) || strchr(path, '"')) return FALSE;
-    if (strlen(path) + 16 >= size) return FALSE;
-    snprintf(buf, size, "ADDOBJECT \"%s\"", path);
+    if (gAppDropPort) return TRUE;
+    gAppDropPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
+    return (gAppDropPort != NULL);
+}
+
+ULONG AppDropReplySignal(void)
+{
+    return gAppDropPort ? (1UL << gAppDropPort->mp_SigBit) : 0;
+}
+
+void ProcessAppDropReplies(void)
+{
+    struct Message *m;
+
+    if (!gAppDropPort) return;
+    while ((m = IExec->GetMsg(gAppDropPort)) != NULL)
+    {
+        struct AppMessage *am = (struct AppMessage *)m;
+        LONG i;
+
+        DBG("AppWindow drop reply: type=%ld args=%ld id=%lu userdata=%lu",
+            (long)am->am_Type, (long)am->am_NumArgs,
+            (unsigned long)am->am_ID, (unsigned long)am->am_UserData);
+        for (i = 0; i < am->am_NumArgs; i++)
+        {
+            if (am->am_ArgList[i].wa_Lock)
+                IDOS->UnLock(am->am_ArgList[i].wa_Lock);
+        }
+        if (gAppDropPending > 0) gAppDropPending--;
+        IExec->FreeVec(am);
+    }
+}
+
+/* Trova la AppPort di AmiDock.  La finestra di AmiDock e' una normale
+   finestra Intuition con AppWindow; la AppPort e' una porta privata del
+   task AmiDock.  Si escludono la porta IDCMP della finestra e la porta
+   ARexx pubblica AMIDOCK. */
+static BOOL AddPortCandidate(struct MsgPort *p, struct Task *task,
+                             struct MsgPort **ports, LONG *count, LONG maxPorts)
+{
+    LONG i;
+
+    if (!p || *count >= maxPorts) return FALSE;
+    if (!IExec->TypeOfMem(p)) return FALSE;
+    if (p->mp_Node.ln_Type != NT_MSGPORT) return FALSE;
+    if (p->mp_SigTask != (APTR)task) return FALSE;
+
+    for (i = 0; i < *count; i++)
+        if (ports[i] == p) return FALSE;
+
+    ports[(*count)++] = p;
     return TRUE;
 }
 
-static BOOL AddPathsToAmiDock(char (*paths)[PATH_MAX_LEN], LONG count)
+static LONG FindAmiDockPorts(struct Window *w, struct MsgPort **ports, LONG maxPorts)
 {
-    /* AmiDock usa AMIDOCK; le istanze multiple possono aggiungere .1, .2... */
-    static const char *portNames[] = { "AMIDOCK", "AMIDOCK.1", "AMIDOCK.2", "AMIDOCK.3" };
-    char command[PATH_MAX_LEN + 32];
-    LONG added = 0, failed = 0, i;
-    ULONG p;
+    struct ExecBase *eb;
+    struct Task *task;
+    struct Node *n;
+    struct MsgPort *logPorts[12];
+    CONST_STRPTR logNames[12];
+    LONG logCount = 0;
+    LONG count = 0;
+
+    if (!w || !w->UserPort || !ports || maxPorts <= 0) return 0;
+
+    task = (struct Task *)w->UserPort->mp_SigTask;
+    eb = (struct ExecBase *)IExec->Data.LibBase;
+
+    /* AmiDock potrebbe tenere la AppPort in Window->UserData (struct Dock). */
+    if (w->UserData && IExec->TypeOfMem(w->UserData))
+    {
+        APTR *words = (APTR *)w->UserData;
+        LONG i;
+        DBG("AmiDock window UserData=%p", (void *)w->UserData);
+        for (i = 0; i < 32 && count < maxPorts; i++)
+        {
+            struct MsgPort *p = (struct MsgPort *)words[i];
+            if (AddPortCandidate(p, task, ports, &count, maxPorts))
+                DBG("AmiDock: AppPort trovata in UserData[%ld]=%p", (long)i, (void *)p);
+        }
+    }
+
+    IExec->Forbid();
+    for (n = eb->PortList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        struct MsgPort *p = (struct MsgPort *)n;
+        CONST_STRPTR name = p->mp_Node.ln_Name;
+
+        if (p->mp_SigTask != (APTR)task) continue;
+        if (logCount < 12)
+        {
+            logPorts[logCount] = p;
+            logNames[logCount] = name;
+            logCount++;
+        }
+        if (count >= maxPorts) continue;
+        if (name && name[0] && IUtility->Stricmp(name, "AMIDOCK") == 0)
+            continue;  /* porta ARexx, non AppPort */
+        /* La AppPort di AmiDock e' creata con CreateMsgPort() e non ha nome. */
+        if (!name || name[0] == '\0')
+            AddPortCandidate(p, task, ports, &count, maxPorts);
+    }
+    IExec->Permit();
+
+    {
+        LONG i;
+        for (i = 0; i < logCount; i++)
+            DBG("AmiDock port %p name='%s' flags=%08lx sig=%ld",
+                (void *)logPorts[i],
+                logNames[i] ? logNames[i] : "(noname)",
+                (unsigned long)logPorts[i]->mp_Flags,
+                (long)logPorts[i]->mp_SigBit);
+    }
+
+    if (count == 0)
+    {
+        /* Fallback: alcune versioni potrebbero darle un nome. */
+        struct MsgPort *p = IExec->FindPort("AmiDock");
+        if (p && p != w->UserPort &&
+            p->mp_SigTask == (APTR)task)
+            ports[count++] = p;
+    }
+    if (count == 0 && w->UserPort)
+        ports[count++] = w->UserPort;  /* ultima risorsa: porta IDCMP */
+
+    DBG("AmiDock: %ld AppPort candidate", (long)count);
+    return count;
+}
+
+static BPTR LockDropParent(CONST_STRPTR path, char *name, ULONG nameSize)
+{
+    CONST_STRPTR base;
+    ULONG plen;
+    char parent[PATH_MAX_LEN];
+
+    if (!path || !path[0] || !name || nameSize == 0) return 0;
+    base = IDOS->FilePart(path);
+    plen = (base && base > path) ? (ULONG)(base - path) : 0;
+
+    if (plen > 0 && plen < PATH_MAX_LEN)
+    {
+        memcpy(parent, path, plen);
+        parent[plen] = '\0';
+        if (plen < nameSize && base)
+        {
+            strncpy(name, base, nameSize - 1);
+            name[nameSize - 1] = '\0';
+        }
+        return IDOS->Lock(parent, SHARED_LOCK);
+    }
+
+    name[0] = '\0';
+    return IDOS->Lock(path, SHARED_LOCK);
+}
+
+static struct AppMessage *BuildAppDropMessage(struct Window *w,
+                                               char (*paths)[PATH_MAX_LEN],
+                                               LONG count, WORD screenX, WORD screenY)
+{
+    struct AppMessage *am;
+    struct WBArg *args;
+    char *names;
+    ULONG namesLen = 0, size;
+    LONG i;
+
+    if (!w || !paths || count <= 0) return NULL;
 
     for (i = 0; i < count; i++)
     {
-        BOOL portFound = FALSE;
-
-        if (!BuildAmiDockAddCommand(command, sizeof(command), paths[i]))
-        {
-            DBG("AmiDock: percorso non gestibile '%s'", paths[i]);
-            failed++;
-            continue;
-        }
-
-        for (p = 0; p < sizeof(portNames) / sizeof(portNames[0]); p++)
-        {
-            if (PostARexxCommandToPort(portNames[p], command))
-            {
-                portFound = TRUE;
-                break;
-            }
-        }
-
-        if (!portFound)
-        {
-            DBG("AmiDock: porta ARexx AMIDOCK non trovata");
-            return FALSE;
-        }
-
-        added++;
-        DBG("AmiDock: ADDOBJECT inviato per '%s'", paths[i]);
+        CONST_STRPTR base = IDOS->FilePart(paths[i]);
+        namesLen += (base ? strlen(base) : 0) + 1;
     }
 
-    DBG("AmiDock: %ld comandi inviati, %ld non inviati", (long)added, (long)failed);
-    return (added > 0 && failed == 0);
+    size = sizeof(struct AppMessage) + (ULONG)count * sizeof(struct WBArg) + namesLen;
+    am = (struct AppMessage *)IExec->AllocVecTags(size,
+        AVT_Type, MEMF_SHARED, AVT_ClearWithValue, 0, TAG_DONE);
+    if (!am) return NULL;
+
+    args = (struct WBArg *)((char *)am + sizeof(struct AppMessage));
+    names = (char *)(args + count);
+
+    am->am_Message.mn_Node.ln_Type = NT_MESSAGE;
+    am->am_Message.mn_Length = size;
+    am->am_Message.mn_ReplyPort = gAppDropPort;
+    am->am_Type = AMTYPE_APPWINDOW;
+    am->am_NumArgs = count;
+    am->am_ArgList = args;
+    am->am_Version = AM_VERSION;
+    am->am_Class = 0;
+    am->am_MouseX = (WORD)(screenX - w->LeftEdge);
+    am->am_MouseY = (WORD)(screenY - w->TopEdge);
+
+    for (i = 0; i < count; i++)
+    {
+        char nm[PATH_MAX_LEN];
+        BPTR lock = LockDropParent(paths[i], nm, sizeof(nm));
+        if (!lock)
+        {
+            LONG j;
+            DBG("AmiDock: impossibile ottenere lock per '%s'", paths[i]);
+            for (j = 0; j < i; j++)
+                if (args[j].wa_Lock) IDOS->UnLock(args[j].wa_Lock);
+            IExec->FreeVec(am);
+            return NULL;
+        }
+        args[i].wa_Lock = lock;
+        args[i].wa_Name = names;
+        strcpy(names, nm);
+        names += strlen(nm) + 1;
+    }
+
+    return am;
+}
+
+static BOOL SendAppWindowDrop(struct Window *w, char (*paths)[PATH_MAX_LEN],
+                              LONG count, WORD screenX, WORD screenY)
+{
+    struct MsgPort *ports[8];
+    LONG n, i;
+    LONG sent = 0;
+
+    if (!w || count <= 0 || !EnsureAppDropPort()) return FALSE;
+    n = FindAmiDockPorts(w, ports, 8);
+    if (n <= 0) return FALSE;
+
+    for (i = 0; i < n; i++)
+    {
+        struct AppMessage *am = BuildAppDropMessage(w, paths, count, screenX, screenY);
+        if (!am) continue;
+        gAppDropPending++;
+        IExec->PutMsg(ports[i], (struct Message *)am);
+        sent++;
+        DBG("AmiDock: AppMessage inviato a porta %p", (void *)ports[i]);
+    }
+    return (sent > 0);
 }
 
 static BOOL BuildDropText(char *buf, ULONG size, char (*paths)[PATH_MAX_LEN],
@@ -664,20 +880,11 @@ void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD scr
             }
             else if (IsAmiDockWindow(wbWin))
             {
-                /* AmiDock non è una finestra di testo: aggiunge l'oggetto
-                   con il comando ARexx ADDOBJECT. */
-                if (!AddPathsToAmiDock(paths, count))
+                /* AmiDock è un AppWindow del Workbench: invia un vero
+                   AppMessage AMTYPE_APPWINDOW alla sua AppPort. */
+                if (!SendAppWindowDrop(wbWin, paths, count, screenX, screenY))
                 {
-                    char dbg[512];
-                    snprintf(dbg, sizeof(dbg),
-                        "which=%lu type=%lu window=%s task=%s shell=%ld flags=%08lx x=%d y=%d drawer='%s'",
-                        (unsigned long)which, (unsigned long)type,
-                        wbWin->Title ? wbWin->Title : "?",
-                        WindowTaskName(wbWin), (long)isShell,
-                        (unsigned long)wbWin->Flags,
-                        (int)screenX, (int)screenY, targetDrawer);
-                    DBG("no drop target: %s", dbg);
-                    ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));
+                    DBG("AmiDock: impossibile inviare l'AppMessage (AppPort non trovata)");
                 }
             }
             else if (wbWin && wbWin != win &&

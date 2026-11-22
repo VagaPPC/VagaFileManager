@@ -141,11 +141,11 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - `MAX_ENTRIES` 1024: directory più grandi troncate senza avviso.
 - Il path del secondo pannello non è salvato.
 - Drag verso Shell/requester = input sintetico (non drag Workbench nativo).
-- Drag verso AmiDock = comando ARexx `ADDOBJECT` diretto sulla porta
-  `AMIDOCK` (niente RX/host; non è un drag AppWindow nativo). L'invio è
-  asincrono: le risposte arrivano sulla porta `gARexxReplyPort` e vengono
-  raccolte dal loop principale, così VFM non si blocca se AmiDock non
-  risponde.
+- Drag verso AmiDock = `AppMessage` `AMTYPE_APPWINDOW` con `WBArg`
+  (lock+nome) inviato alla AppPort privata del task AmiDock, come fa il
+  Workbench. La porta si cerca in `ExecBase->PortList` tra quelle del task,
+  escludendo IDCMP e `AMIDOCK`. La risposta è asincrona (`gAppDropPort`),
+  così VFM non si blocca se AmiDock non risponde. Non si usa ARexx.
 - `IsVFMWindow` usa nome task + magic in `UserData`.
 - Preferenze: il merge è best-effort (due istanze che chiudono nello stesso
   istante possono ancora sovrascriversi).

@@ -2431,6 +2431,7 @@ int main(int argc, char **argv)
                     ULONG notifyBits = 0;
                     ULONG rexxSig = gRexxPort ? (1UL << gRexxPort->mp_SigBit) : 0;
                     ULONG arexxSig = ARexxReplySignal();
+                    ULONG appDropSig = AppDropReplySignal();
                     ULONG wait;
 
                     for (p = 0; p < 2; p++)
@@ -2438,12 +2439,14 @@ int main(int argc, char **argv)
                             notifyBits |= 1UL << gPanes[p].notifyPort->mp_SigBit;
 
                     wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig |
-                                       arexxSig | SIGBREAKF_CTRL_C);
+                                       arexxSig | appDropSig | SIGBREAKF_CTRL_C);
                     if (wait & SIGBREAKF_CTRL_C) done = TRUE;
 
                     /* risposte ai comandi inviati ad altre app (AmiDock) */
                     if (arexxSig && (wait & arexxSig))
                         ProcessARexxReplies();
+                    if (appDropSig && (wait & appDropSig))
+                        ProcessAppDropReplies();
 
                     /* ---- comandi ARexx ---- */
                     if (rexxSig && (wait & rexxSig))

@@ -555,6 +555,8 @@ void StartDragVisual(struct List *list, struct Window *win);
 void EndDragVisual(struct Window *win);
 void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD screenY);
 void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
+ULONG AppDropReplySignal(void);
+void ProcessAppDropReplies(void);
 
 /* ---- Immagini e pulsanti ---- */
 Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name);
