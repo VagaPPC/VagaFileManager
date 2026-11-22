@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 12 (22.11.2026)
+Version 1.0 build 13 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -29,7 +29,7 @@ Features
 - Size Calculation: recursive drawer/volume size with an animated activity bar (single pass, cancel and pause supported).
 - Favorite Paths: Bookmark and quickly jump to your most-used directories.
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
-- Quick Filter: Instant filtering with wildcard and regex support.
+- Quick Filter: real-time filtering while typing, with wildcard and regex support.
 - Performance: Faster and more responsive than the standard Workbench.
 - Actively Maintained: Supported directly by the author.
 

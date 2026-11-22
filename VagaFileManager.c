@@ -163,6 +163,7 @@ static void PaneInit(int p, CONST_STRPTR path)
     pn->colInfo = NULL;
     pn->pathBuffer[0] = '\0';
     pn->filterBuffer[0] = '\0';
+    pn->filterApplied[0] = '\0';
     if (path)
     {
         strncpy(pn->pathBuffer, path, PATH_MAX_LEN - 1);
@@ -687,6 +688,9 @@ static Object *CreatePaneUI(int p)
         STRINGA_MaxChars, NAME_MAX_LEN - 1,
         STRINGA_TextVal, (ULONG)pn->filterBuffer,
         STRINGA_Buffer, (ULONG)pn->filterBuffer,
+        /* Il work buffer e' il testo mentre si digita: cosi' il filtro
+           puo' essere applicato a ogni Intuition tick, senza Invio. */
+        STRINGA_WorkBuffer, (ULONG)pn->filterBuffer,
         ICA_TARGET, ICTARGET_IDCMP,
         TAG_DONE);
 
@@ -1005,13 +1009,8 @@ static uint32 FilterIDCMPHook(struct Hook *hook, Object *obj, struct IntuiMessag
 
         if (bid == GID_FILTER && gPanes[p].filterGad)
         {
-            STRPTR txt = NULL;
-            IIntuition->GetAttr(STRINGA_TextVal, gPanes[p].filterGad, (ULONG *)&txt);
-            if (txt && txt != gPanes[p].filterBuffer)
-            {
-                strncpy(gPanes[p].filterBuffer, txt, sizeof(gPanes[p].filterBuffer) - 1);
-                gPanes[p].filterBuffer[sizeof(gPanes[p].filterBuffer) - 1] = '\0';
-            }
+            /* il testo live e' gia' in filterBuffer (STRINGA_WorkBuffer);
+               qui basta chiedere un refresh al ciclo principale */
             gFilterPendingPane = p;
         }
     }
@@ -1026,6 +1025,9 @@ static void RefreshPaneAfterFilter(int p, struct Window *win)
     if (p < 0 || p > 1 || !win) return;
     pn = &gPanes[p];
     if (!pn->listGad) return;
+
+    strncpy(pn->filterApplied, pn->filterBuffer, sizeof(pn->filterApplied) - 1);
+    pn->filterApplied[sizeof(pn->filterApplied) - 1] = '\0';
 
     gActivePane = p;
     IIntuition->SetGadgetAttrs((struct Gadget *)pn->listGad, win, NULL,
@@ -2685,6 +2687,16 @@ int main(int argc, char **argv)
                                     if (windows[WID_MAIN])
                                     {
                                         int gp = -1;
+                                        int fp;
+                                        /* filtro rapido live: il work buffer
+                                           cambia mentre si digita */
+                                        for (fp = 0; fp < 2; fp++)
+                                        {
+                                            if (!gPanes[fp].listGad) continue;
+                                            if (strcmp(gPanes[fp].filterBuffer,
+                                                       gPanes[fp].filterApplied) != 0)
+                                                RefreshPaneAfterFilter(fp, windows[WID_MAIN]);
+                                        }
                                         for (p = 0; p < 2; p++)
                                         {
                                             if (!gPanes[p].listGad) continue;
@@ -2753,7 +2765,9 @@ int main(int argc, char **argv)
                         {
                             int fp = gFilterPendingPane;
                             gFilterPendingPane = -1;
-                            if (fp == 0 || gPanes[1].listGad)
+                            if ((fp == 0 || gPanes[1].listGad) &&
+                                strcmp(gPanes[fp].filterBuffer,
+                                       gPanes[fp].filterApplied) != 0)
                                 RefreshPaneAfterFilter(fp, windows[WID_MAIN]);
                         }
                         if (needStatus && windows[WID_MAIN])

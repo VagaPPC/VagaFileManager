@@ -322,6 +322,7 @@ struct Pane
 
     char        pathBuffer[PATH_MAX_LEN];
     char        filterBuffer[NAME_MAX_LEN];
+    char        filterApplied[NAME_MAX_LEN];
     char        winTitle[PATH_MAX_LEN];
     LONG        entryCount;
     struct DiskObject *icons[MAX_ENTRIES];
