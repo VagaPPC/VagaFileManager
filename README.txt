@@ -123,6 +123,14 @@ ARexx diagnostics:
   runs two clean RX scripts (LF only) against WORKBENCH and VFM.
   Results go to T:ARexxProbe.log and to the Shell.
 
+GitHub mirror:
+- MIRROR.md describes the Gitea push mirror (recommended), the manual push
+  and the optional GitHub Actions pull mirror.
+- Tools/mirror-github.sh pushes this checkout to
+  git@github.com:vagappc/VagaFileManager.git after the SSH key (or a PAT)
+  has been authorized on GitHub.
+- .github/workflows/mirror.yml is the optional scheduled pull mirror.
+
 Localization:
 - Built-in language: english (fallback)
 - Uses the system language by default via locale.library catalogs

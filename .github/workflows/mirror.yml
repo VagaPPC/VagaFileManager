@@ -1,0 +1,36 @@
+name: Mirror from Gitea
+
+# Optional pull mirror.  Choose either this workflow or a Gitea push mirror.
+# The job only runs on github.com; on Gitea Actions it is skipped.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the Gitea repository
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          set -e
+          if [ -n "$GITEA_TOKEN" ]; then
+            GITEA_URL="https://oauth2:${GITEA_TOKEN}@gitea.vagappc.net/vagappc/VagaFileManager.git"
+          else
+            GITEA_URL="https://gitea.vagappc.net/vagappc/VagaFileManager.git"
+          fi
+          git clone --mirror "$GITEA_URL" mirror.git
+
+      - name: Push to GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd mirror.git
+          git push --mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"

@@ -84,6 +84,10 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
   VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
   `T:ARexxProbe.log`.
+- `fix/`: le 4 patch critiche della build 6, applicate in build 10 e
+  conservate come riferimento.
+- Mirror GitHub: `MIRROR.md`, `Tools/mirror-github.sh`,
+  `.github/workflows/mirror.yml` (sorgente canonico su Gitea).
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
   `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
   `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,
