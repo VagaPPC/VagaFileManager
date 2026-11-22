@@ -286,14 +286,12 @@ static BOOL AddPathsToAmiDock(char (*paths)[PATH_MAX_LEN], LONG count)
     /* AmiDock usa AMIDOCK; le istanze multiple possono aggiungere .1, .2... */
     static const char *portNames[] = { "AMIDOCK", "AMIDOCK.1", "AMIDOCK.2", "AMIDOCK.3" };
     char command[PATH_MAX_LEN + 32];
-    char result[256];
     LONG added = 0, failed = 0, i;
     ULONG p;
 
     for (i = 0; i < count; i++)
     {
         BOOL portFound = FALSE;
-        LONG rc = -1;
 
         if (!BuildAmiDockAddCommand(command, sizeof(command), paths[i]))
         {
@@ -304,8 +302,7 @@ static BOOL AddPathsToAmiDock(char (*paths)[PATH_MAX_LEN], LONG count)
 
         for (p = 0; p < sizeof(portNames) / sizeof(portNames[0]); p++)
         {
-            result[0] = '\0';
-            if (SendARexxCommandToPort(portNames[p], command, &rc, result, sizeof(result)))
+            if (PostARexxCommandToPort(portNames[p], command))
             {
                 portFound = TRUE;
                 break;
@@ -318,20 +315,11 @@ static BOOL AddPathsToAmiDock(char (*paths)[PATH_MAX_LEN], LONG count)
             return FALSE;
         }
 
-        if (rc == 0)
-        {
-            added++;
-            DBG("AmiDock: aggiunto '%s'", paths[i]);
-        }
-        else
-        {
-            failed++;
-            DBG("AmiDock: ADDOBJECT fallito per '%s' rc=%ld result='%s'",
-                paths[i], (long)rc, result);
-        }
+        added++;
+        DBG("AmiDock: ADDOBJECT inviato per '%s'", paths[i]);
     }
 
-    DBG("AmiDock: %ld aggiunti, %ld falliti", (long)added, (long)failed);
+    DBG("AmiDock: %ld comandi inviati, %ld non inviati", (long)added, (long)failed);
     return (added > 0 && failed == 0);
 }
 

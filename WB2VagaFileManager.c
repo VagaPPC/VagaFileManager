@@ -59,7 +59,7 @@
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   29
+#define WB2_BUILD   30
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";

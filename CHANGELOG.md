@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 30 - 2026-11-22
+
+### Fixed
+- Dropping an object on AmiDock no longer freezes VFM.  The `ADDOBJECT`
+  command is now sent asynchronously: VFM does not wait for AmiDock's
+  reply before returning to its event loop.  Replies are collected by the
+  main loop and logged; if AmiDock does not answer, VFM remains usable.
+
 ## 1.0 build 29 - 2026-11-22
 
 ### Added

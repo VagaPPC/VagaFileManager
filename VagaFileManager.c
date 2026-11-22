@@ -89,6 +89,12 @@ static struct Library *gRexxBase = NULL;
 static struct RexxSysIFace *gIRexx = NULL;
 static volatile BOOL gRexxQuit = FALSE;
 
+/* Porta di risposta per i comandi ARexx inviati ad altre applicazioni
+   (per esempio AmiDock/ADDOBJECT).  E' asincrona: VFM non resta bloccato
+   se l'applicazione di destinazione non risponde subito o non risponde. */
+static struct MsgPort *gARexxReplyPort = NULL;
+static LONG gARexxPending = 0;
+
 volatile BOOL gProgActive = FALSE;
 volatile BOOL gProgCancel = FALSE;
 volatile BOOL gProgPause  = FALSE;
@@ -1763,68 +1769,100 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
     IExec->FreeSysObject(ASOT_PORT, reply);
 }
 
-/* Invia un comando a una porta ARexx pubblica esterna (per esempio AMIDOCK)
-   e aspetta la sua risposta.  Non passa per RX/host ARexx: crea direttamente
-   il RexxMsg e lo mette nella porta, quindi funziona anche quando il comando
-   RX dell'utente non riesce a risolvere gli host.  Ritorna TRUE se la porta
-   esiste e ha risposto; l'esito del comando e' in rcOut. */
-BOOL SendARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command,
-                            LONG *rcOut, char *result, ULONG resultSize)
+/* Crea (una sola volta) la porta su cui arrivano le risposte ARexx. */
+static BOOL EnsureARexxReplyPort(void)
+{
+    if (gARexxReplyPort) return TRUE;
+    if (!gIRexx) return FALSE;
+    gARexxReplyPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
+    return (gARexxReplyPort != NULL);
+}
+
+/* Invia un comando a una porta ARexx pubblica esterna senza aspettare la
+   risposta.  Il RexxMsg viene messo nella porta di destinazione e la
+   risposta verra' raccolta da ProcessARexxReplies() nel loop principale.
+   Questo evita che VFM si blocchi se AmiDock (o un altro host) non risponde
+   subito: il trascinamento resta reattivo. */
+BOOL PostARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command)
 {
     struct MsgPort *port;
-    struct MsgPort *reply;
     struct RexxMsg *msg;
-    struct Message *m;
 
-    if (rcOut) *rcOut = RC_ERROR;
-    if (result && resultSize) result[0] = '\0';
-    if (!gIRexx || !portName || !portName[0] || !command || !command[0])
+    if (!portName || !portName[0] || !command || !command[0])
+        return FALSE;
+    if (!gIRexx || !EnsureARexxReplyPort())
         return FALSE;
 
     port = IExec->FindPort(portName);
     if (!port)
         return FALSE;
 
-    reply = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
-    if (!reply)
-        return FALSE;
-
-    msg = gIRexx->CreateRexxMsg(reply, NULL, NULL);
+    msg = gIRexx->CreateRexxMsg(gARexxReplyPort, NULL, NULL);
     if (!msg)
-    {
-        IExec->FreeSysObject(ASOT_PORT, reply);
         return FALSE;
-    }
 
     msg->rm_Action = RXCOMM | RXFF_RESULT;
     msg->rm_Args[0] = gIRexx->CreateArgstring((STRPTR)command, strlen(command));
     if (!msg->rm_Args[0])
     {
         gIRexx->DeleteRexxMsg(msg);
-        IExec->FreeSysObject(ASOT_PORT, reply);
         return FALSE;
     }
 
+    gARexxPending++;
     IExec->PutMsg(port, (struct Message *)msg);
-    IExec->Wait(1UL << reply->mp_SigBit);
-    while ((m = IExec->GetMsg(reply)) != NULL)
-    {
-        /* messaggio di risposta: il RexxMsg e' gia' nostro di nuovo */
-    }
-
-    if (rcOut) *rcOut = msg->rm_Result1;
-    if (msg->rm_Result2 && result && resultSize)
-    {
-        strncpy(result, (STRPTR)msg->rm_Result2, resultSize - 1);
-        result[resultSize - 1] = '\0';
-    }
-
-    gIRexx->DeleteArgstring(msg->rm_Args[0]);
-    if (msg->rm_Result2)
-        gIRexx->DeleteArgstring((STRPTR)msg->rm_Result2);
-    gIRexx->DeleteRexxMsg(msg);
-    IExec->FreeSysObject(ASOT_PORT, reply);
     return TRUE;
+}
+
+/* Segnale da aggiungere al Wait principale, 0 se la porta non esiste. */
+ULONG ARexxReplySignal(void)
+{
+    return gARexxReplyPort ? (1UL << gARexxReplyPort->mp_SigBit) : 0;
+}
+
+/* Raccoglie e libera le risposte ARexx arrivate.  Viene chiamata dal loop
+   principale quando il segnale della porta di risposta e' attivo. */
+void ProcessARexxReplies(void)
+{
+    struct Message *m;
+
+    if (!gARexxReplyPort || !gIRexx) return;
+
+    while ((m = IExec->GetMsg(gARexxReplyPort)) != NULL)
+    {
+        struct RexxMsg *rx = (struct RexxMsg *)m;
+
+        if (gARexxPending > 0) gARexxPending--;
+
+        if (gIRexx->IsRexxMsg(rx))
+        {
+            char result[256];
+            result[0] = '\0';
+            if (rx->rm_Result2)
+            {
+                strncpy(result, (STRPTR)rx->rm_Result2, sizeof(result) - 1);
+                result[sizeof(result) - 1] = '\0';
+            }
+            DBG("ARexx reply: result1=%ld result='%s' arg='%s'",
+                (long)rx->rm_Result1, result,
+                rx->rm_Args[0] ? (STRPTR)rx->rm_Args[0] : "");
+            if (rx->rm_Args[0])
+            {
+                gIRexx->DeleteArgstring((STRPTR)rx->rm_Args[0]);
+                rx->rm_Args[0] = NULL;
+            }
+            if (rx->rm_Result2)
+            {
+                gIRexx->DeleteArgstring((STRPTR)rx->rm_Result2);
+                rx->rm_Result2 = 0;
+            }
+            gIRexx->DeleteRexxMsg(rx);
+        }
+        else
+        {
+            IExec->ReplyMsg(m);
+        }
+    }
 }
 
 static void ProcessPluginRequests(struct Window *win)
@@ -2392,14 +2430,20 @@ int main(int argc, char **argv)
                 {
                     ULONG notifyBits = 0;
                     ULONG rexxSig = gRexxPort ? (1UL << gRexxPort->mp_SigBit) : 0;
+                    ULONG arexxSig = ARexxReplySignal();
                     ULONG wait;
 
                     for (p = 0; p < 2; p++)
                         if (gPanes[p].notifyPort)
                             notifyBits |= 1UL << gPanes[p].notifyPort->mp_SigBit;
 
-                    wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig | SIGBREAKF_CTRL_C);
+                    wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig |
+                                       arexxSig | SIGBREAKF_CTRL_C);
                     if (wait & SIGBREAKF_CTRL_C) done = TRUE;
+
+                    /* risposte ai comandi inviati ad altre app (AmiDock) */
+                    if (arexxSig && (wait & arexxSig))
+                        ProcessARexxReplies();
 
                     /* ---- comandi ARexx ---- */
                     if (rexxSig && (wait & rexxSig))
@@ -2926,6 +2970,29 @@ int main(int argc, char **argv)
     }
     CleanupPluginDir();
     if (appPort) IExec->FreeSysObject(ASOT_PORT, appPort);
+
+    /* Attende per un breve periodo le risposte ARexx ancora in volo.
+       Se una destinazione non risponde, non blocca la chiusura. */
+    if (gARexxReplyPort)
+    {
+        int i2;
+        for (i2 = 0; i2 < 20 && gARexxPending > 0; i2++)
+        {
+            ProcessARexxReplies();
+            if (gARexxPending > 0) IDOS->Delay(1);
+        }
+        ProcessARexxReplies();
+        if (gARexxPending <= 0)
+        {
+            IExec->FreeSysObject(ASOT_PORT, gARexxReplyPort);
+            gARexxReplyPort = NULL;
+        }
+        else
+        {
+            DBG("ARexx: %ld risposte ancora in attesa alla chiusura", (long)gARexxPending);
+        }
+    }
+
     if (gRexxPort)
     {
         struct Message *rm;
