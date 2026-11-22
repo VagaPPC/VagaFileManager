@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 31
+VagaFileManager 1.0 build 32
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -100,6 +100,14 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 32
+-------------------
+- AmiDock does not expose its AppWindow port publicly.  VFM searches for
+  it in the window data and among the task's unnamed ports; when it
+  cannot be found, it falls back to AmiDock's public ADDOBJECT ARexx
+  command.  The fallback is asynchronous and cannot freeze VFM; the
+  result is logged in T:VagaFileManager.log.
 
 Changes in build 31
 -------------------

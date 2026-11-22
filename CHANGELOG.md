@@ -3,6 +3,17 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 32 - 2026-11-22
+
+### Fixed
+- AmiDock keeps its AppWindow port private: it is not in the public Exec
+  port list.  The native AppMessage path is still used when the port is
+  found in the window data or among the task's unnamed ports; otherwise
+  VFM falls back to AmiDock's public `ADDOBJECT` ARexx command.
+- The fallback is asynchronous: VFM does not wait for AmiDock's reply, so
+  the drop cannot freeze the window.  The reply/result is written to
+  `T:VagaFileManager.log`.
+
 ## 1.0 build 31 - 2026-11-22
 
 ### Fixed

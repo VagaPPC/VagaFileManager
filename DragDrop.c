@@ -342,11 +342,17 @@ static BOOL AddPortCandidate(struct MsgPort *p, struct Task *task,
                              struct MsgPort **ports, LONG *count, LONG maxPorts)
 {
     LONG i;
+    CONST_STRPTR name;
 
     if (!p || *count >= maxPorts) return FALSE;
     if (!IExec->TypeOfMem(p)) return FALSE;
     if (p->mp_Node.ln_Type != NT_MSGPORT) return FALSE;
     if (p->mp_SigTask != (APTR)task) return FALSE;
+
+    /* La AppPort e' privata e senza nome.  Le porte pubbliche del task
+       AmiDock (AMIDOCK e cpudock_timer_port) non sono AppPort. */
+    name = p->mp_Node.ln_Name;
+    if (name && name[0]) return FALSE;
 
     for (i = 0; i < *count; i++)
         if (ports[i] == p) return FALSE;
@@ -415,17 +421,6 @@ static LONG FindAmiDockPorts(struct Window *w, struct MsgPort **ports, LONG maxP
                 (unsigned long)logPorts[i]->mp_Flags,
                 (long)logPorts[i]->mp_SigBit);
     }
-
-    if (count == 0)
-    {
-        /* Fallback: alcune versioni potrebbero darle un nome. */
-        struct MsgPort *p = IExec->FindPort("AmiDock");
-        if (p && p != w->UserPort &&
-            p->mp_SigTask == (APTR)task)
-            ports[count++] = p;
-    }
-    if (count == 0 && w->UserPort)
-        ports[count++] = w->UserPort;  /* ultima risorsa: porta IDCMP */
 
     DBG("AmiDock: %ld AppPort candidate", (long)count);
     return count;
@@ -516,6 +511,45 @@ static struct AppMessage *BuildAppDropMessage(struct Window *w,
     return am;
 }
 
+/* AmiDock non rende pubblica la sua AppWindow port.  Se non riusciamo a
+   individuarla, usiamo l'unica API pubblica che espone per aggiungere un
+   oggetto: il comando ARexx ADDOBJECT sulla porta AMIDOCK.  L'invio resta
+   asincrono, quindi non blocca VFM. */
+static BOOL BuildAmiDockAddCommand(char *buf, ULONG size, CONST_STRPTR path)
+{
+    if (!buf || size == 0 || !path || !path[0]) return FALSE;
+    if (HasControlChars(path) || strchr(path, '"')) return FALSE;
+    if (strlen(path) + 16 >= size) return FALSE;
+    snprintf(buf, size, "ADDOBJECT \"%s\"", path);
+    return TRUE;
+}
+
+static BOOL AddPathsToAmiDockARexx(char (*paths)[PATH_MAX_LEN], LONG count)
+{
+    char command[PATH_MAX_LEN + 32];
+    LONG i, sent = 0;
+
+    for (i = 0; i < count; i++)
+    {
+        if (!BuildAmiDockAddCommand(command, sizeof(command), paths[i]))
+        {
+            DBG("AmiDock: percorso non gestibile per ADDOBJECT '%s'", paths[i]);
+            continue;
+        }
+        if (PostARexxCommandToPort("AMIDOCK", command))
+        {
+            sent++;
+            DBG("AmiDock: ADDOBJECT ARexx inviato per '%s'", paths[i]);
+        }
+        else
+        {
+            DBG("AmiDock: porta ARexx AMIDOCK non trovata");
+            return FALSE;
+        }
+    }
+    return (sent > 0);
+}
+
 static BOOL SendAppWindowDrop(struct Window *w, char (*paths)[PATH_MAX_LEN],
                               LONG count, WORD screenX, WORD screenY)
 {
@@ -525,7 +559,11 @@ static BOOL SendAppWindowDrop(struct Window *w, char (*paths)[PATH_MAX_LEN],
 
     if (!w || count <= 0 || !EnsureAppDropPort()) return FALSE;
     n = FindAmiDockPorts(w, ports, 8);
-    if (n <= 0) return FALSE;
+    if (n <= 0)
+    {
+        DBG("AmiDock: AppPort privata non trovata, uso ADDOBJECT ARexx");
+        return AddPathsToAmiDockARexx(paths, count);
+    }
 
     for (i = 0; i < n; i++)
     {
