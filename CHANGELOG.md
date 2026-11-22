@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 24 - 2026-11-22
+
+### Fixed
+- WB2 commodity: the hidden Workbench window is closed about one second
+  after the intercept.  Previously it stayed open, so Workbench thought
+  the drawer was already open and a second click did not launch VFM.
+- Commodity build number is now `WB2_BUILD` 24.
+
 ## 1.0 build 23 - 2026-11-22
 
 ### Fixed
