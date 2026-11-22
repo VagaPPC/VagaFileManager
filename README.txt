@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 14 (22.11.2026)
+Version 1.0 build 15 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -31,7 +31,8 @@ Features
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
 - Quick Filter: real-time filtering while typing, with wildcard and regex support.
 - Find: recursive file search with a results window; selecting a result
-  reveals the file in the active pane.
+  reveals the file in the active pane.  Supports AmigaDOS wildcards
+  (#?, ?, [], ~) and *; without wildcards the name is a substring match.
 - Performance: Faster and more responsive than the standard Workbench.
 - Actively Maintained: Supported directly by the author.
 

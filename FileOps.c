@@ -1606,11 +1606,11 @@ static void FindRec(CONST_STRPTR dir, CONST_STRPTR pattern, struct List *list,
 
         if (EXD_IS_DIRECTORY(ed))
         {
-            if (NameContains(ed->Name, pattern))
+            if (IDOS->MatchPatternNoCase(pattern, ed->Name))
                 AddResultRow(list, count, sub);
             FindRec(sub, pattern, list, count, depth + 1);
         }
-        else if (NameContains(ed->Name, pattern))
+        else if (IDOS->MatchPatternNoCase(pattern, ed->Name))
         {
             AddResultRow(list, count, sub);
         }
@@ -1621,15 +1621,21 @@ static void FindRec(CONST_STRPTR dir, CONST_STRPTR pattern, struct List *list,
 void DoFindFile(struct Window *win)
 {
     char pattern[NAME_MAX_LEN];
+    char parsed[NAME_MAX_LEN * 4 + 8];
     char picked[PATH_MAX_LEN];
     struct List list;
     LONG count = 0;
 
     if (!PromptString(LS(MSG_FIND_TITLE), pattern, sizeof(pattern))) return;
     if (!pattern[0]) return;
+    if (!VFMParsePattern(pattern, parsed, (LONG)sizeof(parsed)))
+    {
+        ShowMessage(LS(MSG_FIND_TITLE), "Invalid search pattern.");
+        return;
+    }
 
     IExec->NewList(&list);
-    FindRec(gPathBuffer, pattern, &list, &count, 0);
+    FindRec(gPathBuffer, parsed, &list, &count, 0);
 
     if (count == 0)
     {

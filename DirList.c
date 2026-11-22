@@ -383,77 +383,87 @@ static BOOL gLastFilterValid = FALSE;
 
 /* ===== Lettura e filtro delle directory ===== */
 
-static BOOL EntryMatchesFilter(CONST_STRPTR name)
+/* Traduce un pattern utente in un pattern dos.library e lo tokenizza.
+   Accetta le wildcard AmigaDOS (#?, ?, [], ~, ...) e anche * (convertito
+   in #?).  Senza wildcard il pattern diventa "contiene": #?testo#?.
+   Usata dalla quick filter e da Find. */
+BOOL VFMParsePattern(CONST_STRPTR pattern, STRPTR parsed, LONG parsedSize)
 {
     char translated[NAME_MAX_LEN * 2 + 2];
     ULONG i, o = 0;
     BOOL inClass = FALSE, quote = FALSE, hasWildcard = FALSE;
 
+    if (!pattern || !parsed || parsedSize <= 0) return FALSE;
+
+    for (i = 0; pattern[i]; i++)
+    {
+        if (strchr("*?#[~'", pattern[i]))
+        {
+            hasWildcard = TRUE;
+            break;
+        }
+    }
+    if (!hasWildcard)
+    {
+        translated[o++] = '#';
+        translated[o++] = '?';
+    }
+
+    for (i = 0; pattern[i] && o + 3 < sizeof(translated); i++)
+    {
+        char c = pattern[i];
+
+        if (quote)
+        {
+            translated[o++] = c;
+            quote = FALSE;
+            continue;
+        }
+        if (c == '\'')
+        {
+            translated[o++] = c;
+            quote = TRUE;
+            continue;
+        }
+        if (c == '[')
+        {
+            inClass = TRUE;
+            translated[o++] = c;
+            continue;
+        }
+        if (c == ']')
+        {
+            inClass = FALSE;
+            translated[o++] = c;
+            continue;
+        }
+        if (c == '*' && !inClass)
+        {
+            translated[o++] = '#';
+            translated[o++] = '?';
+        }
+        else
+        {
+            translated[o++] = c;
+        }
+    }
+    if (!hasWildcard) { translated[o++] = '#'; translated[o++] = '?'; }
+    translated[o] = '\0';
+
+    return (IDOS->ParsePatternNoCase(translated, parsed, parsedSize) >= 0) ? TRUE : FALSE;
+}
+
+static BOOL EntryMatchesFilter(CONST_STRPTR name)
+{
     if (!gFilterText[0]) return TRUE;
     if (!name) return FALSE;
 
     if (IUtility->Stricmp(gLastFilter, gFilterText) != 0)
     {
-        /* Senza wildcard il filtro e' una ricerca "contiene". */
-        for (i = 0; gFilterText[i]; i++)
-        {
-            if (strchr("*?#[~'", gFilterText[i]))
-            {
-                hasWildcard = TRUE;
-                break;
-            }
-        }
-        if (!hasWildcard)
-        {
-            translated[o++] = '#';
-            translated[o++] = '?';
-        }
-
-        for (i = 0; gFilterText[i] && o + 3 < sizeof(translated); i++)
-        {
-            char c = gFilterText[i];
-
-            if (quote)
-            {
-                translated[o++] = c;
-                quote = FALSE;
-                continue;
-            }
-            if (c == '\'')
-            {
-                translated[o++] = c;
-                quote = TRUE;
-                continue;
-            }
-            if (c == '[')
-            {
-                inClass = TRUE;
-                translated[o++] = c;
-                continue;
-            }
-            if (c == ']')
-            {
-                inClass = FALSE;
-                translated[o++] = c;
-                continue;
-            }
-            if (c == '*' && !inClass)
-            {
-                translated[o++] = '#';
-                translated[o++] = '?';
-            }
-            else
-            {
-                translated[o++] = c;
-            }
-        }
-        if (!hasWildcard) { translated[o++] = '#'; translated[o++] = '?'; }
-        translated[o] = '\0';
-
         strncpy(gLastFilter, gFilterText, sizeof(gLastFilter) - 1);
         gLastFilter[sizeof(gLastFilter) - 1] = '\0';
-        gLastFilterValid = (IDOS->ParsePatternNoCase(translated, gLastParsed,
-                                                     (LONG)sizeof(gLastParsed)) >= 0) ? TRUE : FALSE;
+        gLastFilterValid = VFMParsePattern(gFilterText, gLastParsed,
+                                           (LONG)sizeof(gLastParsed));
     }
 
     if (!gLastFilterValid) return TRUE;

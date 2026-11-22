@@ -12,6 +12,9 @@
 #   4. when a result is selected (or double-clicked) and confirmed with OK,
 #      navigates the active pane to its drawer and selects the file.
 #
+# The search field accepts AmigaDOS wildcards (#?, ?, [], ~) and the
+# common *.  Without wildcards the name is matched as a substring.
+#
 # No ARexx and no C:RX are used.  The plugin receives:
 #
 #   sys.argv[1] = ARexx port (kept for compatibility)

@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 15 - 2026-11-22
+
+### Added
+- Find accepts AmigaDOS wildcards (`#?`, `?`, `[]`, `~`) and `*`.
+  Patterns without wildcards remain substring searches.
+- The wildcard translation is shared with the quick filter
+  (`VFMParsePattern`).
+
 ## 1.0 build 14 - 2026-11-22
 
 ### Added

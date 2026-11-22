@@ -95,6 +95,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   la riga selezionata viene restituita e `RevealPath()` naviga e seleziona.
   `ShowResultsWindow` ora restituisce la selezione; `RevealPath` è usata
   anche dal comando `REVEAL`.
+- `VFMParsePattern()` in `DirList.c` traduce wildcard AmigaDOS (`#?`, `?`,
+  `[]`, `~`) e `*` in `#?` e tokenizza con `ParsePatternNoCase`; usata da
+  quick filter e Find.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per

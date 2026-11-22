@@ -434,6 +434,7 @@ void FreeEntries(struct List *list);
 BOOL DosListNameToC(BSTR bname, STRPTR out, ULONG outSize);
 BOOL RootNameExists(struct DirEntryInfo *entries, LONG count, CONST_STRPTR name);
 LONG ReadDirectory(CONST_STRPTR drawer, struct List *list);
+BOOL VFMParsePattern(CONST_STRPTR pattern, STRPTR parsed, LONG parsedSize);
 void SetupNotify(CONST_STRPTR path);
 void UpdateWindowTitle(struct Window *win, CONST_STRPTR path);
 void SetPathGadget(Object *pathGad, struct Window *win, CONST_STRPTR path);
