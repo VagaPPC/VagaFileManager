@@ -36,8 +36,9 @@
 #include <interfaces/rexxsyslib.h>
 
 /* Tipo dei messaggi "notify" usati dal canale comandi dei plugin.
-   Deve stare fuori dai valori AMTYPE_* usati da Workbench. */
-#define VFMPLUGIN_TYPE 0x5646
+   Deve essere diverso da VFMDROP_TYPE (0x5646) e dai valori AMTYPE_*:
+   con lo stesso valore i drop VFM venivano scambiati per notifiche. */
+#define VFMPLUGIN_TYPE 0x5647
 
 static const char version_tag[] __attribute__((used)) = "\0$VER: VagaFileManager " VFM_VERSION_LONG;
 

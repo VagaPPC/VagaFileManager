@@ -1190,7 +1190,12 @@ BOOL LoadSharedClipboard(void)
     LONG count = 0;
 
     fh = IDOS->Open(SHARED_CLIP_PATH, MODE_OLDFILE);
-    if (!fh) return FALSE;
+    if (!fh)
+    {
+        gClipboardCount = 0;
+        gClipboardMode = CLIP_NONE;
+        return FALSE;
+    }
 
     gClipboardMode = CLIP_COPY;
     if (IDOS->FGets(fh, line, sizeof(line)))
@@ -1205,14 +1210,21 @@ BOOL LoadSharedClipboard(void)
     while (count < MAX_CLIPBOARD && IDOS->FGets(fh, line, sizeof(line)))
     {
         ULONG len = strlen(line);
+        BPTR lock;
         while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r')) { line[--len] = '\0'; }
         if (len == 0) continue;
+        /* scarta le voci non piu' esistenti: dopo uno spostamento il
+           clipboard puo' puntare a un file che non c'e' piu' */
+        lock = IDOS->Lock(line, SHARED_LOCK);
+        if (!lock) continue;
+        IDOS->UnLock(lock);
         strncpy(gClipboard[count], line, PATH_MAX_LEN - 1);
         gClipboard[count][PATH_MAX_LEN - 1] = '\0';
         count++;
     }
     IDOS->Close(fh);
     gClipboardCount = count;
+    if (count == 0) gClipboardMode = CLIP_NONE;
     return (count > 0);
 }
 

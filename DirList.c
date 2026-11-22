@@ -762,9 +762,9 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
         BOOL hasDir = FALSE;
         struct Node *n;
 
-        /* se non abbiamo appunti in memoria, prova il clipboard condiviso */
-        if (gClipboardCount == 0)
-            LoadSharedClipboard();
+        /* il clipboard condiviso e' la fonte di verita': rileggilo e
+           scarta le voci non piu' esistenti (es. dopo uno spostamento) */
+        LoadSharedClipboard();
         hasClip = (gClipboardCount > 0 && gClipboardMode != CLIP_NONE);
 
         for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)

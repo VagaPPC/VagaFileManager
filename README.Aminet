@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 18
+VagaFileManager 1.0 build 19
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -98,6 +98,14 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 19
+-------------------
+- Fixed the VFM-to-VFM drag drop: the plugin notification type collided
+  with `VFMDROP_TYPE` (both 0x5646), so drops were treated as plugin
+  notifications and never copied/moved.
+- Paste button state is derived from the shared clipboard and invalid
+  (no longer existing) paths are discarded.
 
 Changes in build 18
 -------------------

@@ -3,6 +3,16 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 19 - 2026-11-22
+
+### Fixed
+- VFM-to-VFM drag&drop: `VFMPLUGIN_TYPE` was 0x5646, the same as
+  `VFMDROP_TYPE`; every drop was handled as a plugin notification and
+  never copied/moved.  The plugin type is now 0x5647.
+- Paste button state follows the shared clipboard; entries whose paths no
+  longer exist are discarded, so Paste is disabled after a move/delete
+  that invalidated the clipboard.
+
 ## 1.0 build 18 - 2026-11-22
 
 ### Fixed
