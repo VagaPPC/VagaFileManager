@@ -6,7 +6,7 @@ The canonical repository is:
 
 The suggested GitHub mirror is:
 
-    https://github.com/vagappc/VagaFileManager
+    https://github.com/VagaPPC/VagaFileManager
 
 The local checkout currently has no GitHub credentials:
 
@@ -41,7 +41,7 @@ Create a GitHub Personal Access Token with repository write access.  Let
 Git use it without storing it in the repository:
 
     git config --global credential.helper store
-    git push https://github.com/vagappc/VagaFileManager.git main
+    git push https://github.com/VagaPPC/VagaFileManager.git main
 
 Git stores the token in `~/.git-credentials`; do not commit that file.
 
@@ -52,7 +52,7 @@ license or .gitignore).  Then, in Gitea:
 
 1. open the repository -> Settings -> Repository -> Mirror Settings;
 2. add a **Push Mirror**:
-   - Remote address: `https://github.com/vagappc/VagaFileManager.git`
+   - Remote address: `https://github.com/VagaPPC/VagaFileManager.git`
    - Authentication: GitHub user name and a PAT with write access;
    - enable "Sync when commits are pushed";
 3. start the first synchronization.
@@ -70,7 +70,7 @@ Once the GitHub repository exists and authentication works:
 The script:
 
 - adds the `github` remote if it is missing
-  (`git@github.com:vagappc/VagaFileManager.git`);
+  (`https://github.com/VagaPPC/VagaFileManager.git`);
 - pushes all local branches and tags.
 
 For a dedicated empty mirror, a true mirror push is also available:
@@ -99,7 +99,7 @@ mirror).  Running both is harmless but redundant.
     git remote -v
     git ls-remote github
     # or
-    git ls-remote https://github.com/vagappc/VagaFileManager.git
+    git ls-remote https://github.com/VagaPPC/VagaFileManager.git
 
 The first push must include the current work:
 
@@ -112,5 +112,5 @@ The first push must include the current work:
 - Never commit tokens or `~/.git-credentials`.
 - The GitHub repository should be a **mirror**, not a second development
   branch: changes go to Gitea and are copied to GitHub.
-- If the GitHub account name is not `vagappc`, change the URL in the script,
+- If the GitHub account name is not `VagaPPC`, change the URL in the script,
   in this file and in the workflow.

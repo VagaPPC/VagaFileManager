@@ -127,7 +127,7 @@ GitHub mirror:
 - MIRROR.md describes the Gitea push mirror (recommended), the manual push
   and the optional GitHub Actions pull mirror.
 - Tools/mirror-github.sh pushes this checkout to
-  git@github.com:vagappc/VagaFileManager.git after the SSH key (or a PAT)
+  https://github.com/VagaPPC/VagaFileManager.git after the SSH key (or a PAT)
   has been authorized on GitHub.
 - .github/workflows/mirror.yml is the optional scheduled pull mirror.
 

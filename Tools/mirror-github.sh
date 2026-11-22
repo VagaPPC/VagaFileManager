@@ -6,7 +6,7 @@
 #   Tools/mirror-github.sh --mirror        # true mirror push (dedicated repo only)
 #   Tools/mirror-github.sh github URL      # explicit remote name and URL
 #
-# The default SSH URL is git@github.com:vagappc/VagaFileManager.git.
+# The default URL is https://github.com/VagaPPC/VagaFileManager.git.
 # Authentication must already work (SSH key added to GitHub, or HTTPS PAT).
 #
 # Never put a token in this script or in the repository.
@@ -22,7 +22,7 @@ if [ "$1" = "--mirror" ]; then
 fi
 
 REMOTE=${1:-github}
-URL=${2:-git@github.com:vagappc/VagaFileManager.git}
+URL=${2:-https://github.com/VagaPPC/VagaFileManager.git}
 
 if git remote get-url "$REMOTE" >/dev/null 2>&1; then
     echo "remote $REMOTE: $(git remote get-url "$REMOTE")"
