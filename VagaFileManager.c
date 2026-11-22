@@ -35,6 +35,10 @@
 #include <rexx/errors.h>
 #include <interfaces/rexxsyslib.h>
 
+/* Tipo dei messaggi "notify" usati dal canale comandi dei plugin.
+   Deve stare fuori dai valori AMTYPE_* usati da Workbench. */
+#define VFMPLUGIN_TYPE 0x5646
+
 static const char version_tag[] __attribute__((used)) = "\0$VER: VagaFileManager " VFM_VERSION_LONG;
 
 /* Cookie di stack: garantisce almeno 1 MB di stack anche quando VFM viene
@@ -65,6 +69,7 @@ WORD  gDragStartX = 0, gDragStartY = 0;
 BOOL  gDragButtonDown = FALSE;
 
 char gDropPortName[64];
+char gPluginDir[PATH_MAX_LEN];
 
 struct Bookmark gBookmarks[MAX_BOOKMARKS];
 LONG gBookmarkCount = 0;
@@ -1038,7 +1043,7 @@ void RunPlugin(CONST_STRPTR path)
 {
     char absPath[PATH_MAX_LEN];
     char exePath[PATH_MAX_LEN];
-    char cmd[PATH_MAX_LEN * 4 + 256];
+    char cmd[PATH_MAX_LEN * 6 + 256];
     ULONG len, stack = 524288;
     BPTR dir;
 
@@ -1098,10 +1103,14 @@ void RunPlugin(CONST_STRPTR path)
             strncpy(exePath, "VagaFileManager", sizeof(exePath) - 1);
         exePath[sizeof(exePath) - 1] = '\0';
 
-        /* I plugin Python ricevono anche il path del pannello attivo:
-           e' il path della finestra al momento del lancio. */
-        snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
-                 py, absPath, gRexxPortName, gPathBuffer, exePath);
+        /* Argomenti Python:
+             1 porta ARexx, 2 path pannello, 3 eseguibile VFM,
+             4 porta del drawer per --notify, 5 directory del canale.
+           I plugin possono quindi usare il canale su file senza ARexx. */
+        snprintf(cmd, sizeof(cmd),
+                 "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+                 py, absPath, gRexxPortName, gPathBuffer, exePath,
+                 gDropPortName, gPluginDir);
         stack = 1024 * 1024;
     }
     else
@@ -1681,6 +1690,190 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     }
 }
 
+/* ---- Canale comandi dei plugin (senza ARexx) ----
+   Il plugin scrive req_<id>.txt nella propria directory T:VFM_<task>,
+   manda un messaggio VFMPLUGIN_TYPE alla porta del drawer e aspetta
+   rep_<id>.txt.  Eseguiamo il comando con la stessa logica ARexx, ma su
+   un RexxMsg sintetico: nessun host ARexx e nessun problema con RX. */
+static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
+                                 LONG *rcOut, char *result, ULONG resultSize)
+{
+    struct MsgPort *reply;
+    struct RexxMsg *msg;
+    struct Message *m;
+
+    if (rcOut) *rcOut = RC_ERROR;
+    if (result && resultSize) result[0] = '\0';
+    if (!gIRexx || !cmd || !cmd[0]) return;
+
+    reply = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
+    if (!reply) return;
+
+    msg = gIRexx->CreateRexxMsg(reply, NULL, NULL);
+    if (!msg)
+    {
+        IExec->FreeSysObject(ASOT_PORT, reply);
+        return;
+    }
+
+    msg->rm_Action = RXCOMM;
+    msg->rm_Args[0] = gIRexx->CreateArgstring(cmd, strlen(cmd));
+    if (!msg->rm_Args[0])
+    {
+        gIRexx->DeleteRexxMsg(msg);
+        IExec->FreeSysObject(ASOT_PORT, reply);
+        return;
+    }
+
+    ExecuteRexxCommand(msg, gp, win);
+    IExec->ReplyMsg((struct Message *)msg);
+    IExec->Wait(1UL << reply->mp_SigBit);
+    while ((m = IExec->GetMsg(reply)) != NULL)
+    {
+        /* il RexxMsg sintetico e' tornato: lo liberiamo sotto */
+    }
+
+    if (rcOut) *rcOut = msg->rm_Result1;
+    if (msg->rm_Result2 && result && resultSize)
+    {
+        strncpy(result, (STRPTR)msg->rm_Result2, resultSize - 1);
+        result[resultSize - 1] = '\0';
+    }
+
+    gIRexx->DeleteArgstring(msg->rm_Args[0]);
+    if (msg->rm_Result2)
+        gIRexx->DeleteArgstring((STRPTR)msg->rm_Result2);
+    gIRexx->DeleteRexxMsg(msg);
+    IExec->FreeSysObject(ASOT_PORT, reply);
+}
+
+static void ProcessPluginRequests(struct Window *win)
+{
+    for (;;)
+    {
+        APTR ctx;
+        struct ExamineData *ed;
+        char name[256];
+        char full[PATH_MAX_LEN];
+        char replyPath[PATH_MAX_LEN];
+        char cmd[2048];
+        char result[4096];
+        BPTR fh;
+        LONG rc;
+        int gp;
+        BOOL found = FALSE;
+        ULONG l;
+
+        if (!gPluginDir[0]) return;
+
+        name[0] = '\0';
+        ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)gPluginDir,
+                EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
+        if (!ctx) return;
+
+        while ((ed = IDOS->ExamineDir(ctx)) != NULL)
+        {
+            ULONG n = strlen(ed->Name);
+            if (n > 4 && strncmp(ed->Name, "req_", 4) == 0)
+            {
+                if (n >= sizeof(name)) n = sizeof(name) - 1;
+                memcpy(name, ed->Name, n);
+                name[n] = '\0';
+                found = TRUE;
+                break;
+            }
+        }
+        IDOS->ReleaseDirContext(ctx);
+        if (!found) break;
+
+        snprintf(full, sizeof(full), "%s/%s", gPluginDir, name);
+        cmd[0] = '\0';
+        fh = IDOS->Open(full, MODE_OLDFILE);
+        if (fh)
+        {
+            if (!IDOS->FGets(fh, cmd, sizeof(cmd))) cmd[0] = '\0';
+            IDOS->Close(fh);
+        }
+        IDOS->Delete(full);
+
+        l = strlen(cmd);
+        while (l > 0 && (cmd[l - 1] == '\n' || cmd[l - 1] == '\r'))
+            cmd[--l] = '\0';
+
+        snprintf(replyPath, sizeof(replyPath), "%s/rep_%s", gPluginDir, name + 4);
+        gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+        ExecutePluginCommand(cmd, gp, win, &rc, result, sizeof(result));
+
+        fh = IDOS->Open(replyPath, MODE_NEWFILE);
+        if (fh)
+        {
+            IDOS->FPrintf(fh, "%ld|%s", (long)rc, result);
+            IDOS->Close(fh);
+        }
+    }
+}
+
+static void CleanupPluginDir(void)
+{
+    APTR ctx;
+    struct ExamineData *ed;
+    char path[PATH_MAX_LEN];
+
+    if (!gPluginDir[0]) return;
+
+    ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)gPluginDir,
+            EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
+    if (ctx)
+    {
+        while ((ed = IDOS->ExamineDir(ctx)) != NULL)
+        {
+            snprintf(path, sizeof(path), "%s/%s", gPluginDir, ed->Name);
+            IDOS->Delete(path);
+        }
+        IDOS->ReleaseDirContext(ctx);
+    }
+    IDOS->Delete(gPluginDir);
+}
+
+/* Manda il messaggio di notifica alla porta pubblica del drawer. */
+static int NotifyVFM(CONST_STRPTR portName)
+{
+    struct MsgPort *target, *reply;
+    struct AppMessage *msg;
+    struct Message *m;
+
+    if (!portName || !portName[0]) return 1;
+    target = IExec->FindPort(portName);
+    if (!target) return 2;
+
+    reply = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
+    if (!reply) return 3;
+
+    msg = (struct AppMessage *)IExec->AllocVecTags(sizeof(struct AppMessage),
+              AVT_Type, MEMF_SHARED, TAG_DONE);
+    if (!msg)
+    {
+        IExec->FreeSysObject(ASOT_PORT, reply);
+        return 4;
+    }
+
+    memset(msg, 0, sizeof(*msg));
+    msg->am_Message.mn_ReplyPort = reply;
+    msg->am_Message.mn_Length = sizeof(*msg);
+    msg->am_Type = VFMPLUGIN_TYPE;
+
+    IExec->PutMsg(target, (struct Message *)msg);
+    IExec->Wait(1UL << reply->mp_SigBit);
+    while ((m = IExec->GetMsg(reply)) != NULL)
+    {
+        /* notifica consumata */
+    }
+
+    IExec->FreeVec(msg);
+    IExec->FreeSysObject(ASOT_PORT, reply);
+    return 0;
+}
+
 /* ===== Stato dei pannelli ===== */
 
 static void RefreshAfterSelection(Object *listGad, struct Window *win)
@@ -1845,6 +2038,11 @@ int main(int argc, char **argv)
     BOOL done = FALSE;
     BOOL centerMouse = FALSE;
     char startPath[PATH_MAX_LEN];
+
+    /* Notifica per il canale comandi dei plugin: manda un messaggio alla
+       porta del drawer e aspetta la risposta.  Non apre finestre. */
+    if (argc > 2 && argv[1] && !strcmp(argv[1], "--notify"))
+        return NotifyVFM(argv[2]);
 
     /* Diagnostica: verifica la visibilita' di una porta pubblica da un
        processo esterno.  Uso: VagaFileManager --findport VAGAFILEMANAGER */
@@ -2013,6 +2211,15 @@ int main(int argc, char **argv)
     CreateDirUnlocked(PLUGIN_DIR);
     ScanPlugins();
 
+    /* Canale comandi dei plugin: directory privata dell'istanza. */
+    snprintf(gPluginDir, sizeof(gPluginDir), "T:VFM_%08lx",
+             (unsigned long)(ULONG)IExec->FindTask(NULL));
+    CleanupPluginDir();
+    {
+        BPTR l = IDOS->CreateDir(gPluginDir);
+        if (l) IDOS->UnLock(l);
+    }
+    DBG("plugin channel '%s'", gPluginDir);
 
     /* lock the default public screen (Workbench) for the toolbar icons */
     gPubScreen = IIntuition->LockPubScreen(NULL);
@@ -2175,7 +2382,13 @@ int main(int argc, char **argv)
                         struct AppMessage *appmsg;
                         while ((appmsg = (struct AppMessage *)IExec->GetMsg(appPort)) != NULL)
                         {
-                            if (appmsg->am_Type == VFMDROP_TYPE)
+                            if (appmsg->am_Type == VFMPLUGIN_TYPE)
+                            {
+                                ProcessPluginRequests(windows[WID_MAIN]);
+                                IExec->ReplyMsg((struct Message *)appmsg);
+                                if (gRexxQuit) done = TRUE;
+                            }
+                            else if (appmsg->am_Type == VFMDROP_TYPE)
                             {
                                 struct VFMDropMessage *drop = (struct VFMDropMessage *)appmsg;
                                 int tp = -1;
@@ -2570,6 +2783,7 @@ int main(int argc, char **argv)
     {
         if (gPanes[p].colInfo) { IListBrowser->FreeLBColumnInfo(gPanes[p].colInfo); gPanes[p].colInfo = NULL; }
     }
+    CleanupPluginDir();
     if (appPort) IExec->FreeSysObject(ASOT_PORT, appPort);
     if (gRexxPort)
     {

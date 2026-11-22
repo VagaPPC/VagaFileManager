@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 10
+VagaFileManager 1.0 build 11
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -74,8 +74,13 @@ The included ARexxDemo.py shows a Python addon with a real Reaction
 dialog.  It uses the VFM --dialog file API, so the window does not depend
 on the Python arexx module:
     VagaFileManager --dialog "@T:specfile"
-The generated ARexx script and its output are written to
-T:VFM_ARexxDemo.cmd and T:VFM_ARexxDemo.out.
+
+Python addons can also control VFM through a file-based command channel:
+they write a one-line request in their channel directory, run
+`VagaFileManager --notify <drop-port>` and read the reply.  The commands
+are the same as the ARexx API (CD, PATH, ENTRIES, SELECTED, DIALOG, ...).
+This works even when the system ARexx/RX host lookup is not working; the
+addon keeps a C:RX fallback for older VFM builds.
 
 The ARexx port is public and named VAGAFILEMANAGER (a suffixed name is
 used when several instances are running).  Typical commands are CD, OPEN,
@@ -91,6 +96,13 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 11
+-------------------
+- Python plugins: new file-based command channel (req_/rep_ files plus
+  `VagaFileManager --notify`), so CD, PATH, ENTRIES, SELECTED, DIALOG and
+  the other commands work without ARexx/RX.
+- ARexxDemo.py uses the channel for commands and keeps the C:RX fallback.
 
 Changes in build 10
 -------------------

@@ -5,13 +5,16 @@
 #
 # How VFM starts a Python addon
 # -----------------------------
-#   C:Python "PROGDIR:Plugins/ARexxDemo.py" "<arexx-port>" "<current-path>" "<vfm-executable>"
+#   C:Python "PROGDIR:Plugins/ARexxDemo.py" "<arexx-port>" "<current-path>"
+#            "<vfm-executable>" "<drop-port>" "<plugin-channel-dir>"
 #
 #   sys.argv[1] = ARexx port of this VFM instance.  It is normally
 #                 "VAGAFILEMANAGER"; when several instances are running
 #                 the newer ones use "VAGAFILEMANAGER.<task>".
 #   sys.argv[2] = path of the active pane when the addon was started.
 #   sys.argv[3] = absolute path of the VagaFileManager executable.
+#   sys.argv[4] = public drop port of this VFM instance, used by --notify.
+#   sys.argv[5] = private plugin channel directory (T:VFM_<task>).
 #
 # Reaction without BOOPSI
 # -----------------------
@@ -38,11 +41,30 @@
 #   If the helper cannot start, the addon retries with the ARexx DIALOG
 #   command, which keeps older builds usable when their port replies.
 #
-# ARexx via C:RX
-# --------------
-#   The arexx module of the stock Python 2.5 installation can return
-#   (0, 0, None) even when VFM is running, so this example does not use
-#   it.  Instead it writes a clean temporary script:
+# Plugin command channel (no ARexx)
+# ---------------------------------
+#   This is the normal path.  The plugin writes a request file in
+#   argv[5]:
+#
+#       req_<id>.txt          one command line
+#
+#   then runs:
+#
+#       VagaFileManager --notify "<argv[4]>"
+#
+#   VFM processes the request and writes:
+#
+#       rep_<id>.txt          <rc>|<result>
+#
+#   Requests are handled by the same code as the ARexx commands, but on
+#   a synthetic RexxMsg: no ARexx host lookup, no RX.  The plugin can
+#   therefore use CD, PATH, ENTRIES, SELECTED, DIALOG, ... even when the
+#   system ARexx/RX is not working.
+#
+# ARexx via C:RX (fallback)
+# -------------------------
+#   If the channel is not available (older VFM), the addon writes a
+#   clean temporary script:
 #
 #       address <port>
 #       '<command>'
@@ -53,9 +75,7 @@
 #
 #       C:RX T:VFM_ARexxDemo.cmd >T:VFM_ARexxDemo.out
 #
-#   The addon then reads RC and RESULT from the output file.  This is
-#   the same path used by RX from a Shell, so it also verifies that the
-#   public ARexx port really accepts commands.
+#   The addon then reads RC and RESULT from the output file.
 #
 # Addon API used by this example
 # ------------------------------
@@ -71,8 +91,9 @@
 # Troubleshooting
 # ---------------
 #   Every startup, command and error is appended to T:ARexxDemo.log.
-#   The generated script and its output are T:VFM_ARexxDemo.cmd and
-#   T:VFM_ARexxDemo.out: inspect them if RX reports an error.
+#   The request/reply files are in argv[5]; inspect them if the channel
+#   times out.  The C:RX fallback files are T:VFM_ARexxDemo.cmd and
+#   T:VFM_ARexxDemo.out.
 # ---------------------------------------------------------------------------
 
 import os
@@ -93,6 +114,10 @@ except ImportError:
 PORT = sys.argv[1] if len(sys.argv) > 1 else 'VAGAFILEMANAGER'
 START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
 VFM = sys.argv[3] if len(sys.argv) > 3 else 'VagaFileManager'
+DROP_PORT = sys.argv[4] if len(sys.argv) > 4 else ''
+PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
+
+_seq = 0
 
 LOG = 'T:ARexxDemo.log'
 SPEC = 'T:VFM_ARexxDemo.spec'
@@ -203,12 +228,93 @@ def arexx_quote(text):
     return "'" + text.replace("'", "''") + "'"
 
 
-def send(command):
-    """Run one ARexx command through C:RX.
+def notify():
+    """Ask VFM to process the pending request files."""
+    if not VFM or not DROP_PORT:
+        return False
+    rc = run_command('"%s" --notify "%s"' % (VFM, DROP_PORT))
+    log('channel notify: rc=%s' % rc)
+    return rc == 0
 
-    Returns (rc, rc2, result); rc/result are strings, or None if the
-    command could not be started or RX produced no output.
+
+def send_file(command):
+    """Send one command through the file channel.
+
+    Returns (rc, rc2, result) or None if the channel is unavailable.
     """
+    global _seq
+
+    if not PLUGIN_DIR or not DROP_PORT:
+        return None
+
+    command = command.replace('\n', ' ').strip()
+    if not command:
+        return (None, None, None)
+
+    _seq += 1
+    pid = 0
+    try:
+        pid = os.getpid()
+    except Exception:
+        pass
+    ident = '%d_%d_%d' % (pid, int(time.time() * 1000) % 100000000, _seq)
+    req = os.path.join(PLUGIN_DIR, 'req_' + ident + '.txt')
+    rep = os.path.join(PLUGIN_DIR, 'rep_' + ident + '.txt')
+
+    try:
+        f = open(req, 'w')
+        f.write(command + '\n')
+        f.close()
+    except IOError:
+        log('channel: cannot write ' + req)
+        return None
+
+    notify()
+
+    answer = None
+    for attempt in range(50):
+        try:
+            f = open(rep, 'r')
+            answer = f.read()
+            f.close()
+            if '|' in answer:
+                break
+        except IOError:
+            answer = None
+        time.sleep(0.1)
+
+    try:
+        os.remove(req)
+    except OSError:
+        pass
+    try:
+        os.remove(rep)
+    except OSError:
+        pass
+
+    if answer is None or '|' not in answer:
+        log('channel: no reply for ' + command)
+        return None
+
+    rc, sep, result = answer.partition('|')
+    try:
+        log('channel: rc=%s result=%r' % (rc, result))
+        return (int(rc), None, result)
+    except ValueError:
+        log('channel: bad reply %r' % answer)
+        return None
+
+
+def send(command):
+    """Use the file channel; fall back to C:RX for older VFM builds."""
+    result = send_file(command)
+    if result is not None:
+        return result
+    return send_rx(command)
+
+
+def send_rx(command):
+    """Run one ARexx command through C:RX (fallback)."""
     command = command.replace('\n', ' ').strip()
     if not command:
         return (None, None, None)
@@ -319,7 +425,8 @@ def python_entries(path):
 
 
 def main():
-    log('start port=%s path=%s vfm=%s' % (PORT, START_PATH, VFM))
+    log('start port=%s path=%s vfm=%s channel=%s drop=%s' %
+        (PORT, START_PATH, VFM, PLUGIN_DIR, DROP_PORT))
 
     # Ask the running VFM for its version.  This is also the first test
     # of the ARexx port; the generated .cmd/.out files show what RX saw.
@@ -370,7 +477,7 @@ def main():
             elif idx == 4 or command.upper() == 'SELECTED':
                 result = '(no reply; use the VFM window to see the selection)'
             else:
-                result = '(command sent; no reply from RX)'
+                result = '(command sent; no reply)'
 
         # Show rc too: it proves whether VFM accepted the command even
         # when the returned string is empty.

@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 10 (22.11.2026)
+Version 1.0 build 11 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -92,12 +92,21 @@ Views:
 
 Python / ARexx addons:
 - Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
-- VFM passes the ARexx port, the active path and the VFM executable to
-  Python addons:
-    C:Python "<script>" "<port>" "<path>" "<vfm-executable>"
+- VFM passes six arguments to Python addons:
+    C:Python "<script>" "<arexx-port>" "<path>" "<vfm-executable>" \
+             "<drop-port>" "<plugin-channel-dir>"
+  The drop port and the channel directory are used by the file-based
+  command channel.
 - VFM looks for C:Python, then C:Python3.
+- Plugin command channel (no ARexx needed):
+    - write a one-line request to "<plugin-channel-dir>/req_<id>.txt";
+    - run:  VagaFileManager --notify "<drop-port>"
+    - read "<plugin-channel-dir>/rep_<id>.txt", format "<rc>|<result>".
+  The commands are the same as the ARexx API (VERSION, CD, PATH, ENTRIES,
+  SELECTED, DIALOG, REVEAL, ...).  This works even when the system ARexx
+  host lookup/RX is not working.
 - The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
-  Reaction interface an addon can either use the ARexx command
+  Reaction interface an addon can either use the channel command
     DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
   or, without ARexx, launch VFM in dialog mode:
     VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
@@ -106,11 +115,9 @@ Python / ARexx addons:
   buttons); it avoids quoting problems when the text contains '|' or '"'.
   VFM writes "<index>|<typed-text>" to the result file; 0 = cancelled.
   <buttons> accepts up to six labels separated by '|'.
-  See Plugins/ARexxDemo.py for a complete, commented example: it uses the
-  file-based dialog for the Reaction window and sends ARexx commands with
-  a generated script run by C:RX (the stock Python 2.5 arexx module may
-  return an empty reply).  The script and its output are
-  T:VFM_ARexxDemo.cmd and T:VFM_ARexxDemo.out; diagnostics are in
+  See Plugins/ARexxDemo.py for a complete, commented example: the
+  Reaction window uses --dialog and commands use the file channel; it
+  also keeps a C:RX fallback for older VFM builds.  Diagnostics are in
   T:ARexxDemo.log.
 - If no window appears, run it once from a Shell to see Python errors:
     C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager

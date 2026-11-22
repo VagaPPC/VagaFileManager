@@ -63,9 +63,16 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - Porta pubblica `VAGAFILEMANAGER`; con più istanze `VAGAFILEMANAGER.<task>`.
 - I plugin stanno in `PROGDIR:Plugins`; menu Script → Refresh.
   `PROGDIR:` viene risolto in assoluto prima del lancio:
-  - `.py` → `C:Python` (o `C:Python3`) `"<script>" "<porta>" "<path pannello>" "<eseguibile VFM>"`
+  - `.py` → `C:Python` (o `C:Python3`)
+    `"<script>" "<porta>" "<path pannello>" "<eseguibile VFM>" "<drop porta>" "<canale>"`
   - `.rexx` → `C:RX "<script>"`
   - se Python non c'è, VFM mostra un messaggio (non resta muto).
+- Canale comandi plugin (senza ARexx/RX):
+  - il plugin scrive `req_<id>.txt` nella directory `<canale>`;
+  - lancia `VagaFileManager --notify "<drop porta>"`;
+  - legge `rep_<id>.txt` nel formato `<rc>|<result>`.
+  - `ProcessPluginRequests()` esegue il comando con `ExecuteRexxCommand()`
+    su un `RexxMsg` sintetico; la directory è `T:VFM_<task>`.
 - Il Python OS4 standard espone solo `amiga`, `arexx`, `asl`, `catalog`, `icon`,
   `installer`: **niente BOOPSI/ReAction diretto**.
 - Per l'interfaccia grafica VFM espone due strade (entrambe `PromptDialog()`
@@ -75,12 +82,13 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
     oppure `VagaFileManager --dialog "@<spec-file>"` (5 righe, evita problemi
     di quoting).  Scrive `<index>|<testo>` nel file risultato; non apre la
     finestra principale né la porta ARexx.
-- `ARexxDemo.py`: esempio puro Python con finestra Reaction via `--dialog`
-  su file; invia i comandi con `C:RX` e uno script generato
-  (`T:VFM_ARexxDemo.cmd` → `T:VFM_ARexxDemo.out`), non con `arexx.dorexx`
-  (che su Python 2.5.6 restituisce risultato vuoto).  Se il risultato manca,
-  mostra il path di lancio o `os.listdir()`.  Log diagnostico in
-  `T:ARexxDemo.log`; se il dialogo fallisce mostra un messaggio ASL.
+- `ARexxDemo.py`: esempio puro Python con finestra Reaction via `--dialog`;
+  i comandi passano dal canale su file (senza ARexx).  Se il canale non c'è
+  (VFM vecchio) usa il fallback `C:RX` con `T:VFM_ARexxDemo.cmd` →
+  `T:VFM_ARexxDemo.out`, non `arexx.dorexx` (che su Python 2.5.6 restituisce
+  risultato vuoto).  Se il risultato manca mostra il path di lancio o
+  `os.listdir()`.  Log in `T:ARexxDemo.log`; se il dialogo fallisce mostra
+  un messaggio ASL.
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
   VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
   `T:ARexxProbe.log`.
