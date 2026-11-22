@@ -2692,11 +2692,35 @@ int main(int argc, char **argv)
                                 case WMHI_MOUSEBUTTONS:
                                 {
                                     /* SELECTUP is always delivered: an extra release signal for drags */
-                                    if (code == SELECTUP && gDragButtonDown)
+                                    if (code == SELECTUP)
                                     {
-                                        int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
-                                        gActivePane = gp;
-                                        PerformDragDrop(&gPanes[gp].fileList, windows[WID_MAIN]);
+                                        if (gDragButtonDown)
+                                        {
+                                            int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+                                            gActivePane = gp;
+                                            PerformDragDrop(&gPanes[gp].fileList, windows[WID_MAIN]);
+                                        }
+                                        else
+                                        {
+                                            /* click sul fondo della finestra:
+                                               deseleziona, come "Deselect all" */
+                                            BOOL changed = FALSE;
+                                            for (p = 0; p < 2; p++)
+                                            {
+                                                ULONG nsel = 0;
+                                                if (!gPanes[p].listGad) continue;
+                                                IIntuition->GetAttr(LISTBROWSER_NumSelected,
+                                                    gPanes[p].listGad, &nsel);
+                                                if (nsel)
+                                                {
+                                                    DeselectAllEntries(&gPanes[p].fileList);
+                                                    RefreshAfterSelection(gPanes[p].listGad, windows[WID_MAIN]);
+                                                    changed = TRUE;
+                                                }
+                                            }
+                                            if (changed)
+                                                UpdateAllStatuses(windows[WID_MAIN]);
+                                        }
                                     }
                                     break;
                                 }

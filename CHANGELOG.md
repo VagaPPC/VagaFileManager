@@ -3,6 +3,12 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 22 - 2026-11-22
+
+### Added
+- Clicking the empty window background clears the selection in both
+  panes (same as `MENU_DESELECT_ALL` / `DeselectAllEntries`).
+
 ## 1.0 build 21 - 2026-11-22
 
 ### Added
