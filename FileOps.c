@@ -230,7 +230,12 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
             chunks = 0;
             while ((n = IDOS->Read(inF, buf, 65536)) > 0)
             {
-                if (IDOS->Write(outF, buf, n) != n) { ok = FALSE; break; }
+                if (IDOS->Write(outF, buf, n) != n)
+                {
+                    DBG("copy: write '%s' failed (IoErr=%ld)", dst, (long)IDOS->IoErr());
+                    ok = FALSE;
+                    break;
+                }
                 if (gProgActive)
                 {
                     gProgBytesDone += (uint64)n;
@@ -243,13 +248,21 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
                     }
                 }
             }
-            if (n < 0) ok = FALSE;
+            if (n < 0)
+            {
+                DBG("copy: read '%s' failed (IoErr=%ld)", src, (long)IDOS->IoErr());
+                ok = FALSE;
+            }
             IDOS->Close(outF);
             if (!ok) IDOS->Delete(dst);
             else CopyAttributes(src, dst);
         }
+        else
+            DBG("copy: cannot create '%s' (IoErr=%ld)", dst, (long)IDOS->IoErr());
         IDOS->Close(inF);
     }
+    else
+        DBG("copy: cannot open '%s' (IoErr=%ld)", src, (long)IDOS->IoErr());
     IExec->FreeVec(buf);
     return ok;
 }
@@ -346,10 +359,16 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
     /* The loop ends on cancel, at the end of the listing or on a read
        error: only the end of the listing means "everything was copied".
        Otherwise a move would also delete the entries never copied. */
-    if (gProgCancel)
-        ok = FALSE;
-    else if (IDOS->IoErr() != ERROR_NO_MORE_ENTRIES)
-        ok = FALSE;
+    {
+        LONG readErr = IDOS->IoErr();
+        if (gProgCancel)
+            ok = FALSE;
+        else if (readErr != ERROR_NO_MORE_ENTRIES && readErr != 0)
+        {
+            DBG("copy: read error %ld in directory '%s'", (long)readErr, src);
+            ok = FALSE;
+        }
+    }
     IDOS->ReleaseDirContext(ctx);
     CopyAttributes(src, dst);
     IExec->FreeVec(b);
@@ -573,6 +592,8 @@ BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
 done:
     gCopyDepth--;
     IExec->FreeVec(b);
+    if (!ok)
+        DBG("copy: failed '%s' -> '%s'", src, dst);
     return ok;
 }
 
@@ -835,6 +856,7 @@ BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
 {
     if (IDOS->Rename(src, dst))
     {
+        DBG("move: rename '%s' -> '%s'", src, dst);
         /* Rename sposta solo l'oggetto: l'icona <src>.info e' un file
            separato e va spostata anche lei. */
         MoveInfoFile(src, dst);
@@ -844,17 +866,19 @@ BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
 
     gCopySkipped = FALSE;
     gCopyResolvedDst[0] = '\0';
+    DBG("move: rename failed '%s' -> '%s' (IoErr=%ld), copy+delete",
+        src, dst, (long)IDOS->IoErr());
     if (CopyEntryRecursive(src, dst))
     {
         CONST_STRPTR finalDst = gCopyResolvedDst[0] ? gCopyResolvedDst : dst;
 
         /* operation cancelled: the copy may be partial, the source must
            never be deleted */
-        if (gProgCancel) return FALSE;
+        if (gProgCancel) { DBG("move: cancelled, source kept"); return FALSE; }
 
         /* se qualcosa e' stato saltato (conflitto), non eliminare il
            sorgente: resterebbe incompleto */
-        if (gCopySkipped) return TRUE;
+        if (gCopySkipped) { DBG("move: skipped, source kept"); return TRUE; }
 
         /* CopyEntryRecursive copia anche l'icona; dopo aver rimosso
            l'originale eliminiamo la .info rimasta nel percorso sorgente. */
@@ -863,8 +887,10 @@ BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
             MoveInfoFile(src, finalDst);
             return TRUE;
         }
+        DBG("move: copied but cannot delete source '%s'", src);
         return FALSE;   /* copia riuscita ma sorgente non rimosso */
     }
+    DBG("move: copy failed '%s' -> '%s'", src, dst);
     return FALSE;
 }
 
@@ -1214,6 +1240,7 @@ void DoCopySelected(struct List *list)
         gClipboard[gClipboardCount][PATH_MAX_LEN - 1] = '\0';
         gClipboardCount++;
     }
+    DBG("copy selected: count=%ld", (long)gClipboardCount);
     if (gClipboardCount == 0)
         ShowMessage(LS(MSG_COPY), LS(MSG_COPY_NONE));
     else
@@ -1227,6 +1254,8 @@ void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window 
     BOOL moved[MAX_CLIPBOARD];
     memset(moved, 0, sizeof(moved));
 
+    DBG("paste: dir='%s' count=%ld mode=%ld", gPathBuffer,
+        (long)gClipboardCount, (long)gClipboardMode);
     if (IsRootPath(gPathBuffer)) { ShowMessage(LS(MSG_PASTE), LS(MSG_PASTE_ROOT)); return; }
     if (gClipboardCount <= 0 || gClipboardMode == CLIP_NONE)
     {
@@ -1305,8 +1334,10 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
     BOOL anyErr = FALSE, useProgress = FALSE;
 
     if (!srcList || !srcDir || !dstDir) return;
+    DBG("transfer: src='%s' dst='%s' move=%ld", srcDir, dstDir, (long)move);
     if (IsRootPath(srcDir) || IsRootPath(dstDir))
     {
+        DBG("transfer: refused (root view)");
         ShowMessage(LS(MSG_PASTE), LS(MSG_DUPLICATE_ROOT));
         return;
     }
@@ -1325,8 +1356,11 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
         total += CountFilesRecursive(full);
         bytes += CountBytesRecursive(full);
     }
+    DBG("transfer: total=%lu bytes=%lu", (unsigned long)total,
+        (unsigned long)(bytes & 0xffffffffUL));
     if (total == 0)
     {
+        DBG("transfer: no selected files");
         ShowMessage(move ? LS(MSG_MOVE) : LS(MSG_COPY), LS(MSG_COPY_NONE));
         return;
     }
@@ -1349,11 +1383,19 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
         if (!BuildChildPath(dstDir, name, dst, sizeof(dst))) { anyErr = TRUE; continue; }
         if (move)
         {
-            if (!MoveEntry(src, dst)) anyErr = TRUE;
+            if (!MoveEntry(src, dst))
+            {
+                DBG("transfer: move failed '%s' -> '%s'", src, dst);
+                anyErr = TRUE;
+            }
         }
         else
         {
-            if (!CopyEntryRecursive(src, dst)) anyErr = TRUE;
+            if (!CopyEntryRecursive(src, dst))
+            {
+                DBG("transfer: copy failed '%s' -> '%s'", src, dst);
+                anyErr = TRUE;
+            }
         }
     }
     {

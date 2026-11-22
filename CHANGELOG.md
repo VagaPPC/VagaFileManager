@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 17 - 2026-11-22
+
+### Changed
+- Copy/move: added DOS error diagnostics to `T:VagaFileManager.log`.
+- Directory copy accepts `IoErr` 0 after a successful directory scan in
+  addition to `ERROR_NO_MORE_ENTRIES` (false-failure avoidance on some
+  filesystems).
+
 ## 1.0 build 16 - 2026-11-22
 
 ### Changed

@@ -106,6 +106,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   `T:ARexxProbe.log`.
 - `fix/`: le 4 patch critiche della build 6, applicate in build 10 e
   conservate come riferimento.
+- Copy/move: log diagnostico in `T:VagaFileManager.log` (sorgente,
+  destinazione, errore DOS).  `CopyDirectoryRecursive` accetta IoErr 0
+  oltre a `ERROR_NO_MORE_ENTRIES` dopo la scansione della directory.
 - Mirror GitHub: `MIRROR.md`, `Tools/mirror-github.sh`,
   `.github/workflows/mirror.yml` (sorgente canonico su Gitea).
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
