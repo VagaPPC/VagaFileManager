@@ -723,7 +723,8 @@ static void UpdateGadgetDisabled(Object *gad, struct Window *win, BOOL disabled)
 {
     if (!gad) return;
     if (win)
-        IIntuition->SetGadgetAttrs((struct Gadget *)gad, win, NULL, GA_Disabled, disabled ? TRUE : FALSE, TAG_DONE);
+        IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gad, win, NULL,
+            GA_Disabled, disabled ? TRUE : FALSE, TAG_DONE);
     else
         IIntuition->SetAttrs(gad, GA_Disabled, disabled ? TRUE : FALSE, TAG_DONE);
 }

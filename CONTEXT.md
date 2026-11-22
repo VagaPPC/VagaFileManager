@@ -103,8 +103,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   visibile all'utente.
 - Drag VFM→VFM: `VFMDropMessage` in `MEMF_SHARED` (il destinatario è un
   altro task); `VFMPLUGIN_TYPE` = 0x5647, **diverso** da `VFMDROP_TYPE`
-  (0x5646).  Su `WMHI_ACTIVE` si ricarica il clipboard condiviso e si
-  aggiornano i pulsanti (Incolla).
+  (0x5646).  Su `WMHI_ACTIVE` e ogni ~1 s si ricarica e valida il clipboard
+  condiviso; i pulsanti usano `RefreshSetGadgetAttrs` (Incolla ghostato
+  finché non c'è un percorso valido).
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
   VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
   `T:ARexxProbe.log`.

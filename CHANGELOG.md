@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 20 - 2026-11-22
+
+### Fixed
+- Paste button: starts disabled, is visibly refreshed with
+  `RefreshSetGadgetAttrs`, and is enabled only when the shared clipboard
+  has at least one existing path.  The clipboard is revalidated once per
+  second and `DoPaste` reloads it before use.
+
 ## 1.0 build 19 - 2026-11-22
 
 ### Fixed

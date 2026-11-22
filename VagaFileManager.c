@@ -731,6 +731,10 @@ static Object *CreatePaneUI(int p)
         Object *btnCut = MakeIconButton(GID_CUT + off, gBtnImg[IMG_CUT], gBtnImgSel[IMG_CUT], LS(MSG_CUT));
         Object *btnPaste = MakeIconButton(GID_PASTE + off, gBtnImg[IMG_PASTE], gBtnImgSel[IMG_PASTE], LS(MSG_PASTE));
         Object *btnInfo = MakeIconButton(GID_INFO + off, gBtnImg[IMG_INFO], gBtnImgSel[IMG_INFO], LS(MSG_INFO));
+
+        /* Incolla nasce ghostato: UpdateStatus lo abilita solo se il
+           clipboard condiviso contiene almeno un percorso valido. */
+        IIntuition->SetAttrs(btnPaste, GA_Disabled, TRUE, TAG_DONE);
         Object *sizeBtn = MakeIconButton(GID_CALCSIZE + off, gBtnImg[IMG_SIZE], gBtnImgSel[IMG_SIZE],
                                          LS(MSG_CALC_SIZE));
         Object *shellBtn = MakeIconButton(GID_SHELL + off, gBtnImg[IMG_SHELL], gBtnImgSel[IMG_SHELL],
@@ -2725,6 +2729,15 @@ int main(int argc, char **argv)
                                                        gPanes[fp].filterApplied) != 0 &&
                                                 (nowTicks - gPanes[fp].filterChangeTicks) >= 15)
                                                 RefreshPaneAfterFilter(fp, windows[WID_MAIN]);
+                                        }
+                                        {
+                                            static ULONG lastClipCheck = 0;
+                                            if (nowTicks - lastClipCheck >= 50)
+                                            {
+                                                lastClipCheck = nowTicks;
+                                                LoadSharedClipboard();
+                                                UpdateAllStatuses(windows[WID_MAIN]);
+                                            }
                                         }
                                         for (p = 0; p < 2; p++)
                                         {

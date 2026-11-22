@@ -1269,10 +1269,9 @@ void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window 
     DBG("paste: dir='%s' count=%ld mode=%ld", gPathBuffer,
         (long)gClipboardCount, (long)gClipboardMode);
     if (IsRootPath(gPathBuffer)) { ShowMessage(LS(MSG_PASTE), LS(MSG_PASTE_ROOT)); return; }
-    if (gClipboardCount <= 0 || gClipboardMode == CLIP_NONE)
-    {
-        LoadSharedClipboard();
-    }
+    /* rileggi sempre: il clipboard puo' essere cambiato in un'altra
+       istanza o contenere percorsi non piu' esistenti */
+    LoadSharedClipboard();
     if (gClipboardCount <= 0 || gClipboardMode == CLIP_NONE)
     { ShowMessage(LS(MSG_PASTE), LS(MSG_PASTE_EMPTY)); return; }
 
