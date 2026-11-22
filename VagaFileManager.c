@@ -702,6 +702,7 @@ static Object *CreatePaneUI(int p)
         LISTBROWSER_Labels, (ULONG)&pn->fileList, LISTBROWSER_ColumnInfo, (ULONG)pn->colInfo,
         LISTBROWSER_ColumnTitles, TRUE, LISTBROWSER_TitleClickable, TRUE,
         LISTBROWSER_ShowSelected, TRUE, LISTBROWSER_MultiSelect, TRUE,
+        LISTBROWSER_AllowNoSelection, TRUE,
         FILEBROWSER_ViewMode, pn->viewMode, FILEBROWSER_IconHook, (ULONG)&gIconHooks[p],
         FILEBROWSER_HiddenColumns, (1UL << COL_TYPE) | (1UL << COL_SIZE) | (1UL << COL_DATE) | (1UL << COL_COMMENT),
         TAG_DONE);

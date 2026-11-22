@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 20
+VagaFileManager 1.0 build 21
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -98,6 +98,11 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 21
+-------------------
+- List view: clicking on empty space clears the selection
+  (`LISTBROWSER_AllowNoSelection`).  The icon view already did this.
 
 Changes in build 20
 -------------------

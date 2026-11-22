@@ -101,6 +101,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   pattern non ha wildcard, il matcher dos solo per i pattern wildcard.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
+- Click sul vuoto: la vista icone lo gestisce già in `FileBrowser.c`
+  (`idx < 0` → `SelectNone`); la vista lista usa
+  `LISTBROWSER_AllowNoSelection, TRUE`.
 - Drag VFM→VFM: `VFMDropMessage` in `MEMF_SHARED` (il destinatario è un
   altro task); `VFMPLUGIN_TYPE` = 0x5647, **diverso** da `VFMDROP_TYPE`
   (0x5646).  Su `WMHI_ACTIVE` e ogni ~1 s si ricarica e valida il clipboard
