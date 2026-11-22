@@ -59,7 +59,7 @@
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   26
+#define WB2_BUILD   27
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
@@ -162,17 +162,29 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                 if (which == WBO_ICON && full[0] &&
                     (type == WBDRAWER || type == WBDISK))
                 {
-                    (void)newWindow;
-                    (void)tagList;
+                    struct Window *hidden = NULL;
                     IIntuition->UnlockPubScreen(NULL, scr);
                     Log("intercept '%s' (type=%lu)", full, (unsigned long)type);
-                    LaunchVFM(full);
 
-                    /* Comportamento stabile: nessuna finestra nascosta da
-                       chiudere.  Il Workbench puo' mostrare per un attimo
-                       "cassetto non apribile", ma non si blocca e il device
-                       puo' essere riaperto. */
-                    return NULL;
+                    /* Non restituire NULL: Workbench mostrerebbe
+                       "Questo cassetto non può essere aperto".
+                       Apriamo una finestra valida ma invisibile/1x1 fuori
+                       schermo, poi lanciamo VFM. */
+                    if (newWindow)
+                    {
+                        struct NewWindow nw = *newWindow;
+                        nw.LeftEdge = -32000;
+                        nw.TopEdge  = -32000;
+                        nw.Width    = 1;
+                        nw.Height   = 1;
+                        nw.Flags   |= WFLG_BORDERLESS | WFLG_BACKDROP;
+                        hidden = gOrigOpenWindowTagList ?
+                            gOrigOpenWindowTagList(Self, &nw, tagList) : NULL;
+                    }
+                    Log("hidden window %p", (void *)hidden);
+
+                    LaunchVFM(full);
+                    return hidden;
                 }
             }
             IIntuition->UnlockPubScreen(NULL, scr);

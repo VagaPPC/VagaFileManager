@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 27 - 2026-11-22
+
+### Changed
+- WB2 commodity: the helper window is a 1x1 off-screen backdrop
+  (`WFLG_BACKDROP|WFLG_BORDERLESS`) and is never closed from the commodity
+  task.  It should suppress the Workbench error without the freeze; the
+  reopen behaviour is to be verified.  `WB2_BUILD` 27.
+
 ## 1.0 build 26 - 2026-11-22
 
 ### Changed

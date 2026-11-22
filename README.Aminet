@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 26
+VagaFileManager 1.0 build 27
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -98,6 +98,13 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 27
+-------------------
+- WB2 commodity: hidden helper window is now a backdrop (1x1, off-screen)
+  and is not closed cross-task.  This should suppress the Workbench
+  "drawer cannot be opened" message without freezing; reopening is being
+  verified.  Commodity build is WB2_BUILD 27.
 
 Changes in build 26
 -------------------
