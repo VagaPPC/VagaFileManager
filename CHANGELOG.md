@@ -3,6 +3,26 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 29 - 2026-11-22
+
+### Added
+- Drag & drop from VFM to AmiDock: when the drop target is AmiDock, VFM
+  sends its `ADDOBJECT` ARexx command directly to the `AMIDOCK` port
+  instead of trying to type the path into the dock window.  Dragging a
+  program, drawer or file from VFM now adds it to AmiDock like a
+  Workbench icon drop.
+- The direct ARexx message does not use RX or an ARexx host, so it also
+  works on systems where the external `RX` command cannot resolve hosts.
+
+## 1.0 build 28 - 2026-11-22
+
+### Fixed
+- WB2 commodity: the hidden Workbench drawer window is closed with
+  `CloseWorkbenchObjectA(path)` after about one second.  This removes the
+  Workbench error without a cross-task `CloseWindow` (which froze the
+  system) and lets the same device be reopened after VFM is closed.
+  `WB2_BUILD` 28.
+
 ## 1.0 build 27 - 2026-11-22
 
 ### Changed

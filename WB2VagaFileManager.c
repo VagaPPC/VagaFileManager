@@ -59,7 +59,7 @@
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   27
+#define WB2_BUILD   29
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
@@ -70,7 +70,14 @@ static char gExePath[PATH_MAX_LEN];
 static struct Library *gCxBase = NULL;
 static struct CommoditiesIFace *gICx = NULL;
 static struct MsgPort *gCxPort = NULL;
+static struct MsgPort *gClosePort = NULL;
 static CxObj *gBroker = NULL;
+
+struct CloseMsg
+{
+    struct Message msg;
+    char path[PATH_MAX_LEN];
+};
 
 typedef struct Window *(*OpenWindowTagListFunc)(struct IntuitionIFace *,
                                                 const struct NewWindow *,
@@ -177,13 +184,31 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                         nw.TopEdge  = -32000;
                         nw.Width    = 1;
                         nw.Height   = 1;
-                        nw.Flags   |= WFLG_BORDERLESS | WFLG_BACKDROP;
+                        nw.Flags   |= WFLG_BORDERLESS;
                         hidden = gOrigOpenWindowTagList ?
                             gOrigOpenWindowTagList(Self, &nw, tagList) : NULL;
                     }
                     Log("hidden window %p", (void *)hidden);
 
                     LaunchVFM(full);
+
+                    /* Chiudi l'oggetto Workbench (la finestra nascosta) dal
+                       lato Workbench: CloseWindow cross-task blocca il
+                       sistema.  Un secondo dopo il setup e' completato. */
+                    if (gClosePort)
+                    {
+                        struct CloseMsg *cm = (struct CloseMsg *)
+                            IExec->AllocVecTags(sizeof(struct CloseMsg),
+                                AVT_Type, MEMF_SHARED,
+                                AVT_ClearWithValue, 0, TAG_DONE);
+                        if (cm)
+                        {
+                            cm->msg.mn_Length = sizeof(struct CloseMsg);
+                            strncpy(cm->path, full, sizeof(cm->path) - 1);
+                            cm->path[sizeof(cm->path) - 1] = '\0';
+                            IExec->PutMsg(gClosePort, (struct Message *)cm);
+                        }
+                    }
                     return hidden;
                 }
             }
@@ -235,6 +260,14 @@ static void Shutdown(void)
             IExec->ReplyMsg(m);
         IExec->FreeSysObject(ASOT_PORT, gCxPort);
         gCxPort = NULL;
+    }
+    if (gClosePort)
+    {
+        struct Message *m;
+        while ((m = IExec->GetMsg(gClosePort)) != NULL)
+            IExec->ReplyMsg(m);
+        IExec->FreeSysObject(ASOT_PORT, gClosePort);
+        gClosePort = NULL;
     }
     if (gICx) { IExec->DropInterface((struct Interface *)gICx); gICx = NULL; }
     if (gCxBase) { IExec->CloseLibrary(gCxBase); gCxBase = NULL; }
@@ -306,6 +339,13 @@ int main(int argc, char **argv)
         Shutdown();
         return RETURN_FAIL;
     }
+    gClosePort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
+    if (!gClosePort)
+    {
+        IDOS->Printf("WB2VagaFileManager: impossibile creare la porta di chiusura.\n");
+        Shutdown();
+        return RETURN_FAIL;
+    }
 
     memset(&nb, 0, sizeof(nb));
     nb.nb_Version  = NB_VERSION;
@@ -339,10 +379,30 @@ int main(int argc, char **argv)
 
     while (!done)
     {
-        ULONG sig = IExec->Wait((1UL << gCxPort->mp_SigBit) | SIGBREAKF_CTRL_C);
+        ULONG sig = IExec->Wait((1UL << gCxPort->mp_SigBit) |
+                                (1UL << gClosePort->mp_SigBit) |
+                                SIGBREAKF_CTRL_C);
         CxMsg *cxm;
 
         if (sig & SIGBREAKF_CTRL_C) break;
+
+        if (sig & (1UL << gClosePort->mp_SigBit))
+        {
+            struct CloseMsg *cm;
+            while ((cm = (struct CloseMsg *)IExec->GetMsg(gClosePort)) != NULL)
+            {
+                /* il Workbench ha finito il setup della sua finestra */
+                IDOS->Delay(50);
+                {
+                    BOOL closed = FALSE;
+                    if (IWorkbench && cm->path[0])
+                        closed = IWorkbench->CloseWorkbenchObjectA(cm->path, NULL);
+                    Log("closing Workbench object '%s' -> %ld",
+                        cm->path, (long)closed);
+                }
+                IExec->FreeVec(cm);
+            }
+        }
 
         while ((cxm = (CxMsg *)IExec->GetMsg(gCxPort)) != NULL)
         {

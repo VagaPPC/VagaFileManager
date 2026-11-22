@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 27
+VagaFileManager 1.0 build 29
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -27,7 +27,8 @@ Main features
   cancel and pause/resume.
 - Recursive size calculation with an animated activity bar.
 - Drag and drop: move on the same device, copy across devices; multiple
-  selection is supported.
+  selection is supported.  Dropping on AmiDock adds the object to the
+  dock through AmiDock's `ADDOBJECT` ARexx command.
 - Quick filter with AmigaDOS wildcards (#?, ?, [], ~, *) or plain text.
 - Recursive Find with a results window and AmigaDOS wildcards; selecting a
   result reveals the file in the active pane.
@@ -98,6 +99,23 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 29
+-------------------
+- Drag & drop from VFM to AmiDock: dropping a file, drawer or program
+  now adds it to AmiDock through the `ADDOBJECT` ARexx command, sent
+  directly to the `AMIDOCK` port.  This fixes the drop being treated as
+  text and rejected, and does not depend on the external RX command.
+- Build 29 also contains the WB2 build 28 fix (hidden drawer window
+  closed with `CloseWorkbenchObjectA`).
+
+Changes in build 28
+-------------------
+- WB2 commodity: the hidden Workbench drawer window is closed through
+  `CloseWorkbenchObjectA(path)` about one second after VFM starts.  This
+  avoids both the Workbench "drawer cannot be opened" message and the
+  cross-task CloseWindow freeze; the same device can then be reopened.
+  Commodity build is WB2_BUILD 28.
 
 Changes in build 27
 -------------------

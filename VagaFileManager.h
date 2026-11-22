@@ -536,6 +536,11 @@ BOOL LoadSharedClipboard(void);
 void ScanPlugins(void);
 void RunPlugin(CONST_STRPTR path);
 
+/* Invia un comando ARexx a una porta pubblica esterna e aspetta la risposta.
+   Usato, per esempio, per ADDOBJECT di AmiDock senza dipendere da RX. */
+BOOL SendARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command,
+                            LONG *rcOut, char *result, ULONG resultSize);
+
 /* ---- Drag & drop ---- */
 BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LONG maxPaths, LONG *count);
 BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort);

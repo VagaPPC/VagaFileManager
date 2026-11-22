@@ -1763,6 +1763,70 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
     IExec->FreeSysObject(ASOT_PORT, reply);
 }
 
+/* Invia un comando a una porta ARexx pubblica esterna (per esempio AMIDOCK)
+   e aspetta la sua risposta.  Non passa per RX/host ARexx: crea direttamente
+   il RexxMsg e lo mette nella porta, quindi funziona anche quando il comando
+   RX dell'utente non riesce a risolvere gli host.  Ritorna TRUE se la porta
+   esiste e ha risposto; l'esito del comando e' in rcOut. */
+BOOL SendARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command,
+                            LONG *rcOut, char *result, ULONG resultSize)
+{
+    struct MsgPort *port;
+    struct MsgPort *reply;
+    struct RexxMsg *msg;
+    struct Message *m;
+
+    if (rcOut) *rcOut = RC_ERROR;
+    if (result && resultSize) result[0] = '\0';
+    if (!gIRexx || !portName || !portName[0] || !command || !command[0])
+        return FALSE;
+
+    port = IExec->FindPort(portName);
+    if (!port)
+        return FALSE;
+
+    reply = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
+    if (!reply)
+        return FALSE;
+
+    msg = gIRexx->CreateRexxMsg(reply, NULL, NULL);
+    if (!msg)
+    {
+        IExec->FreeSysObject(ASOT_PORT, reply);
+        return FALSE;
+    }
+
+    msg->rm_Action = RXCOMM | RXFF_RESULT;
+    msg->rm_Args[0] = gIRexx->CreateArgstring((STRPTR)command, strlen(command));
+    if (!msg->rm_Args[0])
+    {
+        gIRexx->DeleteRexxMsg(msg);
+        IExec->FreeSysObject(ASOT_PORT, reply);
+        return FALSE;
+    }
+
+    IExec->PutMsg(port, (struct Message *)msg);
+    IExec->Wait(1UL << reply->mp_SigBit);
+    while ((m = IExec->GetMsg(reply)) != NULL)
+    {
+        /* messaggio di risposta: il RexxMsg e' gia' nostro di nuovo */
+    }
+
+    if (rcOut) *rcOut = msg->rm_Result1;
+    if (msg->rm_Result2 && result && resultSize)
+    {
+        strncpy(result, (STRPTR)msg->rm_Result2, resultSize - 1);
+        result[resultSize - 1] = '\0';
+    }
+
+    gIRexx->DeleteArgstring(msg->rm_Args[0]);
+    if (msg->rm_Result2)
+        gIRexx->DeleteArgstring((STRPTR)msg->rm_Result2);
+    gIRexx->DeleteRexxMsg(msg);
+    IExec->FreeSysObject(ASOT_PORT, reply);
+    return TRUE;
+}
+
 static void ProcessPluginRequests(struct Window *win)
 {
     for (;;)

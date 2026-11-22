@@ -253,6 +253,88 @@ static BOOL HasControlChars(CONST_STRPTR s)
     return FALSE;
 }
 
+/* AmiDock accetta i file tramite il comando ARexx ADDOBJECT (porta AMIDOCK).
+   Non usa lo stesso drag del Workbench, quindi senza questo caso un file
+   trascinato da VFM verrebbe trattato come testo e rifiutato. */
+static BOOL IsAmiDockWindow(struct Window *w)
+{
+    CONST_STRPTR task;
+    CONST_STRPTR title;
+
+    if (!w) return FALSE;
+    task = WindowTaskName(w);
+    title = w->Title;
+    if (task && StrContainsNoCase(task, "amidock")) return TRUE;
+    if (title && StrContainsNoCase(title, "amidock")) return TRUE;
+    return FALSE;
+}
+
+static BOOL BuildAmiDockAddCommand(char *buf, ULONG size, CONST_STRPTR path)
+{
+    if (!buf || size == 0 || !path || !path[0]) return FALSE;
+    /* ADDOBJECT FILE/A: il percorso va fra virgolette.  Non accettiamo
+       virgolette o caratteri di controllo nel nome, per non rompere la
+       sintassi del comando ARexx. */
+    if (HasControlChars(path) || strchr(path, '"')) return FALSE;
+    if (strlen(path) + 16 >= size) return FALSE;
+    snprintf(buf, size, "ADDOBJECT \"%s\"", path);
+    return TRUE;
+}
+
+static BOOL AddPathsToAmiDock(char (*paths)[PATH_MAX_LEN], LONG count)
+{
+    /* AmiDock usa AMIDOCK; le istanze multiple possono aggiungere .1, .2... */
+    static const char *portNames[] = { "AMIDOCK", "AMIDOCK.1", "AMIDOCK.2", "AMIDOCK.3" };
+    char command[PATH_MAX_LEN + 32];
+    char result[256];
+    LONG added = 0, failed = 0, i;
+    ULONG p;
+
+    for (i = 0; i < count; i++)
+    {
+        BOOL portFound = FALSE;
+        LONG rc = -1;
+
+        if (!BuildAmiDockAddCommand(command, sizeof(command), paths[i]))
+        {
+            DBG("AmiDock: percorso non gestibile '%s'", paths[i]);
+            failed++;
+            continue;
+        }
+
+        for (p = 0; p < sizeof(portNames) / sizeof(portNames[0]); p++)
+        {
+            result[0] = '\0';
+            if (SendARexxCommandToPort(portNames[p], command, &rc, result, sizeof(result)))
+            {
+                portFound = TRUE;
+                break;
+            }
+        }
+
+        if (!portFound)
+        {
+            DBG("AmiDock: porta ARexx AMIDOCK non trovata");
+            return FALSE;
+        }
+
+        if (rc == 0)
+        {
+            added++;
+            DBG("AmiDock: aggiunto '%s'", paths[i]);
+        }
+        else
+        {
+            failed++;
+            DBG("AmiDock: ADDOBJECT fallito per '%s' rc=%ld result='%s'",
+                paths[i], (long)rc, result);
+        }
+    }
+
+    DBG("AmiDock: %ld aggiunti, %ld falliti", (long)added, (long)failed);
+    return (added > 0 && failed == 0);
+}
+
 static BOOL BuildDropText(char *buf, ULONG size, char (*paths)[PATH_MAX_LEN],
                           LONG count, BOOL forShell)
 {
@@ -591,6 +673,24 @@ void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD scr
             {
                 DBG("drop on VFM window -> send VFM drop");
                 SendVFMDrop(list, vfmPort, screenX, screenY);
+            }
+            else if (IsAmiDockWindow(wbWin))
+            {
+                /* AmiDock non è una finestra di testo: aggiunge l'oggetto
+                   con il comando ARexx ADDOBJECT. */
+                if (!AddPathsToAmiDock(paths, count))
+                {
+                    char dbg[512];
+                    snprintf(dbg, sizeof(dbg),
+                        "which=%lu type=%lu window=%s task=%s shell=%ld flags=%08lx x=%d y=%d drawer='%s'",
+                        (unsigned long)which, (unsigned long)type,
+                        wbWin->Title ? wbWin->Title : "?",
+                        WindowTaskName(wbWin), (long)isShell,
+                        (unsigned long)wbWin->Flags,
+                        (int)screenX, (int)screenY, targetDrawer);
+                    DBG("no drop target: %s", dbg);
+                    ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));
+                }
             }
             else if (wbWin && wbWin != win &&
                      !ourTask && !wbTask &&

@@ -102,11 +102,10 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
 - WB2 commodity: `WB2_BUILD` proprio (mostrato in `$VER`/Exchange e log).
-  Build 27: finestra helper **backdrop** 1×1 fuori schermo, restituita a
-  Workbench per evitare "cassetto non apribile"; **non** chiuderla dal task
-  della commodity (la chiusura cross-task bloccava Workbench).  Build 26
-  era il fallback stabile con NULL e messaggio transitorio.  Se la riapertura
-  resta problematica, la via pulita è un filtro input/double-click.
+  Build 28: finestra helper 1×1 fuori schermo restituita a Workbench per
+  evitare "cassetto non apribile"; dopo ~1 s viene chiusa con
+  `IWorkbench->CloseWorkbenchObjectA(path, NULL)` (NON `CloseWindow`
+  cross-task, che blocca Workbench).  Così il device torna riapribile.
 - Click sul vuoto: la vista icone lo gestisce già in `FileBrowser.c`
   (`idx < 0` → `SelectNone`); la vista lista usa
   `LISTBROWSER_AllowNoSelection, TRUE`.
@@ -142,6 +141,8 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
 - `MAX_ENTRIES` 1024: directory più grandi troncate senza avviso.
 - Il path del secondo pannello non è salvato.
 - Drag verso Shell/requester = input sintetico (non drag Workbench nativo).
+- Drag verso AmiDock = comando ARexx `ADDOBJECT` diretto sulla porta
+  `AMIDOCK` (niente RX/host; non è un drag AppWindow nativo).
 - `IsVFMWindow` usa nome task + magic in `UserData`.
 - Preferenze: il merge è best-effort (due istanze che chiudono nello stesso
   istante possono ancora sovrascriversi).

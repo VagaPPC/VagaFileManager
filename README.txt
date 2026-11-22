@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 27 (22.11.2026)
+Version 1.0 build 29 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -20,7 +20,8 @@ Features
 - Scripting & Extensibility:
 - Built-in ARexx port.
 - Python plugin support (Work In Progress).
-- Drag & Drop: Intuitive file and folder manipulation.
+- Drag & Drop: Intuitive file and folder manipulation; dropping an object
+  on AmiDock adds it to the dock via AmiDock's ADDOBJECT command.
 - Automatic Window Updates: Real-time refreshes when directory contents change.
 - Smart List View: Automatically displays files even if they do not have an associated .info icon file.
 - Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
