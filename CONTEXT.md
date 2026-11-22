@@ -80,6 +80,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   (che su Python 2.5.6 restituisce risultato vuoto).  Se il risultato manca,
   mostra il path di lancio o `os.listdir()`.  Log diagnostico in
   `T:ARexxDemo.log`; se il dialogo fallisce mostra un messaggio ASL.
+- `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
+  VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
+  `T:ARexxProbe.log`.
 - Comandi: `HELP`, `VERSION`, `QUIT`, `NEW`, `SPLIT`, `CD`, `OPEN`, `UP`, `FORWARD`,
   `REFRESH`, `PATH`, `SEARCHPATH`, `ASK`, `DIALOG`, `REVEAL`, `ENTRIES`, `SELECTED`,
   `RENAME`, `DELETE`, `DUPLICATE`, `COPY`, `CUT`, `PASTE`, `INFO`, `FIND`, `GREP`,

@@ -113,6 +113,13 @@ Python / ARexx addons:
     C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
   and check T:ARexxDemo.log.
 
+ARexx diagnostics:
+- With VFM running, from the project directory:
+    C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VMF/VagaFileManager
+  The probe uses VFM --findport for VAGAFILEMANAGER and WORKBENCH, then
+  runs two clean RX scripts (LF only) against WORKBENCH and VFM.
+  Results go to T:ARexxProbe.log and to the Shell.
+
 Localization:
 - Built-in language: english (fallback)
 - Uses the system language by default via locale.library catalogs
