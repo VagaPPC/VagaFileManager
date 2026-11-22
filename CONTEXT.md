@@ -101,6 +101,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   pattern non ha wildcard, il matcher dos solo per i pattern wildcard.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
+- Drag VFM→VFM: `VFMDropMessage` in `MEMF_SHARED` (il destinatario è un
+  altro task).  Su `WMHI_ACTIVE` si ricarica il clipboard condiviso e si
+  aggiornano i pulsanti (Incolla).
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
   VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
   `T:ARexxProbe.log`.

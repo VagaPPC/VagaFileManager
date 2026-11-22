@@ -3,6 +3,15 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 18 - 2026-11-22
+
+### Fixed
+- Drag&drop between VFM instances: the `VFMDropMessage` is allocated in
+  shared memory, so the receiving task can read it (it was
+  `MEMF_PRIVATE`).
+- Activating a VFM window reloads the shared clipboard and refreshes the
+  toolbar, enabling Paste after a copy in another instance.
+
 ## 1.0 build 17 - 2026-11-22
 
 ### Changed

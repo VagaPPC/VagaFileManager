@@ -2461,6 +2461,13 @@ int main(int argc, char **argv)
                                         CaptureWindowSize(windows[WID_MAIN]);
                                     }
                                     break;
+                                case WMHI_ACTIVE:
+                                    /* un'altra istanza puo' aver aggiornato il
+                                       clipboard condiviso: rileggilo e abilita
+                                       il pulsante Incolla */
+                                    LoadSharedClipboard();
+                                    UpdateAllStatuses(windows[WID_MAIN]);
+                                    break;
                                 case WMHI_CLOSEWINDOW:
                                     CaptureWindowSize(windows[WID_MAIN]);
                                     windows[WID_MAIN]=NULL; done=TRUE; break;

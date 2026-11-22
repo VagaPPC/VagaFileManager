@@ -836,8 +836,10 @@ void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD scr
     totalLen = 0;
     for (i = 0; i < count; i++) totalLen += strlen(paths[i]) + 1;
 
+    /* Il messaggio passa a un'altra istanza VFM: deve essere in memoria
+       condivisa, non MEMF_PRIVATE del processo sorgente. */
     drop = (struct VFMDropMessage *)IExec->AllocVecTags(sizeof(struct VFMDropMessage) + totalLen,
-        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+        AVT_Type, MEMF_SHARED, AVT_ClearWithValue, 0, TAG_DONE);
     if (!drop) { IExec->FreeVec(paths); return; }
 
     drop->vfm_Message.mn_Node.ln_Type = NT_MESSAGE;
