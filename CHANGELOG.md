@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 26 - 2026-11-22
+
+### Changed
+- WB2 commodity: removed the hidden-window workaround entirely.  The
+  stable NULL return is back: VFM launches, the device can be reopened,
+  and Workbench no longer freezes.  A transient "drawer cannot be opened"
+  message may still appear.  `WB2_BUILD` 26 is logged at startup.
+
 ## 1.0 build 25 - 2026-11-22
 
 ### Fixed

@@ -59,7 +59,7 @@
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   25
+#define WB2_BUILD   26
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
@@ -162,29 +162,17 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                 if (which == WBO_ICON && full[0] &&
                     (type == WBDRAWER || type == WBDISK))
                 {
-                    struct Window *hidden = NULL;
+                    (void)newWindow;
+                    (void)tagList;
                     IIntuition->UnlockPubScreen(NULL, scr);
                     Log("intercept '%s' (type=%lu)", full, (unsigned long)type);
-
-                    /* Non restituire NULL: Workbench mostrerebbe
-                       "Questo cassetto non può essere aperto".
-                       Apriamo una finestra valida ma invisibile/1x1 fuori
-                       schermo, poi lanciamo VFM. */
-                    if (newWindow)
-                    {
-                        struct NewWindow nw = *newWindow;
-                        nw.LeftEdge = -32000;
-                        nw.TopEdge  = -32000;
-                        nw.Width    = 1;
-                        nw.Height   = 1;
-                        nw.Flags   |= WFLG_BORDERLESS;
-                        hidden = gOrigOpenWindowTagList ?
-                            gOrigOpenWindowTagList(Self, &nw, tagList) : NULL;
-                    }
-                    Log("hidden window %p", (void *)hidden);
-
                     LaunchVFM(full);
-                    return hidden;
+
+                    /* Comportamento stabile: nessuna finestra nascosta da
+                       chiudere.  Il Workbench puo' mostrare per un attimo
+                       "cassetto non apribile", ma non si blocca e il device
+                       puo' essere riaperto. */
+                    return NULL;
                 }
             }
             IIntuition->UnlockPubScreen(NULL, scr);
@@ -310,6 +298,7 @@ int main(int argc, char **argv)
     memset(&nb, 0, sizeof(nb));
     nb.nb_Version  = NB_VERSION;
     nb.nb_Name     = "WB2VagaFileManager";
+    Log("WB2 build %s", VFM_STR(WB2_BUILD));
     nb.nb_Title    = "WB2 VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD);
     nb.nb_Descr    = "WB2 VagaFileManager drawer patch " WB2_VERSION " build " VFM_STR(WB2_BUILD);
     nb.nb_Unique   = NBU_UNIQUE | NBU_NOTIFY;

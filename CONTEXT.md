@@ -101,11 +101,13 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   pattern non ha wildcard, il matcher dos solo per i pattern wildcard.
 - `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
   visibile all'utente.
-- WB2 commodity: `WB2_BUILD` proprio (mostrato in `$VER`/Exchange).  Quando
-  intercetta device/cassetto restituisce una finestra nascosta 1×1 fuori
-  schermo (non NULL), altrimenti Workbench mostra "cassetto non apribile".
-  **Non** chiuderla dal task della commodity: `CloseWindow` cross-task
-  blocca il Workbench.  Problema riapertura ancora aperto.
+- WB2 commodity: `WB2_BUILD` proprio (mostrato in `$VER`/Exchange e log).
+  Build 26: niente finestra nascosta; `OpenWindowTagList` restituisce NULL
+  dopo aver lanciato VFM (comportamento stabile: niente freeze, device
+  riapribile; Workbench può mostrare per un attimo "cassetto non
+  apribile").  La chiusura cross-task della finestra nascosta bloccava
+  Workbench: non farlo.  Per eliminare anche il messaggio serve un filtro
+  input/double-click, non la patch OpenWindowTagList.
 - Click sul vuoto: la vista icone lo gestisce già in `FileBrowser.c`
   (`idx < 0` → `SelectNone`); la vista lista usa
   `LISTBROWSER_AllowNoSelection, TRUE`.
