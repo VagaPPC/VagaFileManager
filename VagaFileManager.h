@@ -458,7 +458,9 @@ BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
 LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize, CONST_STRPTR buttons);
-void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count);
+BOOL ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count,
+                       char *selected, ULONG selectedSize);
+BOOL RevealPath(CONST_STRPTR path, struct Window *win);
 void ShowAbout(struct Window *win);
 void DoFindFile(struct Window *win);
 void DoGrep(struct Window *win);

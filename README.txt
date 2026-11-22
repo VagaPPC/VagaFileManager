@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 13 (22.11.2026)
+Version 1.0 build 14 (22.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -30,6 +30,8 @@ Features
 - Favorite Paths: Bookmark and quickly jump to your most-used directories.
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
 - Quick Filter: real-time filtering while typing, with wildcard and regex support.
+- Find: recursive file search with a results window; selecting a result
+  reveals the file in the active pane.
 - Performance: Faster and more responsive than the standard Workbench.
 - Actively Maintained: Supported directly by the author.
 
@@ -57,6 +59,7 @@ Distribution folder (VFM/):
     Plugins/          (example ARexx/Python plugins)
     README.txt        (general documentation)
     README.Aminet     (readme for Aminet/OS4Depot uploads)
+    CHANGELOG.md      (build history)
     LICENSE
   Note: VFM/ is deleted and regenerated on every build.
   The drawer icon for VFM/ is VFM.info, stored next to the folder:
@@ -119,6 +122,12 @@ Python / ARexx addons:
   Reaction window uses --dialog and commands use the file channel; it
   also keeps a C:RX fallback for older VFM builds.  Diagnostics are in
   T:ARexxDemo.log.
+- Python plugins use the file channel and do not need ARexx.  `.rexx`
+  plugins are ARexx scripts and still use C:RX.  The VFM ARexx port remains
+  available to external clients.
+- `Plugins/Find.py` is a complete example: it asks VFM for the pattern,
+  runs the native recursive FIND, shows the results and reveals the
+  selected file.
 - If no window appears, run it once from a Shell to see Python errors:
     C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
   and check T:ARexxDemo.log.

@@ -514,14 +514,17 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
     return result;
 }
 
-void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count)
+BOOL ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count,
+                       char *selected, ULONG selectedSize)
 {
     Object *winObj = NULL, *listGad = NULL;
     struct ColumnInfo *ci = NULL;
     struct Window *win = NULL;
     ULONG sig = 0;
-    BOOL done = FALSE;
+    BOOL done = FALSE, picked = FALSE;
     char head[64];
+
+    if (selected && selectedSize) selected[0] = '\0';
 
     snprintf(head, sizeof(head), "%ld", (long)count);
 
@@ -566,8 +569,39 @@ void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count)
                     {
                         switch (res & WMHI_CLASSMASK)
                         {
-                            case WMHI_CLOSEWINDOW: done = TRUE; break;
-                            case WMHI_GADGETUP: done = TRUE; break;
+                            case WMHI_CLOSEWINDOW:
+                                done = TRUE;
+                                break;
+                            case WMHI_GADGETUP:
+                            {
+                                ULONG id = res & WMHI_GADGETMASK;
+                                if (id == GID_LIST || id == GID_RENAME_OK)
+                                {
+                                    struct Node *n;
+                                    for (n = resultList->lh_Head; n->ln_Succ; n = n->ln_Succ)
+                                    {
+                                        ULONG sel = FALSE;
+                                        IListBrowser->GetListBrowserNodeAttrs(n,
+                                            LBNA_Selected, &sel, TAG_DONE);
+                                        if (sel)
+                                        {
+                                            STRPTR text = NULL;
+                                            IListBrowser->GetListBrowserNodeAttrs(n,
+                                                LBNA_Column, 0, LBNCA_Text, (ULONG *)&text,
+                                                TAG_DONE);
+                                            if (text && selected && selectedSize)
+                                            {
+                                                strncpy(selected, text, selectedSize - 1);
+                                                selected[selectedSize - 1] = '\0';
+                                                picked = TRUE;
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    done = TRUE;
+                                }
+                                break;
+                            }
                             default: break;
                         }
                     }
@@ -581,6 +615,7 @@ void ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count)
     if (ci) IListBrowser->FreeLBColumnInfo(ci);
     IListBrowser->FreeListBrowserList(resultList);
     IExec->NewList(resultList);
+    return picked;
 }
 
 static Object *gProgTextGad = NULL;

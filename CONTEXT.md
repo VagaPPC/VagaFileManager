@@ -90,6 +90,13 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   risultato vuoto).  Se il risultato manca mostra il path di lancio o
   `os.listdir()`.  Log in `T:ARexxDemo.log`; se il dialogo fallisce mostra
   un messaggio ASL.
+- `Find.py`: plugin Python senza ARexx; invia `FIND` sul canale.  VFM apre
+  il requester, cerca ricorsivamente da `PATH`, mostra `ShowResultsWindow`;
+  la riga selezionata viene restituita e `RevealPath()` naviga e seleziona.
+  `ShowResultsWindow` ora restituisce la selezione; `RevealPath` è usata
+  anche dal comando `REVEAL`.
+- `CHANGELOG.md`: storico delle build; aggiornarlo per ogni modifica
+  visibile all'utente.
 - `Tools/ARexxProbe.py`: diagnosi port/RX; usa `--findport` per
   VAGAFILEMANAGER e WORKBENCH e due script RX puliti (solo LF); log in
   `T:ARexxProbe.log`.

@@ -77,6 +77,7 @@ dist: catalogs $(PROG) $(WB2)
 	Copy LICENSE $(DIST)
 	Copy README.txt $(DIST)
 	Copy README.Aminet $(DIST)
+	Copy CHANGELOG.md $(DIST)
 
 clean:
 	Delete $(PROG) $(WB2) $(OBJS) $(WB2OBJS) Catalogs/english/VagaFileManager.catalog Catalogs/italian/VagaFileManager.catalog Catalogs/french/VagaFileManager.catalog Catalogs/german/VagaFileManager.catalog Catalogs/polish/VagaFileManager.catalog Catalogs/spanish/VagaFileManager.catalog quiet

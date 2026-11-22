@@ -1621,10 +1621,10 @@ static void FindRec(CONST_STRPTR dir, CONST_STRPTR pattern, struct List *list,
 void DoFindFile(struct Window *win)
 {
     char pattern[NAME_MAX_LEN];
+    char picked[PATH_MAX_LEN];
     struct List list;
     LONG count = 0;
 
-    (void)win;
     if (!PromptString(LS(MSG_FIND_TITLE), pattern, sizeof(pattern))) return;
     if (!pattern[0]) return;
 
@@ -1637,7 +1637,13 @@ void DoFindFile(struct Window *win)
         IListBrowser->FreeListBrowserList(&list);
         return;
     }
-    ShowResultsWindow(LS(MSG_FIND_RESULTS), &list, count);
+    picked[0] = '\0';
+    if (ShowResultsWindow(LS(MSG_FIND_RESULTS), &list, count,
+                          picked, sizeof(picked)) &&
+        picked[0])
+    {
+        RevealPath(picked, win);
+    }
 }
 
 static void GrepFile(CONST_STRPTR path, CONST_STRPTR word, struct List *list, LONG *count)
@@ -1708,5 +1714,5 @@ void DoGrep(struct Window *win)
         IListBrowser->FreeListBrowserList(&list);
         return;
     }
-    ShowResultsWindow(LS(MSG_GREP_RESULTS), &list, count);
+    ShowResultsWindow(LS(MSG_GREP_RESULTS), &list, count, NULL, 0);
 }

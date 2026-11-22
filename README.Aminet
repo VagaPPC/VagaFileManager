@@ -8,7 +8,7 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 13
+VagaFileManager 1.0 build 14
 ============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
@@ -96,6 +96,15 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 14
+-------------------
+- Find.py rewritten for the file-based plugin channel.  It asks for the
+  pattern, searches recursively from the active pane, shows the results
+  in a listbrowser and reveals the selected file.
+- The Find/Grep results window now returns the selected row; Find
+  navigates to the drawer and selects the file.
+- Added CHANGELOG.md.
 
 Changes in build 13
 -------------------

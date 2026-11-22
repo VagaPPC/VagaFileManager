@@ -1367,6 +1367,34 @@ static int64 RexxSelectedSize(int gp)
     return any ? total : -1;
 }
 
+/* Porta il pannello attivo sulla cartella del path e seleziona il file.
+   Usata dal comando REVEAL e dalla finestra risultati di Find/Grep. */
+BOOL RevealPath(CONST_STRPTR path, struct Window *win)
+{
+    char parent[PATH_MAX_LEN];
+    CONST_STRPTR targetName;
+    BOOL selected;
+    int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+    struct Pane *pn = &gPanes[gp];
+
+    if (!path || !path[0] || !pn->listGad) return FALSE;
+    if (!GetParentPath(path, parent, sizeof(parent))) return FALSE;
+
+    targetName = FilePart(path);
+    NavigateTo(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+    selected = SelectEntryByName(pn->listGad, &pn->fileList, targetName);
+    if (!selected && gViewFilter == VIEW_FILTER_ICONS_ONLY)
+    {
+        /* il file potrebbe essere nascosto dal filtro "solo icone" */
+        gViewFilter = VIEW_FILTER_ALL_FILES;
+        LoadPath(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+        selected = SelectEntryByName(pn->listGad, &pn->fileList, targetName);
+        UpdateMenu();
+    }
+    if (selected && win) IIntuition->ActivateWindow(win);
+    return selected;
+}
+
 /* Esegue un comando ricevuto sulla porta ARexx.  Il comando e' la prima
    parola dell'argomento, il resto sono i parametri. */
 static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
@@ -1552,43 +1580,18 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     }
     else if (!IUtility->Stricmp(cmd, "REVEAL"))
     {
-        char parent[PATH_MAX_LEN];
         if (!args[0])
         {
             msg->rm_Result1 = RC_ERROR;
             RexxSetResult(msg, "Missing path");
         }
-        else if (GetParentPath(args, parent, sizeof(parent)))
-        {
-            CONST_STRPTR targetName = FilePart(args);
-            BOOL selected;
-
-            NavigateTo(parent, listGad, pathGad, statusGad, win, fl);
-            selected = SelectEntryByName(listGad, fl, targetName);
-            if (!selected && gViewFilter == VIEW_FILTER_ICONS_ONLY)
-            {
-                /* il file potrebbe essere nascosto dal filtro "solo icone" */
-                gViewFilter = VIEW_FILTER_ALL_FILES;
-                LoadPath(parent, listGad, pathGad, statusGad, win, fl);
-                selected = SelectEntryByName(listGad, fl, targetName);
-                UpdateMenu();
-            }
-            if (!selected)
-            {
-                msg->rm_Result1 = RC_ERROR;
-                RexxSetResult(msg, "File not found");
-            }
-            else
-            {
-                if (win) IIntuition->ActivateWindow(win);
-                RexxSetResult(msg, "OK");
-            }
-        }
-        else
+        else if (!RevealPath(args, win))
         {
             msg->rm_Result1 = RC_ERROR;
-            RexxSetResult(msg, "Cannot reveal path");
+            RexxSetResult(msg, "File not found");
         }
+        else
+            RexxSetResult(msg, "OK");
     }
     else if (!IUtility->Stricmp(cmd, "ENTRIES"))
     {
