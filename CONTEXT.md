@@ -103,9 +103,9 @@ Versione e build in `VagaFileManager_version.h` (`VFM_VERSION`, `VFM_BUILD`,
   visibile all'utente.
 - WB2 commodity: `WB2_BUILD` proprio (mostrato in `$VER`/Exchange).  Quando
   intercetta device/cassetto restituisce una finestra nascosta 1×1 fuori
-  schermo (non NULL), altrimenti Workbench mostra "cassetto non apribile";
-  la finestra viene chiusa ~1 s dopo via `gClosePort` (altrimenti Workbench
-  crede il cassetto aperto e il click successivo non rilancia VFM).
+  schermo (non NULL), altrimenti Workbench mostra "cassetto non apribile".
+  **Non** chiuderla dal task della commodity: `CloseWindow` cross-task
+  blocca il Workbench.  Problema riapertura ancora aperto.
 - Click sul vuoto: la vista icone lo gestisce già in `FileBrowser.c`
   (`idx < 0` → `SelectNone`); la vista lista usa
   `LISTBROWSER_AllowNoSelection, TRUE`.

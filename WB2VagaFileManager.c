@@ -59,7 +59,7 @@
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   24
+#define WB2_BUILD   25
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
@@ -70,14 +70,7 @@ static char gExePath[PATH_MAX_LEN];
 static struct Library *gCxBase = NULL;
 static struct CommoditiesIFace *gICx = NULL;
 static struct MsgPort *gCxPort = NULL;
-static struct MsgPort *gClosePort = NULL;
 static CxObj *gBroker = NULL;
-
-struct CloseMsg
-{
-    struct Message msg;
-    struct Window *win;
-};
 
 typedef struct Window *(*OpenWindowTagListFunc)(struct IntuitionIFace *,
                                                 const struct NewWindow *,
@@ -191,24 +184,6 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                     Log("hidden window %p", (void *)hidden);
 
                     LaunchVFM(full);
-
-                    /* La finestra nascosta serve solo a evitare l'errore
-                       del Workbench: va chiusa subito dopo, altrimenti il
-                       Workbench crede che il cassetto sia gia' aperto e
-                       non richiama piu' la patch. */
-                    if (hidden && gClosePort)
-                    {
-                        struct CloseMsg *cm = (struct CloseMsg *)
-                            IExec->AllocVecTags(sizeof(struct CloseMsg),
-                                AVT_Type, MEMF_SHARED,
-                                AVT_ClearWithValue, 0, TAG_DONE);
-                        if (cm)
-                        {
-                            cm->msg.mn_Length = sizeof(struct CloseMsg);
-                            cm->win = hidden;
-                            IExec->PutMsg(gClosePort, (struct Message *)cm);
-                        }
-                    }
                     return hidden;
                 }
             }
@@ -260,14 +235,6 @@ static void Shutdown(void)
             IExec->ReplyMsg(m);
         IExec->FreeSysObject(ASOT_PORT, gCxPort);
         gCxPort = NULL;
-    }
-    if (gClosePort)
-    {
-        struct Message *m;
-        while ((m = IExec->GetMsg(gClosePort)) != NULL)
-            IExec->ReplyMsg(m);
-        IExec->FreeSysObject(ASOT_PORT, gClosePort);
-        gClosePort = NULL;
     }
     if (gICx) { IExec->DropInterface((struct Interface *)gICx); gICx = NULL; }
     if (gCxBase) { IExec->CloseLibrary(gCxBase); gCxBase = NULL; }
@@ -339,13 +306,6 @@ int main(int argc, char **argv)
         Shutdown();
         return RETURN_FAIL;
     }
-    gClosePort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
-    if (!gClosePort)
-    {
-        IDOS->Printf("WB2VagaFileManager: impossibile creare la porta di chiusura.\n");
-        Shutdown();
-        return RETURN_FAIL;
-    }
 
     memset(&nb, 0, sizeof(nb));
     nb.nb_Version  = NB_VERSION;
@@ -378,29 +338,10 @@ int main(int argc, char **argv)
 
     while (!done)
     {
-        ULONG sig = IExec->Wait((1UL << gCxPort->mp_SigBit) |
-                                (1UL << gClosePort->mp_SigBit) |
-                                SIGBREAKF_CTRL_C);
+        ULONG sig = IExec->Wait((1UL << gCxPort->mp_SigBit) | SIGBREAKF_CTRL_C);
         CxMsg *cxm;
 
         if (sig & SIGBREAKF_CTRL_C) break;
-
-        if (sig & (1UL << gClosePort->mp_SigBit))
-        {
-            struct CloseMsg *cm;
-            while ((cm = (struct CloseMsg *)IExec->GetMsg(gClosePort)) != NULL)
-            {
-                /* lascia finire il setup della finestra da parte del
-                   Workbench, poi chiudila */
-                IDOS->Delay(50);
-                if (cm->win)
-                {
-                    Log("closing hidden window %p", (void *)cm->win);
-                    IIntuition->CloseWindow(cm->win);
-                }
-                IExec->FreeVec(cm);
-            }
-        }
 
         while ((cxm = (CxMsg *)IExec->GetMsg(gCxPort)) != NULL)
         {

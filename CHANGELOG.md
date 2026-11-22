@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 25 - 2026-11-22
+
+### Fixed
+- WB2 commodity: reverted the cross-task `CloseWindow` of the hidden
+  window; it froze the Workbench.  The hidden window stays open, so the
+  "This drawer cannot be opened" message is still suppressed, but the
+  same device cannot yet be reopened after closing VFM.  `WB2_BUILD` 25.
+
 ## 1.0 build 24 - 2026-11-22
 
 ### Fixed
