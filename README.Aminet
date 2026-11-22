@@ -8,8 +8,8 @@ Architecture: ppc-amigaos >= 4.1
 Date:         22-Nov-2026
 Distribution: Aminet
 
-VagaFileManager 1.0 build 9
-===========================
+VagaFileManager 1.0 build 10
+============================
 
 VagaFileManager (VFM) is a two-pane file manager for AmigaOS 4.1 built
 with ReAction/BOOPSI.  It is intended for users who prefer a fast,
@@ -91,6 +91,18 @@ Notes
   tooltypes and test it on a copy of your Workbench setup first.
 - Window geometry is stored in ENVARC:VagaFileManager.prefs, separately
   per volume.  Bookmarks are in ENVARC:VagaFileManager.bookmarks.
+
+Changes in build 10
+-------------------
+- Root view: DELETE and Copy/Move no longer act on a whole volume or
+  assign; the path gadget has its own buffer and LoadPath works on a copy.
+- Cancelling a move no longer deletes the source (partial copies and
+  read errors are reported as failures).
+- Drag&drop rejects file names with C0/C1 control characters, so a name
+  containing Return cannot run commands in a Shell.
+- Recursive copy/delete/count use heap buffers and a 256-level limit;
+  copying a deep drawer tree no longer overflows the stack.  A move does
+  not delete the source when the copy fails.
 
 Changes in build 9
 ------------------
