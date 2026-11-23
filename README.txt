@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 32 (22.11.2026)
+Version 1.0 build 44 (23.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -20,9 +20,19 @@ Features
 - Scripting & Extensibility:
 - Built-in ARexx port.
 - Python plugin support (Work In Progress).
-- Drag & Drop: Intuitive file and folder manipulation; dropping an object
-  on AmiDock uses the native Workbench AppMessage when the private AppPort
-  is found, with AmiDock's ADDOBJECT fallback.
+- Drag & Drop, Workbench style: the icons of the dragged items follow the
+  mouse pointer and the drop target under the pointer (drawer icon or row,
+  pane, Workbench drawer or icon, another program's window) is outlined.
+  Dropping files on another VFM pane, another VFM window or a Workbench
+  drawer asks Copy / Move / Cancel at the mouse pointer.  Dropping where
+  nothing can happen (for example in the same drawer) does nothing.
+  Dropping on another program works like the Workbench: the window under
+  the pointer (text editor, AmiDock, Shell...) receives the same AppMessage
+  the Workbench would send.  VFM can only do this for windows opened
+  after VFM started (the Workbench does not tell other programs where an
+  AppWindow's messages go), so AmiDock, usually started earlier, is not
+  reached.  On other windows the path is typed into Shell windows and file
+  requesters.
 - Automatic Window Updates: Real-time refreshes when directory contents change.
 - Smart List View: Automatically displays files even if they do not have an associated .info icon file.
 - Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
@@ -51,7 +61,7 @@ Build (makefile included):
   make dist       ; only (re)build the VFM/ distribution folder
   make catalogs   ; only (re)generate the .catalog files (requires CatComp)
   make clean      ; remove built files (and VFM/)
-  or manually: make catalogs ; gcc -o VagaFileManager VagaFileManager.c DirList.c FileOps.c Dialogs.c DragDrop.c FileBrowser.c -lauto
+  or manually: make catalogs ; gcc -o VagaFileManager VagaFileManager.c DirList.c FileOps.c Dialogs.c DragDrop.c DragVisual.c FileBrowser.c -lauto
 
 Distribution folder (VFM/):
   After a successful build, make recreates VFM/ containing ONLY the files
@@ -73,8 +83,9 @@ Installation:
 - Run VagaFileManager from the VFM/ folder (keep icons/ and Catalogs/ next
   to the executable; PROGDIR:icons and PROGDIR:Catalogs are used).
 - Put the "icons" folder next to the executable (PROGDIR:icons).
-  The toolbar buttons load their images from PROGDIR:icons/*.png
-  (icons come from AISS, 24x24 PNGs).
+  If AISS is installed and the `tbimages:` assign exists, toolbar, menu and
+  active-pane icons are loaded from `tbimages:` (24x24 PNGs); otherwise VFM
+  falls back to the local `PROGDIR:icons` copies.
 
 Toolbar / chooser icons (AISS names):
   Up        arrowup            View (label)   filter
@@ -90,12 +101,34 @@ Toolbar / chooser icons (AISS names):
   Info      info
   Each icon also has a "_s" (selected/pressed) variant.
 
+Menu icons (AISS names):
+  Select all       file_selectall
+  Deselect all     file_unselectall
+  Invert selection fx_invert
+
 Views:
 - Icon view (Workbench-like) and details/list view.
 - In list view the leftmost column shows each entry's icon, scaled to
   the text height.
 - Clicking a column title (Name/Type/Size/Date) sorts by that column
   (click again to reverse).
+- The active pane is marked with an AISS `lightroom_front` icon at the
+  right of its path row (lit for the active pane, dim for the other).
+- View > Size sets a fixed icon box (Auto, 32, 48, 64 or 96 pixels).  The
+  choice is remembered per path.
+
+Keyboard:
+- Cursor keys move the selection; in icon view up/down move by a row,
+  left/right by one entry.  If nothing is selected, the first entry is
+  selected.
+- Typing a letter selects the first entry starting with that letter.
+- ESC clears the selection.
+- In split view, TAB switches to the other pane.
+- In split view the active list is outlined in the fill color.
+- Requesters and dialogs open under the mouse pointer.
+- Copy errors show the system error text (for example "object is in use")
+  with Retry, Skip and Cancel, like the Workbench.
+- Amiga/Alt shortcuts are left to menus.
 
 Python / ARexx addons:
 - Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
@@ -132,6 +165,24 @@ Python / ARexx addons:
 - `Plugins/Find.py` is a complete example: it asks VFM for the pattern,
   runs the native recursive FIND, shows the results and reveals the
   selected file.
+- `Plugins/Grep.py` recursively searches text files from the active pane
+  path.  It uses ProAction (if running) for the results list, with an ASL
+  fallback, and reveals the selected file in VFM.
+- `Plugins/CompressLHA.py` creates an LHA archive from the selected files.
+  Single-pane mode uses an ASL save requester; split view asks only for the
+  archive name and stores it in the other pane.  It uses C:LHA.
+- `Plugins/CompressLZX.py` works the same way with C:LZX and creates a
+  `.lzx` archive.  If the archive exists it offers Add / Overwrite /
+  Cancel.
+- `Plugins/CompressGZIP.py` packs the selection with C:TAR and compresses
+  the result with C:gzip, producing a `.tar.gz` archive.  It also offers
+  Add / Overwrite / Cancel; Add decompresses the existing archive, appends
+  the new entries and compresses it again.
+- All three archive add-ons use the VFM progress window with the total
+  file count and do not need a VFM rebuild to be updated.
+- Add-ons can drive the VFM progress window with the channel command
+  `PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal]`;
+  `PROGRESS CLOSE` closes it.  FIND/GREP and the bundled add-ons use it.
 - If no window appears, run it once from a Shell to see Python errors:
     C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
   and check T:ARexxDemo.log.
@@ -183,5 +234,7 @@ The full license text is in the LICENSE file, which is also copied into
 the VFM/ distribution folder.
 
 Note: FileBrowser.c and FileBrowser.h are a separate work by OpenAmiga.org
-("Listbrowser gadget with cell mode") released into the public domain;
-they are distributed here unmodified under their own terms.
+("Listbrowser gadget with cell mode") released into the public domain.
+They are used with one small VFM addition: the read-only
+`FILEBROWSER_Columns` get attribute, used for keyboard navigation in icon
+view.  The rest is unchanged.

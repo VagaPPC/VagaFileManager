@@ -15,7 +15,7 @@ CFLAGS  = -O3 -fomit-frame-pointer -fno-strict-aliasing
 
 LANG = english italian french german polish spanish
 
-OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o FileBrowser.o
+OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o DragVisual.o FileBrowser.o AppWinRegistry.o
 WB2OBJS = WB2VagaFileManager.o
 
 .PHONY: all catalogs dist clean
@@ -32,8 +32,10 @@ VagaFileManager.o: VagaFileManager.c VagaFileManager.h FileBrowser.h VagaFileMan
 DirList.o: DirList.c VagaFileManager.h VagaFileManager_strings.h
 FileOps.o: FileOps.c VagaFileManager.h VagaFileManager_strings.h
 Dialogs.o: Dialogs.c VagaFileManager.h VagaFileManager_strings.h
-DragDrop.o: DragDrop.c VagaFileManager.h VagaFileManager_strings.h
+DragDrop.o: DragDrop.c VagaFileManager.h FileBrowser.h VagaFileManager_strings.h AppWindowRegistry.h
+DragVisual.o: DragVisual.c VagaFileManager.h
 FileBrowser.o: FileBrowser.c FileBrowser.h VagaFileManager_strings.h
+AppWinRegistry.o: AppWinRegistry.c VagaFileManager.h AppWindowRegistry.h
 WB2VagaFileManager.o: WB2VagaFileManager.c
 
 catalogs:
@@ -76,7 +78,7 @@ dist: catalogs $(PROG) $(WB2)
 	-Copy Plugins/#?.rexx $(DIST)/Plugins
 	Copy LICENSE $(DIST)
 	Copy README.txt $(DIST)
-	Copy README.Aminet $(DIST)
+	-Copy README.Aminet $(DIST)
 	Copy CHANGELOG.md $(DIST)
 
 clean:

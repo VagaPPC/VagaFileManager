@@ -24,7 +24,7 @@ MSG_SORT_BY_DATE
 Datum
 ;
 MSG_SORT_BY_SIZE
-Größe
+Grï¿½ï¿½e
 ;
 MSG_TYPE_DIR_LINK
 Verz. (Link)
@@ -45,25 +45,25 @@ MSG_TYPE_OTHER
 Andere
 ;
 MSG_TYPE_DEVICE
-Gerät
+Gerï¿½t
 ;
 MSG_TYPE_VOLUME
-Datenträger
+Datentrï¿½ger
 ;
 MSG_TYPE_ASSIGN
 Zuweisung
 ;
 MSG_TYPE_LATE_ASSIGN
-Späte Zuweisung
+Spï¿½te Zuweisung
 ;
 MSG_TYPE_NONBINDING
 Nicht bindend
 ;
 MSG_ROOT_ASSIGNS
-(Geräte und Zuweisungen)
+(Gerï¿½te und Zuweisungen)
 ;
 MSG_STATUS_FORMAT
-Objekte: %ld  |  Ausgewählt: %lu
+Objekte: %ld  |  Ausgewï¿½hlt: %lu
 ;
 MSG_BTN_OK
 OK
@@ -81,40 +81,40 @@ MSG_RENAME
 Umbenennen
 ;
 MSG_RENAME_SELECT_ONE
-Wählen Sie ein einzelnes Objekt zum Umbenennen aus.
+Wï¿½hlen Sie ein einzelnes Objekt zum Umbenennen aus.
 ;
 MSG_RENAME_FAILED
-Umbenennen nicht möglich:\n%s
+Umbenennen nicht mï¿½glich:\n%s
 ;
 MSG_ERROR_TITLE
 Fehler
 ;
 MSG_DELETE
-Löschen
+Lï¿½schen
 ;
 MSG_DELETE_NONE
-Kein Objekt ausgewählt.
+Kein Objekt ausgewï¿½hlt.
 ;
 MSG_DELETE_CONFIRM_ONE
-Ausgewähltes Objekt löschen?
+Ausgewï¿½hltes Objekt lï¿½schen?
 ;
 MSG_DELETE_CONFIRM_MANY
-%ld ausgewählte Objekte löschen?
+%ld ausgewï¿½hlte Objekte lï¿½schen?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Löschen bestätigen
+Lï¿½schen bestï¿½tigen
 ;
 MSG_DELETE_FAILED
-Löschen nicht möglich:\n%s\n(Der Ordner ist möglicherweise nicht leer)
+Lï¿½schen nicht mï¿½glich:\n%s\n(Der Ordner ist mï¿½glicherweise nicht leer)
 ;
 MSG_DUPLICATE
 Duplizieren
 ;
 MSG_DUPLICATE_ROOT
-Vorgang in dieser Ansicht nicht verfügbar.
+Vorgang in dieser Ansicht nicht verfï¿½gbar.
 ;
 MSG_DUPLICATE_NONE
-Kein Objekt ausgewählt.
+Kein Objekt ausgewï¿½hlt.
 ;
 MSG_DUPLICATE_ERRORS
 Einige Objekte konnten nicht dupliziert werden.
@@ -126,19 +126,19 @@ MSG_COPY
 Kopieren
 ;
 MSG_COPY_NONE
-Kein Objekt ausgewählt.
+Kein Objekt ausgewï¿½hlt.
 ;
 MSG_PASTE
-Einfügen
+Einfï¿½gen
 ;
 MSG_PASTE_ROOT
-Einfügen in die Zuweisungsliste nicht möglich.
+Einfï¿½gen in die Zuweisungsliste nicht mï¿½glich.
 ;
 MSG_PASTE_EMPTY
 Zwischenablage ist leer.
 ;
 MSG_PASTE_ERRORS
-Einige Objekte konnten nicht eingefügt werden.
+Einige Objekte konnten nicht eingefï¿½gt werden.
 ;
 MSG_INFO
 Info
@@ -147,7 +147,7 @@ MSG_INFO_TITLE
 Informationen
 ;
 MSG_INFO_SELECT_ONE
-Wählen Sie ein einzelnes Objekt aus.
+Wï¿½hlen Sie ein einzelnes Objekt aus.
 ;
 MSG_DROP_COPY_FAILED
 Fehler beim Kopieren des abgelegten Objekts.
@@ -156,7 +156,7 @@ MSG_DRAGDROP_TITLE
 Ziehen und Ablegen
 ;
 MSG_DROP_ROOT
-Kopieren in die Zuweisungsliste nicht möglich.
+Kopieren in die Zuweisungsliste nicht mï¿½glich.
 ;
 MSG_DROP_COPY_ERROR_NAME
 Fehler beim Kopieren:\n%s
@@ -168,13 +168,13 @@ MSG_COL_TYPE
 Typ
 ;
 MSG_COL_SIZE
-Größe
+Grï¿½ï¿½e
 ;
 MSG_COL_DATE
 Datum
 ;
 MSG_STATUS_EMPTY
-Objekte: 0  |  Ausgewählt: 0
+Objekte: 0  |  Ausgewï¿½hlt: 0
 ;
 MSG_BTN_ICONS
 Symbole
@@ -186,7 +186,7 @@ MSG_BTN_UP
 Hoch
 ;
 MSG_BTN_OPEN
-Öffnen
+ï¿½ffnen
 ;
 MSG_BTN_REFRESH
 Aktualisieren
@@ -204,16 +204,16 @@ MSG_LABEL_PATH
 Pfad:
 ;
 MSG_DROP_NO_TARGET
-Kein gültiges Ablageziel gefunden.
+Kein gï¿½ltiges Ablageziel gefunden.
 ;
 MSG_COL_COMMENT
 Kommentar
 ;
 MSG_BTN_BACK
-Zurück
+Zurï¿½ck
 ;
 MSG_BTN_FORWARD
-Vorwärts
+Vorwï¿½rts
 ;
 MSG_MENU_PROGRAM
 Programm
@@ -237,10 +237,10 @@ MSG_MENU_BOOKMARKS
 Lesezeichen
 ;
 MSG_MENU_ADDBOOKMARK
-Zu Lesezeichen hinzufügen
+Zu Lesezeichen hinzufï¿½gen
 ;
 MSG_BOOKMARK_ADDED
-Zu Lesezeichen hinzugefügt.
+Zu Lesezeichen hinzugefï¿½gt.
 ;
 MSG_MENU_MANAGE
 Verwalten...
@@ -321,7 +321,7 @@ MSG_ABOUT_MAIL
 Mail: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Besonderer Dank: ldg72, Flash, Kaffeine und ACube
+Besonderer Dank: ldg72, Flash, Kaffeine, ACube und AlfredONE
 ;
 MSG_MENU_WBREPLACE
 Workbench ersetzen
@@ -412,4 +412,10 @@ Umbenennen
 ;
 MSG_CONFLICT_SKIP
 Uberspringen
+;
+MSG_COPY_ERROR_BODY
+Fehler beim Kopieren von '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Wiederholen|Uberspringen|Abbrechen
 ;

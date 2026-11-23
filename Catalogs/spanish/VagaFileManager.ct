@@ -15,7 +15,7 @@ MSG_SORT_BY_TYPE
 tipo
 ;
 MSG_SORT_ALPHABETICAL
-Alfabético
+Alfabï¿½tico
 ;
 MSG_SORT_BY_NAME
 nombre
@@ -24,7 +24,7 @@ MSG_SORT_BY_DATE
 fecha
 ;
 MSG_SORT_BY_SIZE
-tamaño
+tamaï¿½o
 ;
 MSG_TYPE_DIR_LINK
 Dir. (enlace)
@@ -33,7 +33,7 @@ MSG_TYPE_LINK
 Enlace
 ;
 MSG_TYPE_DRAWER
-Cajón
+Cajï¿½n
 ;
 MSG_TYPE_FILE
 Archivo
@@ -51,10 +51,10 @@ MSG_TYPE_VOLUME
 Volumen
 ;
 MSG_TYPE_ASSIGN
-Asignación
+Asignaciï¿½n
 ;
 MSG_TYPE_LATE_ASSIGN
-Asignación tardía
+Asignaciï¿½n tardï¿½a
 ;
 MSG_TYPE_NONBINDING
 No vinculante
@@ -93,28 +93,28 @@ MSG_DELETE
 Eliminar
 ;
 MSG_DELETE_NONE
-Ningún elemento seleccionado.
+Ningï¿½n elemento seleccionado.
 ;
 MSG_DELETE_CONFIRM_ONE
-¿Eliminar el elemento seleccionado?
+ï¿½Eliminar el elemento seleccionado?
 ;
 MSG_DELETE_CONFIRM_MANY
-¿Eliminar %ld elementos seleccionados?
+ï¿½Eliminar %ld elementos seleccionados?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Confirmar eliminación
+Confirmar eliminaciï¿½n
 ;
 MSG_DELETE_FAILED
-No se puede eliminar:\n%s\n(La carpeta puede no estar vacía)
+No se puede eliminar:\n%s\n(La carpeta puede no estar vacï¿½a)
 ;
 MSG_DUPLICATE
 Duplicar
 ;
 MSG_DUPLICATE_ROOT
-Operación no disponible en esta vista.
+Operaciï¿½n no disponible en esta vista.
 ;
 MSG_DUPLICATE_NONE
-Ningún elemento seleccionado.
+Ningï¿½n elemento seleccionado.
 ;
 MSG_DUPLICATE_ERRORS
 Algunos elementos no se pudieron duplicar.
@@ -126,7 +126,7 @@ MSG_COPY
 Copiar
 ;
 MSG_COPY_NONE
-Ningún elemento seleccionado.
+Ningï¿½n elemento seleccionado.
 ;
 MSG_PASTE
 Pegar
@@ -135,16 +135,16 @@ MSG_PASTE_ROOT
 No se puede pegar en la lista de asignaciones.
 ;
 MSG_PASTE_EMPTY
-El portapapeles está vacío.
+El portapapeles estï¿½ vacï¿½o.
 ;
 MSG_PASTE_ERRORS
 Algunos elementos no se pudieron pegar.
 ;
 MSG_INFO
-Información
+Informaciï¿½n
 ;
 MSG_INFO_TITLE
-Información
+Informaciï¿½n
 ;
 MSG_INFO_SELECT_ONE
 Seleccione un solo elemento.
@@ -168,7 +168,7 @@ MSG_COL_TYPE
 Tipo
 ;
 MSG_COL_SIZE
-Tamaño
+Tamaï¿½o
 ;
 MSG_COL_DATE
 Fecha
@@ -204,13 +204,13 @@ MSG_LABEL_PATH
 Ruta:
 ;
 MSG_DROP_NO_TARGET
-No se encontró un destino válido para soltar.
+No se encontrï¿½ un destino vï¿½lido para soltar.
 ;
 MSG_COL_COMMENT
 Comentario
 ;
 MSG_BTN_BACK
-Atrás
+Atrï¿½s
 ;
 MSG_BTN_FORWARD
 Adelante
@@ -222,13 +222,13 @@ MSG_MENU_NEWWINDOW
 Nueva...
 ;
 MSG_MENU_INFO
-Información...
+Informaciï¿½n...
 ;
 MSG_MENU_QUIT
 Salir
 ;
 MSG_MENU_EDIT
-Edición
+Ediciï¿½n
 ;
 MSG_MENU_VIEW
 Ver
@@ -237,10 +237,10 @@ MSG_MENU_BOOKMARKS
 Marcadores
 ;
 MSG_MENU_ADDBOOKMARK
-Añadir a marcadores
+Aï¿½adir a marcadores
 ;
 MSG_BOOKMARK_ADDED
-Añadido a marcadores.
+Aï¿½adido a marcadores.
 ;
 MSG_MENU_MANAGE
 Gestionar...
@@ -255,7 +255,7 @@ MSG_SORT
 Ordenar por
 ;
 MSG_ABOUT_VERSION
-Versión %s
+Versiï¿½n %s
 ;
 MSG_ABOUT_AUTHOR
 VagaPPC (Benedetto Lorello)
@@ -270,7 +270,7 @@ MSG_MOVE
 Mover
 ;
 MSG_PROG_TITLE
-Operación de archivo
+Operaciï¿½n de archivo
 ;
 MSG_PROG_STATUS
 Copiando...
@@ -321,7 +321,7 @@ MSG_ABOUT_MAIL
 Correo: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Agradecimientos: ldg72, Flash, Kaffeine y ACube
+Agradecimientos: ldg72, Flash, Kaffeine, ACube y AlfredONE
 ;
 MSG_MENU_WBREPLACE
 Reemplazar Workbench
@@ -412,4 +412,10 @@ Renombrar
 ;
 MSG_CONFLICT_SKIP
 Omitir
+;
+MSG_COPY_ERROR_BODY
+Error al copiar '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Reintentar|Omitir|Cancelar
 ;

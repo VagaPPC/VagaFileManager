@@ -383,6 +383,26 @@ static BOOL gLastFilterValid = FALSE;
 
 /* ===== Lettura e filtro delle directory ===== */
 
+/* Buffer di lavoro riusato da ReadDirectory.  La directory viene riletta
+   molto spesso (navigazione, refresh, filtro rapido); riallocare e
+   azzerare ~500 KB a ogni lettura era sprecato.  Il buffer non viene
+   azzerato: ReadDirectory scrive tutti i campi delle voci che usa. */
+static struct DirEntryInfo *gDirScratch = NULL;
+
+static struct DirEntryInfo *GetDirScratch(void)
+{
+    if (!gDirScratch)
+        gDirScratch = (struct DirEntryInfo *)IExec->AllocVecTags(
+            MAX_ENTRIES * sizeof(struct DirEntryInfo),
+            AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    return gDirScratch;
+}
+
+void FreeDirectoryScratch(void)
+{
+    if (gDirScratch) { IExec->FreeVec(gDirScratch); gDirScratch = NULL; }
+}
+
 /* TRUE se il pattern contiene una wildcard (Amiga o *). */
 BOOL VFMHasWildcard(CONST_STRPTR pattern)
 {
@@ -478,13 +498,12 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
 {
     APTR context;
     struct ExamineData *ed;
-    struct DirEntryInfo *entries = NULL;
+    struct DirEntryInfo *entries;
     LONG count = 0, i;
 
     FreeEntries(list);
 
-    entries = (struct DirEntryInfo *)IExec->AllocVecTags(MAX_ENTRIES * sizeof(struct DirEntryInfo),
-        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    entries = GetDirScratch();
     if (!entries) return 0;
 
     if (IsRootPath(drawer))
@@ -521,6 +540,7 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
             entries[count].isDir = TRUE;
             entries[count].hasInfo = FALSE;
             entries[count].fileSize = 0;
+            entries[count].comment[0] = '\0';
             memset(&entries[count].dateStamp, 0, sizeof(entries[count].dateStamp));
             entries[count].typeRank = (dl->dol_Type == DLT_VOLUME) ? 0 : (dl->dol_Type == DLT_DEVICE ? 1 : 2);
             count++;
@@ -654,7 +674,6 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         gEntryCount++;
     }
 
-    IExec->FreeVec(entries);
     return gEntryCount;
 }
 
@@ -763,9 +782,10 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
         BOOL hasDir = FALSE;
         struct Node *n;
 
-        /* il clipboard condiviso e' la fonte di verita': rileggilo e
-           scarta le voci non piu' esistenti (es. dopo uno spostamento) */
-        LoadSharedClipboard();
+        /* Il clipboard condiviso e' gia' in memoria: il file viene riletto
+           dal loop principale (attivazione finestra e ogni ~1 s) e da
+           DoPaste.  Evitiamo I/O DOS a ogni aggiornamento della barra di
+           stato (era la chiamata piu' frequente e piu' costosa). */
         hasClip = (gClipboardCount > 0 && gClipboardMode != CLIP_NONE);
 
         for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
@@ -828,7 +848,7 @@ void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statu
     else IIntuition->SetAttrs(listGad, LISTBROWSER_Labels, ~0, TAG_DONE);
     ReadDirectory(usePath, list);
     SetPathGadget(pathGad, win, usePath);
-    RememberPathPrefs(usePath, gViewMode, gViewFilter, gSortMode, gShowInfoFiles);
+    RememberPathPrefs(usePath, gViewMode, gViewFilter, gSortMode, gShowInfoFiles, gIconSize);
     UpdateWindowTitle(win, usePath);
     SetupNotify(usePath);
     if (win) IIntuition->RefreshSetGadgetAttrs((struct Gadget *)listGad, win, NULL, LISTBROWSER_Labels, (ULONG)list, TAG_DONE);

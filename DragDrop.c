@@ -19,10 +19,17 @@
 /*
  * Modulo: DragDrop.c
  * ------------------
- * Drag & drop: raccolta dei percorsi selezionati, identificazione della
- * finestra di destinazione, trasferimento VFM->VFM (sposta sullo stesso
- * device, copia su device diversi), drop da/verso Workbench e altre app e
- * drop testuale su finestre esterne (Shell/requester ASL).
+ * Drag & drop: raccolta dei percorsi selezionati, individuazione della
+ * destinazione sotto il puntatore (ResolveDropTarget, usata sia per
+ * evidenziare la destinazione durante il trascinamento sia per il drop),
+ * trasferimento VFM->VFM e da/verso Workbench.
+ * Prima di ogni trasferimento di file VFM chiede Copia / Sposta / Annulla.
+ * Verso altri programmi fa come il Workbench: manda un AppMessage alla
+ * AppWindow sotto il puntatore, trovata nell'elenco tenuto da VFM
+ * (AppWinRegistry.c).  Se la finestra non e' nota,
+ * a una Shell o a un requester il percorso viene digitato.  Nessun
+ * comando ARexx durante il drop.
+ * L'aspetto (icone che seguono il mouse, cornice) e' in DragVisual.c.
  */
 
 #include "VagaFileManager.h"
@@ -33,6 +40,11 @@
 #include <devices/inputevent.h>
 #include <libraries/keymap.h>
 #include <interfaces/keymap.h>
+#include <graphics/clip.h>
+#include <graphics/layers.h>
+#include <proto/layers.h>
+#include <exec/semaphores.h>
+#include "AppWindowRegistry.h"
 
 /* Librerie e device per l'iniezione del testo: tenuti aperti per tutta la
    vita del processo, così gli eventi non vengono persi alla chiusura. */
@@ -42,11 +54,8 @@ static struct MsgPort *gInputPort = NULL;
 static struct IOStdReq gInputIO;
 static BOOL gInputOpen = FALSE;
 
-/* Porta per le risposte agli AppMessage inviati ad AmiDock.  Il drop e'
-   asincrono: VFM non aspetta la risposta e non si blocca se la dock non
-   risponde. */
-static struct MsgPort *gAppDropPort = NULL;
-static LONG gAppDropPending = 0;
+static void ShutdownAppDrop(void);
+static void WindowScreenBox(struct Window *w, struct IBox *b);
 
 /* ===== Input device e drop testuale ===== */
 
@@ -96,26 +105,8 @@ void ShutdownDragDropInput(void)
         gKeymapBase = NULL;
     }
 
-    if (gAppDropPort)
-    {
-        LONG i;
-        for (i = 0; i < 20 && gAppDropPending > 0; i++)
-        {
-            ProcessAppDropReplies();
-            if (gAppDropPending > 0) IDOS->Delay(1);
-        }
-        ProcessAppDropReplies();
-        if (gAppDropPending <= 0)
-        {
-            IExec->FreeSysObject(ASOT_PORT, gAppDropPort);
-            gAppDropPort = NULL;
-        }
-        else
-        {
-            DBG("AmiDock: %ld AppMessage senza risposta alla chiusura",
-                (long)gAppDropPending);
-        }
-    }
+    EndDragVisual(NULL);
+    ShutdownAppDrop();
 }
 
 
@@ -178,24 +169,220 @@ BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort)
     return TRUE;
 }
 
-/* Stesso device (stesso handler DOS)? */
-static BOOL SameDevice(CONST_STRPTR a, CONST_STRPTR b)
+/* Chiede all'utente se copiare o spostare gli elementi trascinati.
+   La finestra e' un requester ReAction aperto con WPOS_CENTERMOUSE, cosi'
+   appare sotto il puntatore invece che al centro dello schermo.
+   Ritorna 1 = copia, 2 = sposta, 0 = annulla. */
+static LONG AskDragTransferMode(struct Screen *scr, CONST_STRPTR target)
 {
-    struct DevProc *da = IDOS->GetDeviceProc((STRPTR)a, NULL);
-    struct DevProc *db = IDOS->GetDeviceProc((STRPTR)b, NULL);
-    BOOL same = (da && db && da->dvp_Port && db->dvp_Port &&
-                 da->dvp_Port == db->dvp_Port) ? TRUE : FALSE;
-    if (da) IDOS->FreeDeviceProc(da);
-    if (db) IDOS->FreeDeviceProc(db);
-    return same;
+    enum { DRAGREQ_COPY = 1, DRAGREQ_MOVE, DRAGREQ_CANCEL };
+    Object *winObj = NULL;
+    Object *copyBtn = NULL, *moveBtn = NULL, *cancelBtn = NULL;
+    struct Window *rw = NULL;
+    BOOL done = FALSE;
+    LONG result = 0;
+    ULONG sig = 0;
+    char prompt[96];
+    char pathText[80];
+
+    snprintf(prompt, sizeof(prompt), "%s / %s",
+        LS(MSG_COPY), LS(MSG_MOVE));
+
+    if (!target) target = "";
+    if (strlen(target) > 56)
+        snprintf(pathText, sizeof(pathText), "%.53s...", target);
+    else
+        snprintf(pathText, sizeof(pathText), "%s", target);
+
+    copyBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, DRAGREQ_COPY, GA_RelVerify, TRUE,
+        GA_Text, (ULONG)LS(MSG_COPY), GA_Underscore, 0, TAG_DONE);
+    moveBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, DRAGREQ_MOVE, GA_RelVerify, TRUE,
+        GA_Text, (ULONG)LS(MSG_MOVE), GA_Underscore, 0, TAG_DONE);
+    cancelBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, DRAGREQ_CANCEL, GA_RelVerify, TRUE,
+        GA_Text, (ULONG)LS(MSG_BTN_CANCEL), GA_Underscore, 0, TAG_DONE);
+
+    winObj = IIntuition->NewObject(NULL, "window.class",
+        WA_Title, (ULONG)LS(MSG_DRAGDROP_TITLE),
+        WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
+        WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
+        WA_InnerWidth, 480, WA_InnerHeight, 100,
+        scr ? WA_PubScreen : TAG_IGNORE, scr ? (ULONG)scr : 0,
+        WINDOW_Position, WPOS_CENTERMOUSE,
+        WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
+            LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
+            LAYOUT_SpaceOuter, TRUE, LAYOUT_EvenSize, TRUE,
+            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget",
+                GA_ReadOnly, TRUE, GA_Text, (ULONG)prompt,
+                GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE,
+                BUTTON_Transparent, TRUE, TAG_DONE), CHILD_WeightedHeight, 0,
+            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget",
+                GA_ReadOnly, TRUE, GA_Text, (ULONG)pathText,
+                GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE,
+                BUTTON_Transparent, TRUE, TAG_DONE), CHILD_WeightedHeight, 0,
+            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
+                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+                LAYOUT_EvenSize, TRUE,
+                LAYOUT_AddChild, (ULONG)copyBtn, CHILD_WeightedWidth, 0,
+                LAYOUT_AddChild, (ULONG)moveBtn, CHILD_WeightedWidth, 0,
+                LAYOUT_AddChild, (ULONG)cancelBtn, CHILD_WeightedWidth, 0,
+                TAG_DONE), CHILD_WeightedHeight, 0,
+            TAG_DONE), TAG_DONE);
+
+    if (winObj)
+    {
+        rw = (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN);
+        if (rw)
+        {
+            IIntuition->GetAttr(WINDOW_SigMask, winObj, &sig);
+            while (!done)
+            {
+                ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
+                if (wait & SIGBREAKF_CTRL_C)
+                {
+                    result = 0;
+                    done = TRUE;
+                }
+                if (wait & sig)
+                {
+                    ULONG res;
+                    WORD code = 0;
+
+                    while ((res = IIntuition->IDoMethod(winObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
+                    {
+                        switch (res & WMHI_CLASSMASK)
+                        {
+                            case WMHI_CLOSEWINDOW:
+                                result = 0;
+                                done = TRUE;
+                                break;
+                            case WMHI_GADGETUP:
+                                switch (res & WMHI_GADGETMASK)
+                                {
+                                    case DRAGREQ_COPY:
+                                        result = 1;
+                                        done = TRUE;
+                                        break;
+                                    case DRAGREQ_MOVE:
+                                        result = 2;
+                                        done = TRUE;
+                                        break;
+                                    case DRAGREQ_CANCEL:
+                                    default:
+                                        result = 0;
+                                        done = TRUE;
+                                        break;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+        IIntuition->DisposeObject(winObj);
+    }
+
+    return result;
 }
 
-/* Trascinamento: stesso device -> sposta; device diverso -> copia. */
-static BOOL DragTransfer(CONST_STRPTR src, CONST_STRPTR dst)
+/* Esegue il trasferimento con la modalita' scelta dall'utente. */
+static BOOL DragTransfer(CONST_STRPTR src, CONST_STRPTR dst, BOOL move)
 {
-    if (SameDevice(src, dst))
+    if (IsDestInsideSrcForCopy(src, dst))
+    {
+        DBG("drop refused: destination inside source '%s'", src);
+        return FALSE;
+    }
+    if (move)
         return MoveEntry(src, dst);
     return CopyEntryRecursive(src, dst);
+}
+
+/* Cassetto sotto il punto (coordinate della finestra) nel pannello p.
+   Il FileBrowser restituisce la posizione visibile (riga o cella): il nodo
+   corrispondente si cerca nella lista mostrata, e da LBNA_UserData si
+   ricava l'indice dell'elemento (con il filtro attivo le due posizioni
+   non coincidono).  Se cell non e' NULL riceve il rettangolo della riga o
+   della cella, in coordinate della finestra. */
+static BOOL PaneDrawerAt(int p, struct Window *win, WORD winX, WORD winY,
+                         STRPTR out, ULONG outSize, struct IBox *cell)
+{
+    struct Pane *pn;
+    struct FBGetIndexAt hi;
+    struct Node *nd;
+    LONG pos;
+    ULONG index = MAX_ENTRIES;
+    STRPTR name = NULL;
+
+    if (p < 0 || p > 1 || !win || !out || outSize == 0) return FALSE;
+    pn = &gPanes[p];
+    if (!pn->listGad) return FALSE;
+    if (((struct Gadget *)pn->listGad)->Width <= 0) return FALSE;
+
+    memset(&hi, 0, sizeof(hi));
+    hi.MethodID = FILEBROWSER_GetIndexAt;
+    hi.fbgia_X = (int32)winX;   /* FileBrowser's IndexAt uses window coords */
+    hi.fbgia_Y = (int32)winY;
+    hi.fbgia_FontY = (win->RPort && win->RPort->Font)
+        ? win->RPort->Font->tf_YSize : 0;
+    hi.fbgia_Index = -1;
+    IIntuition->IDoMethodA(pn->listGad, (Msg)&hi);
+    if (hi.fbgia_Index < 0) return FALSE;
+
+    for (nd = pn->fileList.lh_Head, pos = 0;
+         nd->ln_Succ && pos < hi.fbgia_Index;
+         nd = nd->ln_Succ, pos++)
+        ;
+    if (!nd->ln_Succ) return FALSE;
+
+    IListBrowser->GetListBrowserNodeAttrs(nd, LBNA_UserData, &index,
+        LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+    if (index >= (ULONG)pn->entryCount || !pn->isDir[index]) return FALSE;
+    if (!name || !name[0]) name = pn->names[index];
+    if (!name || !name[0]) return FALSE;
+
+    if (!BuildChildPath(pn->pathBuffer, name, out, outSize))
+        return FALSE;
+    if (cell) *cell = hi.fbgia_Box;
+    return TRUE;
+}
+
+static int PaneOfListGad(Object *listGad)
+{
+    int p;
+    for (p = 0; p < 2; p++)
+        if (gPanes[p].listGad && gPanes[p].listGad == listGad) return p;
+    return gActivePane;
+}
+
+/* Se il punto di drop e' sopra un cassetto del pannello, restituisce il
+   percorso di quel cassetto; altrimenti FALSE e il chiamante usa il
+   percorso corrente del pannello.  Le coordinate sono relative alla
+   finestra (non allo schermo). */
+static BOOL DropDestinationAt(struct Window *win, Object *listGad,
+                              WORD winX, WORD winY,
+                              STRPTR out, ULONG outSize)
+{
+    return PaneDrawerAt(PaneOfListGad(listGad), win, winX, winY,
+                        out, outSize, NULL);
+}
+
+/* Convert screen coordinates from a VFMDrop message to window coordinates.
+   Gadget positions are relative to the window's outer top-left corner
+   (borders included), so only LeftEdge/TopEdge are subtracted. */
+static BOOL DropDestinationAtScreen(struct Window *win, Object *listGad,
+                                    WORD screenX, WORD screenY,
+                                    STRPTR out, ULONG outSize)
+{
+    if (!win) return FALSE;
+    return DropDestinationAt(win, listGad,
+        (WORD)(screenX - win->LeftEdge),
+        (WORD)(screenY - win->TopEdge),
+        out, outSize);
 }
 
 /* ===== Riconoscimento finestre Shell / requester =====
@@ -281,11 +468,10 @@ static BOOL HasControlChars(CONST_STRPTR s)
     return FALSE;
 }
 
-/* AmiDock accetta gli oggetti trascinati come un normale AppWindow del
-   Workbench: bisogna inviare un AppMessage AMTYPE_APPWINDOW alla sua
-   AppPort, con WBArg (lock + nome) per ogni oggetto.  AmiDock crea questa
-   porta con CreateMsgPort(): non ha un nome pubblico, quindi la si cerca
-   nell'elenco delle porte Exec appartenenti al task AmiDock. */
+/* AmiDock e MultiEdit non ricevono drop da VFM: le loro AppPort sono
+   private e la sola via pubblica sarebbe ARexx, che durante il drop
+   bloccava il sistema (MultiEdit).  Il drop su queste finestre non fa
+   nulla, come su una finestra che non accetta oggetti. */
 static BOOL IsAmiDockWindow(struct Window *w)
 {
     CONST_STRPTR task;
@@ -299,11 +485,112 @@ static BOOL IsAmiDockWindow(struct Window *w)
     return FALSE;
 }
 
-static BOOL EnsureAppDropPort(void)
+static BOOL IsMultiEditWindow(struct Window *w)
 {
-    if (gAppDropPort) return TRUE;
-    gAppDropPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
-    return (gAppDropPort != NULL);
+    CONST_STRPTR task;
+
+    if (!w) return FALSE;
+    task = WindowTaskName(w);
+    return (task && StrContainsNoCase(task, "multiedit")) ? TRUE : FALSE;
+}
+
+/* ===== AppWindow di altri programmi (come il Workbench) ===== */
+
+/* Porta su cui tornano gli AppMessage spediti.  Il drop e' asincrono: VFM
+   non aspetta la risposta. */
+static struct MsgPort *gAppDropPort = NULL;
+static LONG gAppDropPending = 0;
+
+enum { AW_UNKNOWN = 0, AW_MISS, AW_HIT };
+
+/* Cerca la finestra nell'elenco pubblico; va chiamata col semaforo
+   ottenuto.  AW_MISS: AppWindow con drop zone, ma il punto e' fuori da
+   tutte (il Workbench in quel caso non manda nulla). */
+static LONG MatchAppWindow(struct VFMAppWinRegistry *reg, struct Window *w,
+                           WORD sx, WORD sy, struct VFMAppWin **pe,
+                           struct VFMAppZone **pz, struct IBox *box)
+{
+    struct MinNode *n;
+    WORD mx = (WORD)(sx - w->LeftEdge), my = (WORD)(sy - w->TopEdge);
+
+    for (n = reg->windows.mlh_Head; n->mln_Succ; n = n->mln_Succ)
+    {
+        struct VFMAppWin *e = (struct VFMAppWin *)n;
+        struct MinNode *zn;
+
+        if (e->win != w) continue;
+        if (pe) *pe = e;
+        if (pz) *pz = NULL;
+        if (!e->zones.mlh_Head->mln_Succ)
+        {
+            if (box) WindowScreenBox(w, box);
+            return AW_HIT;
+        }
+        for (zn = e->zones.mlh_Head; zn->mln_Succ; zn = zn->mln_Succ)
+        {
+            struct VFMAppZone *z = (struct VFMAppZone *)zn;
+            WORD zl = z->relRight  ? (WORD)(w->Width + z->left)    : z->left;
+            WORD zt = z->relBottom ? (WORD)(w->Height + z->top)    : z->top;
+            WORD zw = z->relWidth  ? (WORD)(w->Width + z->width)   : z->width;
+            WORD zh = z->relHeight ? (WORD)(w->Height + z->height) : z->height;
+            if (mx >= zl && mx < zl + zw && my >= zt && my < zt + zh)
+            {
+                if (pz) *pz = z;
+                if (box)
+                {
+                    box->Left = (WORD)(w->LeftEdge + zl);
+                    box->Top = (WORD)(w->TopEdge + zt);
+                    box->Width = zw;
+                    box->Height = zh;
+                }
+                return AW_HIT;
+            }
+        }
+        return AW_MISS;
+    }
+    return AW_UNKNOWN;
+}
+
+/* Apre l'elenco pubblico in lettura; NULL se nessun VFM lo ha
+   installato.  Va chiuso con ReleaseAppRegistry(). */
+static struct VFMAppWinRegistry *ObtainAppRegistry(void)
+{
+    struct VFMAppWinRegistry *reg;
+
+    IExec->Forbid();
+    reg = (struct VFMAppWinRegistry *)IExec->FindSemaphore(VFM_AWREG_NAME);
+    if (reg) IExec->ObtainSemaphoreShared(&reg->sem);
+    IExec->Permit();
+    if (reg && reg->version != VFM_AWREG_VERSION)
+    {
+        IExec->ReleaseSemaphore(&reg->sem);
+        reg = NULL;
+    }
+    return reg;
+}
+
+static void ReleaseAppRegistry(struct VFMAppWinRegistry *reg)
+{
+    if (reg) IExec->ReleaseSemaphore(&reg->sem);
+}
+
+static LONG LookupAppWindow(struct Window *w, WORD sx, WORD sy, struct IBox *box)
+{
+    struct VFMAppWinRegistry *reg = ObtainAppRegistry();
+    LONG r;
+    if (!reg) return AW_UNKNOWN;
+    r = MatchAppWindow(reg, w, sx, sy, NULL, NULL, box);
+    ReleaseAppRegistry(reg);
+    return r;
+}
+
+static void FreeAppDropMessage(struct AppMessage *am)
+{
+    LONG i;
+    if (!am) return;
+    for (i = 0; i < am->am_NumArgs; i++)
+        if (am->am_ArgList[i].wa_Lock) IDOS->UnLock(am->am_ArgList[i].wa_Lock);
+    IExec->FreeVec(am);
 }
 
 ULONG AppDropReplySignal(void)
@@ -314,267 +601,159 @@ ULONG AppDropReplySignal(void)
 void ProcessAppDropReplies(void)
 {
     struct Message *m;
-
     if (!gAppDropPort) return;
     while ((m = IExec->GetMsg(gAppDropPort)) != NULL)
     {
-        struct AppMessage *am = (struct AppMessage *)m;
-        LONG i;
-
-        DBG("AppWindow drop reply: type=%ld args=%ld id=%lu userdata=%lu",
-            (long)am->am_Type, (long)am->am_NumArgs,
-            (unsigned long)am->am_ID, (unsigned long)am->am_UserData);
-        for (i = 0; i < am->am_NumArgs; i++)
-        {
-            if (am->am_ArgList[i].wa_Lock)
-                IDOS->UnLock(am->am_ArgList[i].wa_Lock);
-        }
+        FreeAppDropMessage((struct AppMessage *)m);
         if (gAppDropPending > 0) gAppDropPending--;
-        IExec->FreeVec(am);
     }
 }
 
-/* Trova la AppPort di AmiDock.  La finestra di AmiDock e' una normale
-   finestra Intuition con AppWindow; la AppPort e' una porta privata del
-   task AmiDock.  Si escludono la porta IDCMP della finestra e la porta
-   ARexx pubblica AMIDOCK. */
-static BOOL AddPortCandidate(struct MsgPort *p, struct Task *task,
-                             struct MsgPort **ports, LONG *count, LONG maxPorts)
+/* Alla chiusura: se un programma non ha ancora risposto, la porta resta
+   allocata (liberarla farebbe rispondere a memoria non piu' nostra). */
+static void ShutdownAppDrop(void)
 {
     LONG i;
-    CONST_STRPTR name;
-
-    if (!p || *count >= maxPorts) return FALSE;
-    if (!IExec->TypeOfMem(p)) return FALSE;
-    if (p->mp_Node.ln_Type != NT_MSGPORT) return FALSE;
-    if (p->mp_SigTask != (APTR)task) return FALSE;
-
-    /* La AppPort e' privata e senza nome.  Le porte pubbliche del task
-       AmiDock (AMIDOCK e cpudock_timer_port) non sono AppPort. */
-    name = p->mp_Node.ln_Name;
-    if (name && name[0]) return FALSE;
-
-    for (i = 0; i < *count; i++)
-        if (ports[i] == p) return FALSE;
-
-    ports[(*count)++] = p;
-    return TRUE;
+    if (!gAppDropPort) return;
+    for (i = 0; i < 50 && gAppDropPending > 0; i++)
+    {
+        ProcessAppDropReplies();
+        if (gAppDropPending > 0) IDOS->Delay(1);
+    }
+    ProcessAppDropReplies();
+    if (gAppDropPending > 0)
+    {
+        DBG("AppWindow: %ld AppMessage senza risposta alla chiusura",
+            (long)gAppDropPending);
+        return;
+    }
+    IExec->FreeSysObject(ASOT_PORT, gAppDropPort);
+    gAppDropPort = NULL;
 }
 
-static LONG FindAmiDockPorts(struct Window *w, struct MsgPort **ports, LONG maxPorts)
+/* Prepara l'argomento come il Workbench: file -> lock del cassetto che
+   lo contiene + nome; cassetto o volume -> lock sull'oggetto, nome "". */
+static BPTR LockWBArg(CONST_STRPTR path, CONST_STRPTR *name)
 {
-    struct ExecBase *eb;
-    struct Task *task;
-    struct Node *n;
-    struct MsgPort *logPorts[12];
-    CONST_STRPTR logNames[12];
-    LONG logCount = 0;
-    LONG count = 0;
+    BPTR lock, parent;
+    struct ExamineData *ed;
+    BOOL isDir = FALSE;
 
-    if (!w || !w->UserPort || !ports || maxPorts <= 0) return 0;
-
-    task = (struct Task *)w->UserPort->mp_SigTask;
-    eb = (struct ExecBase *)IExec->Data.LibBase;
-
-    /* AmiDock potrebbe tenere la AppPort in Window->UserData (struct Dock). */
-    if (w->UserData && IExec->TypeOfMem(w->UserData))
+    *name = "";
+    lock = IDOS->Lock(path, SHARED_LOCK);
+    if (!lock) return 0;
+    ed = IDOS->ExamineObjectTags(EX_LockInput, lock, TAG_END);
+    if (ed)
     {
-        APTR *words = (APTR *)w->UserData;
-        LONG i;
-        DBG("AmiDock window UserData=%p", (void *)w->UserData);
-        for (i = 0; i < 32 && count < maxPorts; i++)
-        {
-            struct MsgPort *p = (struct MsgPort *)words[i];
-            if (AddPortCandidate(p, task, ports, &count, maxPorts))
-                DBG("AmiDock: AppPort trovata in UserData[%ld]=%p", (long)i, (void *)p);
-        }
+        isDir = EXD_IS_DIRECTORY(ed) ? TRUE : FALSE;
+        IDOS->FreeDosObject(DOS_EXAMINEDATA, ed);
     }
+    if (isDir) return lock;
 
-    IExec->Forbid();
-    for (n = eb->PortList.lh_Head; n->ln_Succ; n = n->ln_Succ)
-    {
-        struct MsgPort *p = (struct MsgPort *)n;
-        CONST_STRPTR name = p->mp_Node.ln_Name;
-
-        if (p->mp_SigTask != (APTR)task) continue;
-        if (logCount < 12)
-        {
-            logPorts[logCount] = p;
-            logNames[logCount] = name;
-            logCount++;
-        }
-        if (count >= maxPorts) continue;
-        if (name && name[0] && IUtility->Stricmp(name, "AMIDOCK") == 0)
-            continue;  /* porta ARexx, non AppPort */
-        /* La AppPort di AmiDock e' creata con CreateMsgPort() e non ha nome. */
-        if (!name || name[0] == '\0')
-            AddPortCandidate(p, task, ports, &count, maxPorts);
-    }
-    IExec->Permit();
-
-    {
-        LONG i;
-        for (i = 0; i < logCount; i++)
-            DBG("AmiDock port %p name='%s' flags=%08lx sig=%ld",
-                (void *)logPorts[i],
-                logNames[i] ? logNames[i] : "(noname)",
-                (unsigned long)logPorts[i]->mp_Flags,
-                (long)logPorts[i]->mp_SigBit);
-    }
-
-    DBG("AmiDock: %ld AppPort candidate", (long)count);
-    return count;
+    parent = IDOS->ParentDir(lock);
+    if (!parent) return lock;
+    IDOS->UnLock(lock);
+    *name = IDOS->FilePart(path);
+    return parent;
 }
 
-static BPTR LockDropParent(CONST_STRPTR path, char *name, ULONG nameSize)
-{
-    CONST_STRPTR base;
-    ULONG plen;
-    char parent[PATH_MAX_LEN];
-
-    if (!path || !path[0] || !name || nameSize == 0) return 0;
-    base = IDOS->FilePart(path);
-    plen = (base && base > path) ? (ULONG)(base - path) : 0;
-
-    if (plen > 0 && plen < PATH_MAX_LEN)
-    {
-        memcpy(parent, path, plen);
-        parent[plen] = '\0';
-        if (plen < nameSize && base)
-        {
-            strncpy(name, base, nameSize - 1);
-            name[nameSize - 1] = '\0';
-        }
-        return IDOS->Lock(parent, SHARED_LOCK);
-    }
-
-    name[0] = '\0';
-    return IDOS->Lock(path, SHARED_LOCK);
-}
-
-static struct AppMessage *BuildAppDropMessage(struct Window *w,
-                                               char (*paths)[PATH_MAX_LEN],
-                                               LONG count, WORD screenX, WORD screenY)
+static struct AppMessage *BuildAppDropMessage(char (*paths)[PATH_MAX_LEN], LONG count)
 {
     struct AppMessage *am;
     struct WBArg *args;
     char *names;
-    ULONG namesLen = 0, size;
-    LONG i;
-
-    if (!w || !paths || count <= 0) return NULL;
+    ULONG size, namesLen = 0;
+    LONG i, n = 0;
 
     for (i = 0; i < count; i++)
-    {
-        CONST_STRPTR base = IDOS->FilePart(paths[i]);
-        namesLen += (base ? strlen(base) : 0) + 1;
-    }
-
+        namesLen += strlen(IDOS->FilePart(paths[i])) + 1;
     size = sizeof(struct AppMessage) + (ULONG)count * sizeof(struct WBArg) + namesLen;
     am = (struct AppMessage *)IExec->AllocVecTags(size,
         AVT_Type, MEMF_SHARED, AVT_ClearWithValue, 0, TAG_DONE);
     if (!am) return NULL;
 
-    args = (struct WBArg *)((char *)am + sizeof(struct AppMessage));
+    args = (struct WBArg *)(am + 1);
     names = (char *)(args + count);
-
-    am->am_Message.mn_Node.ln_Type = NT_MESSAGE;
-    am->am_Message.mn_Length = size;
-    am->am_Message.mn_ReplyPort = gAppDropPort;
-    am->am_Type = AMTYPE_APPWINDOW;
-    am->am_NumArgs = count;
     am->am_ArgList = args;
-    am->am_Version = AM_VERSION;
-    am->am_Class = 0;
-    am->am_MouseX = (WORD)(screenX - w->LeftEdge);
-    am->am_MouseY = (WORD)(screenY - w->TopEdge);
-
     for (i = 0; i < count; i++)
     {
-        char nm[PATH_MAX_LEN];
-        BPTR lock = LockDropParent(paths[i], nm, sizeof(nm));
+        CONST_STRPTR nm;
+        BPTR lock = LockWBArg(paths[i], &nm);
         if (!lock)
         {
-            LONG j;
-            DBG("AmiDock: impossibile ottenere lock per '%s'", paths[i]);
-            for (j = 0; j < i; j++)
-                if (args[j].wa_Lock) IDOS->UnLock(args[j].wa_Lock);
-            IExec->FreeVec(am);
-            return NULL;
+            DBG("AppWindow: lock non riuscito per '%s'", paths[i]);
+            continue;
         }
-        args[i].wa_Lock = lock;
-        args[i].wa_Name = names;
         strcpy(names, nm);
+        args[n].wa_Lock = lock;
+        args[n].wa_Name = (BYTE *)names;
         names += strlen(nm) + 1;
+        n++;
+        am->am_NumArgs = n;
+    }
+    if (n == 0)
+    {
+        IExec->FreeVec(am);
+        return NULL;
     }
 
+    am->am_Message.mn_Node.ln_Type = NT_MESSAGE;
+    am->am_Message.mn_Length = (UWORD)(size > 0xFFFF ? 0xFFFF : size);
+    am->am_Message.mn_ReplyPort = gAppDropPort;
+    am->am_Version = AM_VERSION;
+    am->am_Class = 0;
     return am;
 }
 
-/* AmiDock non rende pubblica la sua AppWindow port.  Se non riusciamo a
-   individuarla, usiamo l'unica API pubblica che espone per aggiungere un
-   oggetto: il comando ARexx ADDOBJECT sulla porta AMIDOCK.  L'invio resta
-   asincrono, quindi non blocca VFM. */
-static BOOL BuildAmiDockAddCommand(char *buf, ULONG size, CONST_STRPTR path)
+/* Spedisce il drop alla AppWindow, come farebbe il Workbench. */
+static BOOL SendAppWindowDrop(struct Window *w, WORD sx, WORD sy,
+                              char (*paths)[PATH_MAX_LEN], LONG count)
 {
-    if (!buf || size == 0 || !path || !path[0]) return FALSE;
-    if (HasControlChars(path) || strchr(path, '"')) return FALSE;
-    if (strlen(path) + 16 >= size) return FALSE;
-    snprintf(buf, size, "ADDOBJECT \"%s\"", path);
-    return TRUE;
-}
+    struct VFMAppWinRegistry *reg;
+    struct VFMAppWin *e = NULL;
+    struct VFMAppZone *z = NULL;
+    struct AppMessage *am;
+    ULONG secs = 0, micros = 0;
+    BOOL sent = FALSE;
 
-static BOOL AddPathsToAmiDockARexx(char (*paths)[PATH_MAX_LEN], LONG count)
-{
-    char command[PATH_MAX_LEN + 32];
-    LONG i, sent = 0;
-
-    for (i = 0; i < count; i++)
+    if (!w || count <= 0) return FALSE;
+    if (!gAppDropPort)
     {
-        if (!BuildAmiDockAddCommand(command, sizeof(command), paths[i]))
-        {
-            DBG("AmiDock: percorso non gestibile per ADDOBJECT '%s'", paths[i]);
-            continue;
-        }
-        if (PostARexxCommandToPort("AMIDOCK", command))
-        {
-            sent++;
-            DBG("AmiDock: ADDOBJECT ARexx inviato per '%s'", paths[i]);
-        }
-        else
-        {
-            DBG("AmiDock: porta ARexx AMIDOCK non trovata");
-            return FALSE;
-        }
+        gAppDropPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
+        if (!gAppDropPort) return FALSE;
     }
-    return (sent > 0);
-}
+    /* lock e memoria si preparano prima di tenere il semaforo */
+    am = BuildAppDropMessage(paths, count);
+    if (!am) return FALSE;
+    IIntuition->CurrentTime(&secs, &micros);
 
-static BOOL SendAppWindowDrop(struct Window *w, char (*paths)[PATH_MAX_LEN],
-                              LONG count, WORD screenX, WORD screenY)
-{
-    struct MsgPort *ports[8];
-    LONG n, i;
-    LONG sent = 0;
-
-    if (!w || count <= 0 || !EnsureAppDropPort()) return FALSE;
-    n = FindAmiDockPorts(w, ports, 8);
-    if (n <= 0)
+    reg = ObtainAppRegistry();
+    if (reg && MatchAppWindow(reg, w, sx, sy, &e, &z, NULL) == AW_HIT && e)
     {
-        DBG("AmiDock: AppPort privata non trovata, uso ADDOBJECT ARexx");
-        return AddPathsToAmiDockARexx(paths, count);
-    }
-
-    for (i = 0; i < n; i++)
-    {
-        struct AppMessage *am = BuildAppDropMessage(w, paths, count, screenX, screenY);
-        if (!am) continue;
+        am->am_Type = z ? AMTYPE_APPWINDOWZONE : AMTYPE_APPWINDOW;
+        am->am_ID = z ? z->id : e->id;
+        am->am_UserData = z ? z->userdata : e->userdata;
+        am->am_MouseX = (WORD)(sx - w->LeftEdge);
+        am->am_MouseY = (WORD)(sy - w->TopEdge);
+        am->am_Seconds = secs;
+        am->am_Micros = micros;
+        /* spedito tenendo il semaforo: RemoveAppWindow attende, quindi
+           la porta e' ancora valida */
+        IExec->PutMsg(e->port, (struct Message *)am);
         gAppDropPending++;
-        IExec->PutMsg(ports[i], (struct Message *)am);
-        sent++;
-        DBG("AmiDock: AppMessage inviato a porta %p", (void *)ports[i]);
+        sent = TRUE;
     }
-    return (sent > 0);
+    ReleaseAppRegistry(reg);
+
+    if (!sent)
+    {
+        FreeAppDropMessage(am);
+        return FALSE;
+    }
+    DBG("AppWindow: AppMessage %s inviato a '%s' (%ld oggetti)",
+        z ? "zona" : "finestra", w->Title ? (CONST_STRPTR)w->Title : "?",
+        (long)am->am_NumArgs);
+    return TRUE;
 }
 
 static BOOL BuildDropText(char *buf, ULONG size, char (*paths)[PATH_MAX_LEN],
@@ -722,6 +901,33 @@ static BOOL DropTextToExternalWindow(struct Window *w, char (*paths)[PATH_MAX_LE
 
 /* ===== Finestra sotto il puntatore ===== */
 
+/* Finestra piu' in alto nel punto x,y, secondo l'ordine reale dei layer
+   (dal davanti al fondo), come fa Intuition per i clic.  Le finestre del
+   fantasma e della cornice non contano. */
+static struct Window *WindowAtPointLayers(struct Screen *s, WORD x, WORD y)
+{
+    struct Layer *l;
+    struct Window *found = NULL;
+
+    if (!s) return NULL;
+    ILayers->LockLayerInfo(&s->LayerInfo);
+    for (l = s->LayerInfo.top_layer; l; l = l->back)
+    {
+        struct Window *w = (struct Window *)l->Window;
+        if (!w) continue;
+        if (l->Flags & LAYERHIDDEN) continue;
+        if (IsDragOverlayWindow(w)) continue;
+        if (x < l->bounds.MinX || x > l->bounds.MaxX ||
+            y < l->bounds.MinY || y > l->bounds.MaxY) continue;
+        found = w;
+        break;
+    }
+    ILayers->UnlockLayerInfo(&s->LayerInfo);
+    return found;
+}
+
+/* Versione semplice per gli screen diversi da quello di VFM: segue la
+   lista delle finestre (usata solo per trovare una Shell). */
 static struct Window *WindowAtPoint(struct Screen *s, WORD x, WORD y)
 {
     struct Window *w;
@@ -729,6 +935,7 @@ static struct Window *WindowAtPoint(struct Screen *s, WORD x, WORD y)
     if (!s) return NULL;
     for (w = s->FirstWindow; w; w = w->NextWindow)
     {
+        if (IsDragOverlayWindow(w)) continue;
         if (x >= w->LeftEdge && x < w->LeftEdge + w->Width &&
             y >= w->TopEdge  && y < w->TopEdge  + w->Height)
             return w;
@@ -736,10 +943,10 @@ static struct Window *WindowAtPoint(struct Screen *s, WORD x, WORD y)
     return NULL;
 }
 
-/* Cerca la finestra sotto il puntatore su tutti gli screen. Il drop puo'
-   avvenire anche su una Shell che non sta sullo screen del VFM: in quel
-   caso WindowAtPoint sul solo screen del VFM troverebbe il backdrop del
-   Workbench. Le coordinate vengono aggiornate a quelle dello screen scelto. */
+/* Cerca la finestra sotto il puntatore.  Se lo screen davanti e' quello
+   di VFM si usa l'ordine dei layer; altrimenti si cerca sullo screen
+   davanti (e, solo per le Shell, sugli altri).  Le coordinate restituite
+   sono quelle dello screen della finestra trovata. */
 static struct Window *FindDropWindow(struct Window *ownWin, WORD *px, WORD *py)
 {
     struct Screen *first, *s, *own = ownWin ? ownWin->WScreen : NULL;
@@ -747,21 +954,18 @@ static struct Window *FindDropWindow(struct Window *ownWin, WORD *px, WORD *py)
     WORD fx = 0, fy = 0;
 
     first = IIntuition->LockScreenList();
-    if (!first)
+    if (!first || first == own)
     {
-        if (own)
-        {
-            WORD x = own->MouseX, y = own->MouseY;
-            w = WindowAtPoint(own, x, y);
-            if (px) *px = x;
-            if (py) *py = y;
-            return w;
-        }
-        return NULL;
+        WORD x, y;
+        if (first) IIntuition->UnlockScreenList();
+        if (!own) return NULL;
+        x = own->MouseX;
+        y = own->MouseY;
+        if (px) *px = x;
+        if (py) *py = y;
+        return WindowAtPointLayers(own, x, y);
     }
 
-    /* Lo screen in testa alla lista e' il piu' frontale: il puntatore e'
-       su quello. Cerca li' la finestra sotto il puntatore. */
     {
         WORD x = first->MouseX, y = first->MouseY;
         w = WindowAtPoint(first, x, y);
@@ -777,8 +981,6 @@ static struct Window *FindDropWindow(struct Window *ownWin, WORD *px, WORD *py)
         fy = y;
     }
 
-    /* Se sul primo screen c'e' solo il backdrop, la Shell puo' stare su
-       un altro screen: cerca una finestra Shell. */
     for (s = first->NextScreen; s; s = s->NextScreen)
     {
         WORD x = s->MouseX, y = s->MouseY;
@@ -791,89 +993,302 @@ static struct Window *FindDropWindow(struct Window *ownWin, WORD *px, WORD *py)
             IIntuition->UnlockScreenList();
             return w;
         }
-        /* Non usare fallback su screen non frontali: le coordinate
-           MouseX/MouseY potrebbero essere obsolete. */
     }
+    IIntuition->UnlockScreenList();
 
     if (!fallback && own)
     {
-        WORD x = own->MouseX, y = own->MouseY;
-        fallback = WindowAtPoint(own, x, y);
-        fx = x;
-        fy = y;
+        fx = own->MouseX;
+        fy = own->MouseY;
+        fallback = WindowAtPointLayers(own, fx, fy);
     }
-
     if (px) *px = fx;
     if (py) *py = fy;
-    IIntuition->UnlockScreenList();
     return fallback;
 }
 
-/* ===== Avvio e gestione del drag ===== */
+/* ===== Destinazione del drop ===== */
 
-/* Gestisce il rilascio del drag: individua la destinazione (cassetto del
-   Workbench, finestra VFM o finestra esterna) e trasferisce i percorsi. */
-void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD screenY)
+enum
 {
+    DT_NONE = 0,     /* niente: il drop non fa nulla (come nel Workbench) */
+    DT_VFM,          /* finestra VFM (questa o un'altra istanza) */
+    DT_WORKBENCH,    /* cassetto o icona di cassetto del Workbench */
+    DT_APPWIN,       /* AppWindow di un altro programma: AppMessage */
+    DT_TEXT          /* Shell / requester: percorso digitato */
+};
 
-    char (*paths)[PATH_MAX_LEN];
-    char targetDrawer[PATH_MAX_LEN];
-    char targetFull[PATH_MAX_LEN];
-    LONG count = 0, i;
-    ULONG which = WBO_NONE, type = 0;
-    BOOL anyErr = FALSE;
-    struct Window *wbWin = NULL;
+struct DropTarget
+{
+    LONG type;
+    struct Window *win;
+    WORD x, y;                    /* coordinate dello screen di win */
+    struct MsgPort *vfmPort;
+    struct IBox box;              /* da evidenziare, coordinate schermo */
+    char drawer[PATH_MAX_LEN];    /* cassetto di destinazione */
+};
 
-    if (IsRootPath(gPathBuffer)) return; /* cannot drag assigns out */
-    DBG("DoDragDropOut: x=%d y=%d", (int)screenX, (int)screenY);
+/* Percorsi trascinati e cartella di origine, raccolti all'avvio del drag
+   e usati per l'evidenziazione (non si evidenzia la cartella stessa). */
+static char (*gDragPaths)[PATH_MAX_LEN] = NULL;
+static LONG gDragCount = 0;
+static char gDragSourceDir[PATH_MAX_LEN];
+static struct DropTarget gTickTarget;
 
-    paths = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags(MAX_CLIPBOARD * PATH_MAX_LEN,
-        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
-    if (!paths) return;
+static void WindowScreenBox(struct Window *w, struct IBox *b)
+{
+    b->Left = w->LeftEdge;
+    b->Top = w->TopEdge;
+    b->Width = w->Width;
+    b->Height = w->Height;
+}
 
-    if (!CollectSelectedFullPaths(list, paths, MAX_CLIPBOARD, &count))
+static void WindowInnerBox(struct Window *w, struct IBox *b)
+{
+    b->Left = w->LeftEdge + w->BorderLeft;
+    b->Top = w->TopEdge + w->BorderTop;
+    b->Width = w->Width - w->BorderLeft - w->BorderRight;
+    b->Height = w->Height - w->BorderTop - w->BorderBottom;
+    if (b->Width <= 0 || b->Height <= 0) WindowScreenBox(w, b);
+}
+
+static BOOL BoxContains(const struct IBox *b, WORD x, WORD y)
+{
+    return (x >= b->Left && x < b->Left + b->Width &&
+            y >= b->Top && y < b->Top + b->Height) ? TRUE : FALSE;
+}
+
+/* Allarga il rettangolo perche' la cornice stia attorno all'oggetto. */
+static void GrowBox(struct IBox *b, WORD d)
+{
+    b->Left -= d;
+    b->Top -= d;
+    b->Width += 2 * d;
+    b->Height += 2 * d;
+}
+
+static BOOL SamePath(CONST_STRPTR a, CONST_STRPTR b)
+{
+    ULONG la, lb;
+    if (!a || !b) return FALSE;
+    la = strlen(a);
+    lb = strlen(b);
+    while (la > 0 && a[la - 1] == '/') la--;
+    while (lb > 0 && b[lb - 1] == '/') lb--;
+    if (la != lb) return FALSE;
+    return (IUtility->Strnicmp(a, b, la) == 0) ? TRUE : FALSE;
+}
+
+static BOOL IsDraggedPath(CONST_STRPTR path, char (*paths)[PATH_MAX_LEN], LONG count)
+{
+    LONG i;
+    if (!paths) return FALSE;
+    for (i = 0; i < count; i++)
+        if (SamePath(path, paths[i])) return TRUE;
+    return FALSE;
+}
+
+/* Drop sulla finestra di questo VFM: cassetto sotto il puntatore, oppure
+   la cartella del pannello.  Rilasciare nella cartella di origine non fa
+   nulla, come trascinare un'icona nella sua stessa finestra. */
+static void ResolveOwnWindow(struct Window *win, struct DropTarget *t,
+                             char (*paths)[PATH_MAX_LEN], LONG count,
+                             CONST_STRPTR srcDir)
+{
+    WORD wx = (WORD)(t->x - win->LeftEdge);
+    WORD wy = (WORD)(t->y - win->TopEdge);
+    int p;
+
+    for (p = 0; p < 2; p++)
     {
-        IExec->FreeVec(paths);
+        struct Gadget *g = (struct Gadget *)gPanes[p].listGad;
+        struct IBox cell;
+
+        if (!g) continue;
+        if (wx < g->LeftEdge || wx >= g->LeftEdge + g->Width ||
+            wy < g->TopEdge || wy >= g->TopEdge + g->Height) continue;
+        if (IsRootPath(gPanes[p].pathBuffer)) return;
+
+        if (PaneDrawerAt(p, win, wx, wy, t->drawer, sizeof(t->drawer), &cell))
+        {
+            if (IsDraggedPath(t->drawer, paths, count))
+            {
+                t->drawer[0] = '\0';
+                return;
+            }
+            t->type = DT_VFM;
+            if (cell.Width > 0 && cell.Height > 0)
+            {
+                t->box.Left = win->LeftEdge + cell.Left;
+                t->box.Top = win->TopEdge + cell.Top;
+                t->box.Width = cell.Width;
+                t->box.Height = cell.Height;
+            }
+            return;
+        }
+
+        t->drawer[0] = '\0';
+        if (srcDir && SamePath(gPanes[p].pathBuffer, srcDir)) return;
+        t->type = DT_VFM;
+        strncpy(t->drawer, gPanes[p].pathBuffer, sizeof(t->drawer) - 1);
+        t->drawer[sizeof(t->drawer) - 1] = '\0';
+        t->box.Left = win->LeftEdge + g->LeftEdge;
+        t->box.Top = win->TopEdge + g->TopEdge;
+        t->box.Width = g->Width;
+        t->box.Height = g->Height;
         return;
     }
+}
 
-    /* Cerca la finestra sotto il puntatore (anche su altri screen) */
-    memset(targetDrawer, 0, sizeof(targetDrawer));
-    memset(targetFull, 0, sizeof(targetFull));
-    wbWin = FindDropWindow(win, &screenX, &screenY);
-    if (WorkbenchBase && IWorkbench && wbWin)
+/* Cassetto o icona del Workbench sotto il puntatore. */
+static BOOL ResolveWorkbench(struct DropTarget *t, char (*paths)[PATH_MAX_LEN],
+                             LONG count, CONST_STRPTR srcDir)
+{
+    struct Window *w = t->win;
+    char full[PATH_MAX_LEN];
+    ULONG which, type = 0;
+    LONG il = 0, it = 0, iw = 0, ih = 0;
+    BOOL iconBox = FALSE;
+
+    if (!WorkbenchBase || !IWorkbench || !w) return FALSE;
+    t->drawer[0] = '\0';
+    full[0] = '\0';
     {
         struct TagItem wbtags[] =
         {
-            { WBOBJA_DrawerPath,     (ULONG)targetDrawer },
-            { WBOBJA_DrawerPathSize, (ULONG)sizeof(targetDrawer) },
-            { WBOBJA_FullPath,       (ULONG)targetFull },
-            { WBOBJA_FullPathSize,   (ULONG)sizeof(targetFull) },
+            { WBOBJA_DrawerPath,     (ULONG)t->drawer },
+            { WBOBJA_DrawerPathSize, (ULONG)sizeof(t->drawer) },
+            { WBOBJA_FullPath,       (ULONG)full },
+            { WBOBJA_FullPathSize,   (ULONG)sizeof(full) },
             { WBOBJA_Type,           (ULONG)&type },
+            { WBOBJA_Left,           (ULONG)&il },
+            { WBOBJA_Top,            (ULONG)&it },
+            { WBOBJA_Width,          (ULONG)&iw },
+            { WBOBJA_Height,         (ULONG)&ih },
             { TAG_DONE, 0 }
         };
-        which = IWorkbench->WhichWorkbenchObjectA(wbWin,
-            screenX - wbWin->LeftEdge, screenY - wbWin->TopEdge, wbtags);
+        which = IWorkbench->WhichWorkbenchObjectA(w,
+            t->x - w->LeftEdge, t->y - w->TopEdge, wbtags);
     }
 
-    /* Determine the destination directory */
     if (which == WBO_ICON)
     {
-        /* dropped on an icon: a drawer/disk icon means copy INTO it */
+        /* icona di cassetto o disco: si copia DENTRO; icona di file: la
+           destinazione e' il cassetto che la contiene */
         if (type == WBDRAWER || type == WBDISK)
         {
-            strncpy(targetDrawer, targetFull, sizeof(targetDrawer) - 1);
-            targetDrawer[sizeof(targetDrawer) - 1] = '\0';
+            strncpy(t->drawer, full, sizeof(t->drawer) - 1);
+            t->drawer[sizeof(t->drawer) - 1] = '\0';
+            iconBox = TRUE;
         }
-        /* otherwise (file/tool/project icon): targetDrawer is its containing drawer */
     }
     else if (which != WBO_DRAWER)
     {
-        targetDrawer[0] = '\0';
+        t->drawer[0] = '\0';
+    }
+    if (!t->drawer[0]) return FALSE;
+    if (IsDraggedPath(t->drawer, paths, count)) return FALSE;
+    if (!iconBox && srcDir && SamePath(t->drawer, srcDir)) return FALSE;
+
+    t->type = DT_WORKBENCH;
+    WindowInnerBox(w, &t->box);
+    if (iconBox && iw > 0 && ih > 0)
+    {
+        /* la posizione dell'icona e' relativa alla finestra: si prova
+           prima rispetto al bordo esterno, poi all'area interna */
+        struct IBox b;
+        b.Left = w->LeftEdge + il;
+        b.Top = w->TopEdge + it;
+        b.Width = iw;
+        b.Height = ih;
+        if (!BoxContains(&b, t->x, t->y))
+        {
+            b.Left += w->BorderLeft;
+            b.Top += w->BorderTop;
+        }
+        if (BoxContains(&b, t->x, t->y))
+        {
+            GrowBox(&b, 4);
+            t->box = b;
+        }
+    }
+    return TRUE;
+}
+
+/* Determina cosa succederebbe rilasciando ora: usata sia durante il
+   trascinamento (evidenziazione) sia al rilascio. */
+static void ResolveDropTarget(struct Window *ownWin, struct DropTarget *t,
+                              char (*paths)[PATH_MAX_LEN], LONG count,
+                              CONST_STRPTR srcDir)
+{
+    struct Window *w;
+    struct MsgPort *vfmPort = NULL;
+    BOOL isShell, ourTask, wbTask;
+
+    t->type = DT_NONE;
+    t->win = NULL;
+    t->x = t->y = 0;
+    t->vfmPort = NULL;
+    memset(&t->box, 0, sizeof(t->box));
+    t->drawer[0] = '\0';
+
+    w = FindDropWindow(ownWin, &t->x, &t->y);
+    if (!w) return;
+    t->win = w;
+
+    isShell = IsShellWindow(w);
+    if (!isShell && IsVFMWindow(w, &vfmPort) && vfmPort)
+    {
+        t->vfmPort = vfmPort;
+        if (w == ownWin)
+            ResolveOwnWindow(w, t, paths, count, srcDir);
+        else
+        {
+            t->type = DT_VFM;
+            WindowInnerBox(w, &t->box);
+        }
+        return;
     }
 
-    if (targetDrawer[0] != '\0')
+    wbTask = StrContainsNoCase(WindowTaskName(w), "workbench");
+    if (!isShell && ResolveWorkbench(t, paths, count, srcDir)) return;
+    if (wbTask) return;
+
+    /* AppWindow nota (anche AmiDock, MultiEdit, Shell...): come il
+       Workbench, le si manda un AppMessage */
+    switch (LookupAppWindow(w, t->x, t->y, &t->box))
     {
+        case AW_HIT:  t->type = DT_APPWIN; return;
+        case AW_MISS: memset(&t->box, 0, sizeof(t->box)); return;
+        default: break;
+    }
+
+    /* AmiDock e MultiEdit non elencati: niente (mai ARexx nel drop) */
+    if (IsAmiDockWindow(w) || IsMultiEditWindow(w)) return;
+
+    ourTask = (w->UserPort &&
+               w->UserPort->mp_SigTask == (void *)IExec->FindTask(NULL)) ? TRUE : FALSE;
+    if (w != ownWin && !ourTask && !(w->Flags & WFLG_BACKDROP))
+    {
+        t->type = DT_TEXT;
+        WindowScreenBox(w, &t->box);
+    }
+}
+
+/* Copia/sposta i percorsi in un cassetto, chiedendo prima la modalita'. */
+static void TransferToDrawer(struct Window *win, struct Screen *reqScreen,
+                             CONST_STRPTR drawer, char (*paths)[PATH_MAX_LEN],
+                             LONG count)
+{
+    LONG mode, i;
+    BOOL anyErr = FALSE;
+
+    mode = AskDragTransferMode(reqScreen ? reqScreen : (win ? win->WScreen : NULL),
+                               drawer);
+    if (mode == 0) return;
+
+    {
+        BOOL move = (mode == 2);
         ULONG total = 0;
         for (i = 0; i < count; i++) total += CountFilesRecursive(paths[i]);
         ProgressOpen(win, total);
@@ -887,79 +1302,72 @@ void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD scr
         {
             char dst[PATH_MAX_LEN];
             CONST_STRPTR base = FilePart(paths[i]);
-            if (!base || !base[0] || !BuildChildPath(targetDrawer, base, dst, sizeof(dst)))
+            if (!base || !base[0] || !BuildChildPath(drawer, base, dst, sizeof(dst)))
             { anyErr = TRUE; continue; }
-            if (!DragTransfer(paths[i], dst)) anyErr = TRUE;
+            if (!DragTransfer(paths[i], dst, move)) anyErr = TRUE;
         }
+        /* annullato: nessun messaggio (ProgressClose azzera gProgCancel) */
+        if (gProgCancel) anyErr = FALSE;
         ProgressClose();
-        if (anyErr)
-            ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));
     }
-    else
+    if (anyErr)
+        ShowMessage(LS(MSG_DRAGDROP_TITLE), LS(MSG_DROP_COPY_FAILED));
+}
+
+/* ===== Avvio e gestione del drag ===== */
+
+/* Gestisce il rilascio del drag sulla destinazione sotto il puntatore. */
+void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD screenY)
+{
+    char (*paths)[PATH_MAX_LEN];
+    struct DropTarget *t;
+    LONG count = 0;
+
+    if (IsRootPath(gPathBuffer)) return; /* cannot drag assigns out */
+    DBG("DoDragDropOut: x=%d y=%d", (int)screenX, (int)screenY);
+
+    paths = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags(MAX_CLIPBOARD * PATH_MAX_LEN,
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    t = (struct DropTarget *)IExec->AllocVecTags(sizeof(struct DropTarget),
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    if (!paths || !t ||
+        !CollectSelectedFullPaths(list, paths, MAX_CLIPBOARD, &count))
     {
-        /* not a Workbench drawer: try a VFM window (drag to another instance) */
-        {
-            struct MsgPort *vfmPort = NULL;
-            BOOL isShell = IsShellWindow(wbWin);
-            BOOL ourTask = (wbWin && wbWin->UserPort &&
-                            wbWin->UserPort->mp_SigTask == (void *)IExec->FindTask(NULL)) ? TRUE : FALSE;
-            BOOL wbTask = (wbWin && StrContainsNoCase(WindowTaskName(wbWin), "workbench")) ? TRUE : FALSE;
-            DBG("drop candidate: wbWin=%p title='%s' task='%s' flags=%08lx shell=%ld ours=%ld wb=%ld sameScreen=%ld",
-                (void *)wbWin,
-                (wbWin && wbWin->Title) ? wbWin->Title : "?",
-                wbWin ? WindowTaskName(wbWin) : "-",
-                wbWin ? (unsigned long)wbWin->Flags : 0UL,
-                (long)isShell, (long)ourTask, (long)wbTask,
-                (wbWin && win) ? (long)(wbWin->WScreen == win->WScreen) : -1L);
-            if (!isShell && IsVFMWindow(wbWin, &vfmPort) && vfmPort)
-            {
-                DBG("drop on VFM window -> send VFM drop");
-                SendVFMDrop(list, vfmPort, screenX, screenY);
-            }
-            else if (IsAmiDockWindow(wbWin))
-            {
-                /* AmiDock è un AppWindow del Workbench: invia un vero
-                   AppMessage AMTYPE_APPWINDOW alla sua AppPort. */
-                if (!SendAppWindowDrop(wbWin, paths, count, screenX, screenY))
-                {
-                    DBG("AmiDock: impossibile inviare l'AppMessage (AppPort non trovata)");
-                }
-            }
-            else if (wbWin && wbWin != win &&
-                     !ourTask && !wbTask &&
-                     !(wbWin->Flags & WFLG_BACKDROP))
-            {
-                /* Shell o file requester: inserisce il percorso come testo */
-                if (!DropTextToExternalWindow(wbWin, paths, count))
-                {
-                    char dbg[512];
-                    snprintf(dbg, sizeof(dbg),
-                        "which=%lu type=%lu window=%s task=%s shell=%ld flags=%08lx x=%d y=%d drawer='%s'",
-                        (unsigned long)which, (unsigned long)type,
-                        wbWin->Title ? wbWin->Title : "?",
-                        WindowTaskName(wbWin), (long)isShell,
-                        (unsigned long)wbWin->Flags,
-                        (int)screenX, (int)screenY, targetDrawer);
-                    DBG("no drop target: %s", dbg);
-                    ShowMessage(LS(MSG_DRAGDROP_TITLE), dbg);
-                }
-            }
-            else
-            {
-                char dbg[512];
-                snprintf(dbg, sizeof(dbg),
-                    "which=%lu type=%lu window=%s task=%s shell=%ld flags=%08lx x=%d y=%d drawer='%s'",
-                    (unsigned long)which, (unsigned long)type,
-                    wbWin ? (wbWin->Title ? wbWin->Title : "?") : "none",
-                    wbWin ? WindowTaskName(wbWin) : "-",
-                    (long)isShell, wbWin ? (unsigned long)wbWin->Flags : 0UL,
-                    (int)screenX, (int)screenY, targetDrawer);
-                DBG("no drop target: %s", dbg);
-                ShowMessage(LS(MSG_DRAGDROP_TITLE), dbg);
-            }
-        }
+        if (paths) IExec->FreeVec(paths);
+        if (t) IExec->FreeVec(t);
+        return;
     }
 
+    ResolveDropTarget(win, t, paths, count, gPathBuffer);
+    DBG("drop target: type=%ld window='%s' task='%s' drawer='%s'",
+        (long)t->type,
+        (t->win && t->win->Title) ? t->win->Title : "-",
+        t->win ? WindowTaskName(t->win) : "-",
+        t->drawer);
+
+    switch (t->type)
+    {
+        case DT_WORKBENCH:
+            TransferToDrawer(win, t->win ? t->win->WScreen : NULL,
+                             t->drawer, paths, count);
+            break;
+        case DT_VFM:
+            SendVFMDrop(list, t->vfmPort, t->x, t->y);
+            break;
+        case DT_APPWIN:
+            if (!SendAppWindowDrop(t->win, t->x, t->y, paths, count))
+                DBG("AppWindow: drop non inviato");
+            break;
+        case DT_TEXT:
+            if (!DropTextToExternalWindow(t->win, paths, count))
+                DBG("drop testuale non riuscito");
+            break;
+        default:
+            /* come nel Workbench: rilasciare dove non si puo' non fa nulla */
+            break;
+    }
+
+    IExec->FreeVec(t);
     IExec->FreeVec(paths);
 }
 
@@ -985,10 +1393,53 @@ void PerformDragDrop(struct List *list, struct Window *win)
     }
     gDragButtonDown = FALSE;
     gDragActive = FALSE;
-    /* restore the normal pointer *before* any modal dialog/operation,
-       otherwise the drag pointer stays on screen while copying/moving */
+    /* chiude icone e cornice *prima* di requester e trasferimento */
     EndDragVisual(win);
     DoDragDropOut(list, win, screenX, screenY);
+}
+
+/* Chiamata dal loop principale quando scatta il timer del drag: muove le
+   icone e, quando il puntatore si ferma o ogni pochi passi, aggiorna la
+   destinazione evidenziata. */
+void DragTick(struct Window *win)
+{
+    static WORD lastX = -32768, lastY = -32768;
+    static ULONG tick = 0;
+    static BOOL resolved = FALSE;
+    struct Screen *scr;
+    WORD x, y;
+    BOOL moved;
+
+    if (!DragTimerFired()) return;
+    if (!gDragActive || !win || !(scr = win->WScreen)) return;
+
+    x = scr->MouseX;
+    y = scr->MouseY;
+    DragVisualMove(x, y);
+
+    moved = (x != lastX || y != lastY);
+    if (moved)
+    {
+        lastX = x;
+        lastY = y;
+        resolved = FALSE;
+    }
+    tick++;
+
+    /* fermo (primo tick senza movimento) oppure ogni 4 tick in movimento */
+    if ((!moved && !resolved) || (moved && (tick & 3) == 0))
+    {
+        ResolveDropTarget(win, &gTickTarget, gDragPaths, gDragCount,
+                          gDragSourceDir);
+        if (gTickTarget.type != DT_NONE && gTickTarget.win &&
+            gTickTarget.box.Width > 0)
+            DragVisualSetTarget(gTickTarget.win->WScreen, &gTickTarget.box);
+        else
+            DragVisualSetTarget(NULL, NULL);
+        if (!moved) resolved = TRUE;
+    }
+
+    DragTimerRearm();
 }
 
 void DoInfo(struct List *list, struct Window *win)
@@ -1033,7 +1484,11 @@ BOOL IsPointOverGadget(Object *gad, struct Window *win, WORD x, WORD y)
     return (x >= g->LeftEdge && x < g->LeftEdge + g->Width &&
             y >= g->TopEdge  && y < g->TopEdge  + g->Height);
 }
-void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+/* Workbench waits for the AppMessage reply: the message is replied as soon
+   as the dropped paths are copied, before the Copy/Move requester and the
+   transfer, so Workbench is not blocked meanwhile.  *replied tells the
+   caller whether the message has already been replied. */
+static void HandleAppDropInner(struct AppMessage *appmsg, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL *replied)
 {
     LONG i;
     if (!appmsg || appmsg->am_NumArgs < 1) return;
@@ -1105,6 +1560,31 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
         }
         if (nPaths == 0) { IExec->FreeVec(srcs); return; }
 
+        char targetDir[PATH_MAX_LEN];
+        LONG mode;
+        BOOL move;
+
+        if (!DropDestinationAt(win, listGad, appmsg->am_MouseX,
+                               appmsg->am_MouseY, targetDir, sizeof(targetDir)))
+        {
+            strncpy(targetDir, gPathBuffer, sizeof(targetDir) - 1);
+            targetDir[sizeof(targetDir) - 1] = '\0';
+        }
+
+        /* Everything needed from the message is copied: release Workbench. */
+        IExec->ReplyMsg((struct Message *)appmsg);
+        appmsg = NULL;
+        *replied = TRUE;
+
+        mode = AskDragTransferMode(win ? win->WScreen : NULL, targetDir);
+
+        if (mode == 0)
+        {
+            IExec->FreeVec(srcs);
+            return;
+        }
+        move = (mode == 2);
+
         for (i = 0; i < nPaths; i++) total += CountFilesRecursive(srcs[i]);
 
         ProgressOpen(win, total);
@@ -1118,8 +1598,8 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
         for (i = 0; i < nPaths && !gProgCancel; i++)
         {
             char dst[PATH_MAX_LEN]; CONST_STRPTR base = FilePart(srcs[i]);
-            if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst))) continue;
-            if (!DragTransfer(srcs[i], dst))
+            if (!base || !base[0] || !BuildChildPath(targetDir, base, dst, sizeof(dst))) continue;
+            if (!DragTransfer(srcs[i], dst, move) && !gProgCancel)
             {
                 char em[300]; snprintf(em, sizeof(em), LS(MSG_DROP_COPY_ERROR_NAME), base);
                 ShowMessage(LS(MSG_DRAGDROP_TITLE), em);
@@ -1131,22 +1611,52 @@ void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, 
     LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, list);
 }
 
-/* ===== Cursore di trascinamento e messaggi VFM->VFM ===== */
+/* Handles an AppWindow drop and always replies the AppMessage. */
+void HandleAppDrop(struct AppMessage *appmsg, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+{
+    BOOL replied = FALSE;
+    if (!appmsg) return;
+    HandleAppDropInner(appmsg, listGad, pathGad, statusGad, win, list, &replied);
+    if (!replied) IExec->ReplyMsg((struct Message *)appmsg);
+}
+
+/* ===== Aspetto del drag e messaggi VFM->VFM ===== */
+
+static void FreeDragPaths(void)
+{
+    if (gDragPaths)
+    {
+        IExec->FreeVec(gDragPaths);
+        gDragPaths = NULL;
+    }
+    gDragCount = 0;
+    gDragSourceDir[0] = '\0';
+}
 
 void StartDragVisual(struct List *list, struct Window *win)
 {
-    /* Use the standard, always-visible drag & drop cursor.
-       The old code built a pointer from the icon bitmap; on many screen
-       depths that pointer came out blank, so the mouse pointer vanished
-       while dragging. */
-    (void)list;
-    IIntuition->SetWindowPointer(win, WA_PointerType, POINTERTYPE_DRAGANDDROP, TAG_DONE);
-    DBG("drag pointer: standard drag&drop cursor");
+    FreeDragPaths();
+    gDragPaths = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags(MAX_CLIPBOARD * PATH_MAX_LEN,
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    if (gDragPaths &&
+        !CollectSelectedFullPaths(list, gDragPaths, MAX_CLIPBOARD, &gDragCount))
+        gDragCount = 0;
+    AppRegistryEnsure();   /* se il VFM che lo teneva e' stato chiuso */
+    strncpy(gDragSourceDir, gPathBuffer, sizeof(gDragSourceDir) - 1);
+    gDragSourceDir[sizeof(gDragSourceDir) - 1] = '\0';
+
+    /* Come nel Workbench: le icone selezionate seguono il puntatore.  Se
+       non si possono mostrare, resta il cursore standard di drag&drop. */
+    if (!DragVisualBegin(list, win))
+        IIntuition->SetWindowPointer(win, WA_PointerType, POINTERTYPE_DRAGANDDROP, TAG_DONE);
 }
 
 void EndDragVisual(struct Window *win)
 {
-    IIntuition->SetWindowPointer(win, WA_PointerType, POINTERTYPE_NORMAL, TAG_DONE);
+    DragVisualEnd();
+    FreeDragPaths();
+    if (win)
+        IIntuition->SetWindowPointer(win, WA_PointerType, POINTERTYPE_NORMAL, TAG_DONE);
 }
 
 void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD screenY)
@@ -1211,7 +1721,26 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
     else
     {
         char *q = drop->vfm_Paths;
+        char targetDir[PATH_MAX_LEN];
         ULONG total = 0;
+        LONG mode;
+        BOOL move;
+
+        if (!DropDestinationAtScreen(win, listGad, drop->vfm_MouseX,
+                                     drop->vfm_MouseY,
+                                     targetDir, sizeof(targetDir)))
+        {
+            strncpy(targetDir, gPathBuffer, sizeof(targetDir) - 1);
+            targetDir[sizeof(targetDir) - 1] = '\0';
+        }
+
+        mode = AskDragTransferMode(win ? win->WScreen : NULL, targetDir);
+        if (mode == 0)
+        {
+            IExec->FreeVec(drop);
+            return;
+        }
+        move = (mode == 2);
 
         for (i = 0; i < drop->vfm_NumPaths; i++)
         {
@@ -1241,11 +1770,12 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
             CONST_STRPTR base;
             if (q[0] == '\0') break;
             base = FilePart(q);
-            if (!base || !base[0] || !BuildChildPath(gPathBuffer, base, dst, sizeof(dst)))
+            if (!base || !base[0] || !BuildChildPath(targetDir, base, dst, sizeof(dst)))
             { anyErr = TRUE; q += strlen(q) + 1; continue; }
-            if (!DragTransfer(q, dst)) anyErr = TRUE;
+            if (!DragTransfer(q, dst, move)) anyErr = TRUE;
             q += strlen(q) + 1;
         }
+        if (gProgCancel) anyErr = FALSE;   /* annullato: nessun messaggio */
         ProgressClose();
 
         if (anyErr)

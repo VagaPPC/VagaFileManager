@@ -321,7 +321,7 @@ MSG_ABOUT_MAIL
 Mail: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Ringraziamenti speciali: ldg72, Flash, Kaffeine e ACube
+Ringraziamenti speciali: ldg72, Flash, Kaffeine, ACube e AlfredONE
 ;
 MSG_MENU_WBREPLACE
 Sostituisci Workbench
@@ -412,4 +412,10 @@ Rinomina
 ;
 MSG_CONFLICT_SKIP
 Salta
+;
+MSG_COPY_ERROR_BODY
+Errore durante la copia di '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Riprova|Salta|Annulla
 ;

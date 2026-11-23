@@ -338,7 +338,7 @@ MSG_ABOUT_MAIL (//)
 Mail: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS (//)
-Special thanks: ldg72, Flash, Kaffeine and ACube
+Special thanks: ldg72, Flash, Kaffeine, ACube and AlfredONE
 ;
 MSG_MENU_WBREPLACE (//)
 Replace Workbench
@@ -429,4 +429,10 @@ Rename
 ;
 MSG_CONFLICT_SKIP (//)
 Skip
+;
+MSG_COPY_ERROR_BODY (//)
+Error while copying '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS (//)
+Retry|Skip|Cancel
 ;

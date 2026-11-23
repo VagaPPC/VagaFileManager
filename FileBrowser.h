@@ -21,6 +21,8 @@
 **  2026-11-15 orgin, 1.0: FILEBROWSER_VERSION/REVISION, public domain
 **  2026-11-15 orgin, 1.1
 **  2026-11-16 orgin, 1.2: scroller.gadget in icon mode, drawing clipped
+**  2026-11-23 VFM: FILEBROWSER_GetIndexAt method
+**  2026-11-23 VFM: FILEBROWSER_GetIndexAt returns the cell/row box
 */
 
 #ifndef FILEBROWSER_H
@@ -63,6 +65,30 @@
    Default 0: no fixed box, every icon at its original size and the box as
    large as the largest one shown. */
 #define FILEBROWSER_IconSize     (FILEBROWSER_Dummy + 6)
+
+/* (uint32, ISG) Icon mode: number of columns in the last layout (OM_GET).
+   Used by VFM for keyboard navigation. */
+#define FILEBROWSER_Columns     (FILEBROWSER_Dummy + 7)
+
+/* (method) Icon mode: index of the cell under a window-relative point.
+   The view must have been laid out (rendered) at least once.
+   Returns -1 outside a cell or in details mode.  Used by VFM to find the
+   drawer under the mouse during drag & drop. */
+#define FILEBROWSER_GetIndexAt  (FILEBROWSER_Dummy + 8)
+struct FBGetIndexAt
+{
+ uint32 MethodID;
+ int32  fbgia_X, fbgia_Y;
+ int32  fbgia_FontY;   /* window font height, for details mode rows */
+ int32  fbgia_Index;
+ struct IBox fbgia_Box; /* out: cell (icons) or row (details) in window
+                           coordinates, clipped to the visible area */
+};
+
+/* (BOOL, ISG) Details mode: draw a FILLPEN frame over the list border, to
+   mark the active list (same color as the drag & drop target frame).
+   Ignored in icon mode.  Default FALSE. */
+#define FILEBROWSER_Highlight   (FILEBROWSER_Dummy + 9)
 
 enum
 {

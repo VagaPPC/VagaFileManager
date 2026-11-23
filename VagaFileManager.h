@@ -141,7 +141,8 @@ enum
     GID_FILTER,
     GID_TOP_COPY,
     GID_TOP_MOVE,
-    GID_TOP_DELETE
+    GID_TOP_DELETE,
+    GID_ACTIVE_MARK
 };
 
 enum
@@ -159,6 +160,11 @@ enum
     MENU_OPEN,
     MENU_REFRESH,
     MENU_TOGGLE_VIEW,
+    MENU_ICON_SIZE_AUTO,
+    MENU_ICON_SIZE_32,
+    MENU_ICON_SIZE_48,
+    MENU_ICON_SIZE_64,
+    MENU_ICON_SIZE_96,
     MENU_VIEW_ICONS,
     MENU_VIEW_ALLFILES,
     MENU_VIEW_SHOWINFO,
@@ -302,6 +308,9 @@ enum
     MIMG_SCRIPT,
     MIMG_FOLDER,
     MIMG_SHELL,
+    MIMG_SELECTALL,
+    MIMG_UNSELECTALL,
+    MIMG_INVERT,
     MIMG_COUNT
 };
 
@@ -316,6 +325,7 @@ struct Pane
     Object     *listGad, *pathGad, *statusGad, *toggleGad;
     Object     *filterGad;
     Object     *sizeGad;
+    Object     *activeGad;
     Object     *btnRename, *btnDelete, *btnDuplicate, *btnCopy, *btnCut, *btnPaste, *btnInfo;
     Object     *paneLayout;
     struct ColumnInfo *colInfo;
@@ -336,6 +346,7 @@ struct Pane
     uint32      typeRank[MAX_ENTRIES];
     ULONG       viewFilter, sortMode, viewMode;
     ULONG       showInfoFiles;
+    ULONG       iconSize;           /* 0 = automatic, else fixed image box */
     char        forwardStack[MAX_HISTORY][PATH_MAX_LEN];
     LONG        forwardCount;
     ULONG       lastRefreshTicks;
@@ -363,6 +374,7 @@ extern int gActivePane;
 #define gSortMode     (gPanes[gActivePane].sortMode)
 #define gViewMode     (gPanes[gActivePane].viewMode)
 #define gShowInfoFiles (gPanes[gActivePane].showInfoFiles)
+#define gIconSize     (gPanes[gActivePane].iconSize)
 #define gWinTitle     (gPanes[gActivePane].winTitle)
 #define gForwardStack (gPanes[gActivePane].forwardStack)
 #define gForwardCount (gPanes[gActivePane].forwardCount)
@@ -393,8 +405,6 @@ extern struct VFMWindowTag gWinTag;
 extern char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
 extern LONG gPluginCount;
 extern char gRexxPortName[64];
-
-extern WORD gLastDragX, gLastDragY;
 
 extern volatile BOOL gProgActive;
 extern volatile BOOL gProgCancel;
@@ -438,6 +448,7 @@ BOOL RootNameExists(struct DirEntryInfo *entries, LONG count, CONST_STRPTR name)
 LONG ReadDirectory(CONST_STRPTR drawer, struct List *list);
 BOOL VFMParsePattern(CONST_STRPTR pattern, STRPTR parsed, LONG parsedSize);
 BOOL VFMHasWildcard(CONST_STRPTR pattern);
+void FreeDirectoryScratch(void);
 void SetupNotify(CONST_STRPTR path);
 void UpdateWindowTitle(struct Window *win, CONST_STRPTR path);
 void SetPathGadget(Object *pathGad, struct Window *win, CONST_STRPTR path);
@@ -480,6 +491,7 @@ BOOL IsPathSameOrInside(CONST_STRPTR path, CONST_STRPTR container);
 BOOL IsDestInsideSrcForCopy(CONST_STRPTR src, CONST_STRPTR dst);
 void CopyAttributes(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst);
+void FreeCopyBuffer(void);
 void CopyInfoFileIfPresent(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst);
@@ -512,9 +524,12 @@ ULONG CountDeleteObjects(CONST_STRPTR src);
 void SetDeleteProgress(BOOL on);
 void ProgressUpdate(void);
 void ProgressSetBytes(uint64 total);
+void ProgressSetCounts(ULONG done, ULONG total);
 void ProgressPoll(void);
 void ProgressAdvance(void);
 void ProgressSetIndeterminate(BOOL on);
+void ProgressSetIndeterminateTotal(ULONG total);
+void ProgressSetCancelable(BOOL on);
 void ProgressOpen(struct Window *win, ULONG total);
 void ProgressClose(void);
 void FreeProgressBarClass(void);
@@ -555,8 +570,22 @@ void StartDragVisual(struct List *list, struct Window *win);
 void EndDragVisual(struct Window *win);
 void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD screenY);
 void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
+void DragTick(struct Window *win);
+
+/* ---- Aspetto del drag (DragVisual.c) ---- */
+BOOL  DragVisualBegin(struct List *list, struct Window *win);
+void  DragVisualMove(WORD screenX, WORD screenY);
+void  DragVisualSetTarget(struct Screen *scr, const struct IBox *box);
+void  DragVisualEnd(void);
+BOOL  IsDragOverlayWindow(struct Window *w);
+ULONG DragTimerSignal(void);
 ULONG AppDropReplySignal(void);
-void ProcessAppDropReplies(void);
+LONG  AskCopyError(CONST_STRPTR name, LONG err);
+void  AppRegistryEnsure(void);
+void  AppRegistryRemove(void);
+void  ProcessAppDropReplies(void);
+BOOL  DragTimerFired(void);
+void  DragTimerRearm(void);
 
 /* ---- Immagini e pulsanti ---- */
 Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name);
@@ -577,6 +606,7 @@ void LaunchNewInstance(void);
 void LoadPrefs(void);
 void SavePrefs(void);
 BOOL ApplyPathPrefs(int p, CONST_STRPTR path);
-void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, ULONG showinfo);
+void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort,
+                       ULONG showinfo, ULONG iconsize);
 
 #endif /* VAGAFILEMANAGER_H */

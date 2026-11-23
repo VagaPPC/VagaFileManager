@@ -35,6 +35,10 @@
 #include <rexx/errors.h>
 #include <interfaces/rexxsyslib.h>
 
+#include <ctype.h>
+#include <libraries/keymap.h>
+#include <devices/inputevent.h>
+
 /* Tipo dei messaggi "notify" usati dal canale comandi dei plugin.
    Deve essere diverso da VFMDROP_TYPE (0x5646) e dai valori AMTYPE_*:
    con lo stesso valore i drop VFM venivano scambiati per notifiche. */
@@ -69,6 +73,9 @@ BOOL  gDragActive = FALSE;
 WORD  gDragStartX = 0, gDragStartY = 0;
 BOOL  gDragButtonDown = FALSE;
 
+static volatile BOOL gTabSwitchRequest = FALSE;
+static struct Hook gKeyIDCMPHook;
+
 char gDropPortName[64];
 char gPluginDir[PATH_MAX_LEN];
 
@@ -78,10 +85,6 @@ struct VFMWindowTag gWinTag;
 
 char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
 LONG gPluginCount = 0;
-WORD gLastDragX = 0, gLastDragY = 0;
-
-static struct Hook gFilterIdcmpHook;
-static int gFilterPendingPane = -1;
 
 static struct MsgPort *gRexxPort = NULL;
 char gRexxPortName[64] = REXX_PORT_NAME;
@@ -115,6 +118,10 @@ CONST_STRPTR gIconNames[IMG_COUNT] =
 
 Object *gBtnImg[IMG_COUNT];
 Object *gBtnImgSel[IMG_COUNT];
+
+/* Icona AISS del pannello attivo/inattivo (lightroom_front accesa/spenta). */
+static Object *gPaneActiveImg = NULL;
+static Object *gPaneInactiveImg = NULL;
 
 Object *gMainWinObj = NULL;
 
@@ -164,6 +171,7 @@ static void PaneInit(int p, CONST_STRPTR path)
     pn->listGad = pn->pathGad = pn->statusGad = pn->toggleGad = NULL;
     pn->filterGad = NULL;
     pn->sizeGad = NULL;
+    pn->activeGad = NULL;
     pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
     pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
     pn->paneLayout = NULL;
@@ -187,6 +195,7 @@ static void PaneInit(int p, CONST_STRPTR path)
     pn->sortMode = SORT_BY_TYPE;
     pn->viewMode = FBVM_ICONS;
     pn->showInfoFiles = 0;
+    pn->iconSize = 0;
     pn->lastRefreshTicks = 0;
     memset(&pn->notify, 0, sizeof(pn->notify));
     pn->notifyActive = FALSE;
@@ -206,6 +215,7 @@ struct PathPrefs
 {
     char  path[PATH_MAX_LEN];
     ULONG viewMode, viewFilter, sortMode, showInfoFiles;
+    ULONG iconSize;
 };
 
 /* Geometria della finestra memorizzata per volume.  Ogni istanza usa il
@@ -397,6 +407,7 @@ static void ParsePrefs(CONST_STRPTR file,
                     cur->viewFilter    = VIEW_FILTER_ICONS_ONLY;
                     cur->sortMode      = SORT_BY_TYPE;
                     cur->showInfoFiles = 0;
+                    cur->iconSize      = 0;
                 }
             }
             else if (!strncmp(line, "[Volume]", 8))
@@ -430,6 +441,11 @@ static void ParsePrefs(CONST_STRPTR file,
             else if (inPath && cur && !strncmp(line, "ShowInfo=", 9))
             {
                 cur->showInfoFiles = atoi(line + 9) ? 1 : 0;
+            }
+            else if (inPath && cur && !strncmp(line, "IconSize=", 9))
+            {
+                LONG v = atoi(line + 9);
+                cur->iconSize = (v > 0 && v <= 256) ? (ULONG)v : 0;
             }
             else if (inVolume && cvol && !strncmp(line, "Name=", 5))
             {
@@ -507,13 +523,15 @@ BOOL ApplyPathPrefs(int p, CONST_STRPTR path)
             gPanes[p].viewFilter    = gPathPrefs[i].viewFilter;
             gPanes[p].sortMode      = gPathPrefs[i].sortMode;
             gPanes[p].showInfoFiles = gPathPrefs[i].showInfoFiles;
+            gPanes[p].iconSize      = gPathPrefs[i].iconSize;
             return TRUE;
         }
     }
     return FALSE;
 }
 
-void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, ULONG showinfo)
+void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort,
+                       ULONG showinfo, ULONG iconsize)
 {
     struct PathPrefs *pp = NULL;
     LONG i;
@@ -542,6 +560,7 @@ void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort, 
     pp->viewFilter    = filter;
     pp->sortMode      = sort;
     pp->showInfoFiles = showinfo;
+    pp->iconSize      = iconsize;
 }
 
 void SavePrefs(void)
@@ -566,10 +585,10 @@ void SavePrefs(void)
     gPrefs.split  = gPanes[1].paneLayout ? 1 : 0;
 
     RememberPathPrefs(gPanes[0].pathBuffer, gPanes[0].viewMode, gPanes[0].viewFilter,
-                      gPanes[0].sortMode, gPanes[0].showInfoFiles);
+                      gPanes[0].sortMode, gPanes[0].showInfoFiles, gPanes[0].iconSize);
     if (gPanes[1].paneLayout)
         RememberPathPrefs(gPanes[1].pathBuffer, gPanes[1].viewMode, gPanes[1].viewFilter,
-                          gPanes[1].sortMode, gPanes[1].showInfoFiles);
+                          gPanes[1].sortMode, gPanes[1].showInfoFiles, gPanes[1].iconSize);
 
     /* Rilegge il file per fondere i dati di altre istanze in esecuzione. */
     diskPaths = (struct PathPrefs *)IExec->AllocVecTags(
@@ -646,6 +665,7 @@ void SavePrefs(void)
             IDOS->FPrintf(fh, "Filter=%ld\n",   (long)pa[i].viewFilter);
             IDOS->FPrintf(fh, "Sort=%ld\n",     (long)pa[i].sortMode);
             IDOS->FPrintf(fh, "ShowInfo=%ld\n", (long)pa[i].showInfoFiles);
+            IDOS->FPrintf(fh, "IconSize=%ld\n", (long)pa[i].iconSize);
         }
 
         IDOS->Close(fh);
@@ -679,7 +699,7 @@ static Object *CreatePaneUI(int p)
         TAG_DONE);
 
     pn->pathGad = IIntuition->NewObject(NULL, "string.gadget",
-        GA_ID, GID_PATH + off, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
+        GA_ID, GID_PATH + off, GA_RelVerify, TRUE, GA_TabCycle, FALSE,
         STRINGA_MaxChars, PATH_MAX_LEN - 1, STRINGA_TextVal, (ULONG)pn->pathBuffer,
         TAG_DONE);
     /* No STRINGA_Buffer = pn->pathBuffer: the gadget needs a buffer of its
@@ -693,7 +713,7 @@ static Object *CreatePaneUI(int p)
         GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE, TAG_DONE);
 
     pn->filterGad = IIntuition->NewObject(NULL, "string.gadget",
-        GA_ID, GID_FILTER + off, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
+        GA_ID, GID_FILTER + off, GA_RelVerify, TRUE, GA_TabCycle, FALSE,
         STRINGA_MaxChars, NAME_MAX_LEN - 1,
         STRINGA_TextVal, (ULONG)pn->filterBuffer,
         STRINGA_Buffer, (ULONG)pn->filterBuffer,
@@ -709,7 +729,8 @@ static Object *CreatePaneUI(int p)
         LISTBROWSER_ColumnTitles, TRUE, LISTBROWSER_TitleClickable, TRUE,
         LISTBROWSER_ShowSelected, TRUE, LISTBROWSER_MultiSelect, TRUE,
         LISTBROWSER_AllowNoSelection, TRUE,
-        FILEBROWSER_ViewMode, pn->viewMode, FILEBROWSER_IconHook, (ULONG)&gIconHooks[p],
+        FILEBROWSER_ViewMode, pn->viewMode, FILEBROWSER_IconSize, pn->iconSize,
+        FILEBROWSER_IconHook, (ULONG)&gIconHooks[p],
         FILEBROWSER_HiddenColumns, (1UL << COL_TYPE) | (1UL << COL_SIZE) | (1UL << COL_DATE) | (1UL << COL_COMMENT),
         TAG_DONE);
 
@@ -717,6 +738,16 @@ static Object *CreatePaneUI(int p)
         (pn->viewMode == FBVM_ICONS) ? gBtnImg[IMG_DETAILS] : gBtnImg[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? gBtnImgSel[IMG_DETAILS] : gBtnImgSel[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? LS(MSG_BTN_DETAILS) : LS(MSG_BTN_ICONS));
+
+    /* Indicatore del pannello attivo: icona AISS lightroom_front accesa
+       per il pannello che riceve menu, pulsanti e comandi dei plugin,
+       spenta per l'altro.  Sta a destra del campo percorso. */
+    pn->activeGad = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, GID_ACTIVE_MARK + off, GA_ReadOnly, TRUE,
+        BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
+        BUTTON_RenderImage, (ULONG)gPaneInactiveImg,
+        BUTTON_SelectImage, (ULONG)gPaneInactiveImg,
+        TAG_DONE);
 
     /* barra del percorso */
     pathRow = IIntuition->NewObject(NULL, "layout.gadget",
@@ -727,6 +758,7 @@ static Object *CreatePaneUI(int p)
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_FORWARD + off, gBtnImg[IMG_FORWARD], gBtnImgSel[IMG_FORWARD], LS(MSG_BTN_FORWARD)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_REFRESH + off, gBtnImg[IMG_REFRESH], gBtnImgSel[IMG_REFRESH], LS(MSG_BTN_REFRESH)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)pn->pathGad, CHILD_WeightedWidth, 100,
+        LAYOUT_AddChild, (ULONG)pn->activeGad, CHILD_WeightedWidth, 0,
         TAG_DONE);
 
     /* barra operazioni; "Calcola dimensione" e "Dividi" */
@@ -812,6 +844,23 @@ static BOOL PointInPane(int p, WORD x, WORD y)
             y >= g->TopEdge  && y < g->TopEdge  + g->Height);
 }
 
+/* Dimensione fissa delle icone: 0 = automatica, altrimenti box immagine
+   in pixel.  Vale per il pannello attivo e viene ricordata per percorso. */
+static void ApplyPaneIconSize(ULONG size, Object *listGad, struct Window *win)
+{
+    gIconSize = size;
+    if (listGad)
+    {
+        if (win)
+            IIntuition->SetGadgetAttrs((struct Gadget *)listGad, win, NULL,
+                FILEBROWSER_IconSize, size, TAG_DONE);
+        else
+            IIntuition->SetAttrs(listGad, FILEBROWSER_IconSize, size, TAG_DONE);
+    }
+    RememberPathPrefs(gPathBuffer, gViewMode, gViewFilter, gSortMode,
+                      gShowInfoFiles, gIconSize);
+}
+
 /* ===== Barra condivisa e modalita' split =====
    Crea e aggiunge la barra dei comandi condivisa (solo in vista divisa).
    Viene aggiunta in coda al layout verticale, cioe' in basso. */
@@ -871,6 +920,7 @@ static void HideTopBar(struct Window *win)
 
 /* attiva (o chiude) il secondo pannello */
 static void UpdateTopBar(struct Window *win);
+static void UpdatePaneMarkers(struct Window *win);
 
 /* Attiva/disattiva la modalita' split: mostra o nasconde il secondo
    pannello e la barra comandi condivisa. */
@@ -899,6 +949,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         pn->listGad = pn->pathGad = pn->statusGad = pn->toggleGad = NULL;
         pn->filterGad = NULL;
         pn->sizeGad = NULL;
+        pn->activeGad = NULL;
         pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
         pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
         if (pn->colInfo) { IListBrowser->FreeLBColumnInfo(pn->colInfo); pn->colInfo = NULL; }
@@ -906,6 +957,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         HideTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
         UpdateTopBar(win);
+        UpdatePaneMarkers(win);
         DBG("split: second pane closed");
     }
     else
@@ -925,6 +977,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         pn->viewFilter    = gPanes[0].viewFilter;
         pn->sortMode      = gPanes[0].sortMode;
         pn->showInfoFiles = gPanes[0].showInfoFiles;
+        pn->iconSize      = gPanes[0].iconSize;
         ApplyPathPrefs(1, pn->pathBuffer);
         ReadDirectory(pn->pathBuffer, &pn->fileList);
         if (pn->viewFilter == VIEW_FILTER_ICONS_ONLY && pn->entryCount == 0 && !IsRootPath(pn->pathBuffer))
@@ -954,6 +1007,7 @@ static void ToggleSplit(struct Window *win, Object *winObj)
         UpdateStatus(pn->listGad, pn->statusGad, win);
         UpdateWindowTitle(win, pn->pathBuffer);
         gActivePane = save;
+        UpdatePaneMarkers(win);
         DBG("split: second pane opened");
     }
 }
@@ -1010,23 +1064,37 @@ static void OpenShellHere(void)
 
 /* ---- filtro rapido ---- */
 
-static uint32 FilterIDCMPHook(struct Hook *hook, Object *obj, struct IntuiMessage *msg)
+/* TAB e' gestito da un hook IDCMP: window.class puo' consumare il tasto
+   prima che arrivi al loop principale.  Il hook si limita a segnalare la
+   richiesta; il cambio pannello avviene nel loop, fuori dall'input.
+   Con IDCMP_VANILLAKEY attivo TAB arriva come carattere 9 (VANILLAKEY),
+   non come RAWKEY: si controllano entrambe le classi. */
+static uint32 KeyIDCMPHook(struct Hook *hook, APTR window, struct IntuiMessage *msg)
 {
     (void)hook;
-    (void)obj;
+    (void)window;
 
-    if (msg->Class == IDCMP_IDCMPUPDATE && msg->IAddress)
+    if (msg && msg->Class == IDCMP_RAWKEY)
     {
-        ULONG gid = IUtility->GetTagData(GA_ID, 0, (struct TagItem *)msg->IAddress);
-        int p = (gid >= PANE_ID_OFFSET) ? 1 : 0;
-        ULONG bid = gid - (ULONG)p * PANE_ID_OFFSET;
+        ULONG code = msg->Code & 0xff;
 
-        if (bid == GID_FILTER && gPanes[p].filterGad)
-        {
-            /* il testo live e' gia' in filterBuffer (STRINGA_WorkBuffer);
-               qui basta chiedere un refresh al ciclo principale */
-            gFilterPendingPane = p;
-        }
+        if (!(code & IECODE_UP_PREFIX) &&
+            !(msg->Qualifier & (IEQUALIFIER_LCOMMAND |
+                                IEQUALIFIER_RCOMMAND |
+                                IEQUALIFIER_LALT |
+                                IEQUALIFIER_RALT |
+                                IEQUALIFIER_REPEAT)) &&
+            (code & ~IECODE_UP_PREFIX) == RAWKEY_TAB)
+            gTabSwitchRequest = TRUE;
+    }
+    else if (msg && msg->Class == IDCMP_VANILLAKEY && msg->Code == 9 &&
+             !(msg->Qualifier & (IEQUALIFIER_LCOMMAND |
+                                 IEQUALIFIER_RCOMMAND |
+                                 IEQUALIFIER_LALT |
+                                 IEQUALIFIER_RALT |
+                                 IEQUALIFIER_REPEAT)))
+    {
+        gTabSwitchRequest = TRUE;
     }
     return 0;
 }
@@ -1198,7 +1266,72 @@ static void RexxSelectedNames(int gp, STRPTR out, ULONG outSize)
     }
 }
 
-static BOOL SelectEntryByName(Object *listGad, struct List *list, CONST_STRPTR name)
+/* Scrive i percorsi completi delle voci selezionate in un file dentro la
+   directory del canale plugin e ne restituisce il percorso.  Usato dal
+   comando ADDONINFO: i nomi possono contenere spazi, quindi non si puo'
+   usare la lista separata da spazi di SELECTED. */
+static ULONG gSelectedListSeq = 0;
+
+static LONG WriteSelectedFullPaths(int gp, STRPTR outPath, ULONG outSize)
+{
+    struct Pane *pn = &gPanes[gp];
+    struct Node *n;
+    char path[PATH_MAX_LEN];
+    char full[PATH_MAX_LEN];
+    BPTR fh;
+    LONG count = 0;
+
+    if (outPath && outSize) outPath[0] = '\0';
+
+    if (gPluginDir[0])
+        snprintf(path, sizeof(path), "%s/selected_%lu.txt", gPluginDir,
+                 (unsigned long)++gSelectedListSeq);
+    else
+        snprintf(path, sizeof(path), "T:VFM_selected_%08lx_%lu.txt",
+                 (unsigned long)(ULONG)IExec->FindTask(NULL),
+                 (unsigned long)++gSelectedListSeq);
+
+    fh = IDOS->Open(path, MODE_NEWFILE);
+    if (!fh) return -1;
+
+    for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE;
+        ULONG index = MAX_ENTRIES;
+        STRPTR name = NULL;
+
+        IListBrowser->GetListBrowserNodeAttrs(n,
+            LBNA_Selected, &sel,
+            LBNA_UserData, &index,
+            LBNA_Column, COL_NAME, LBNCA_Text, &name,
+            TAG_DONE);
+
+        if (!sel || !name || index >= (ULONG)pn->entryCount) continue;
+
+        if (IsRootPath(pn->pathBuffer))
+        {
+            strncpy(full, name, sizeof(full) - 1);
+            full[sizeof(full) - 1] = '\0';
+        }
+        else if (!BuildChildPath(pn->pathBuffer, name, full, sizeof(full)))
+            continue;
+
+        IDOS->FPrintf(fh, "%s\n", full);
+        count++;
+    }
+
+    IDOS->Close(fh);
+
+    if (outPath && outSize)
+    {
+        strncpy(outPath, path, outSize - 1);
+        outPath[outSize - 1] = '\0';
+    }
+    return count;
+}
+
+static BOOL SelectEntryByName(Object *listGad, struct Window *win,
+                              struct List *list, CONST_STRPTR name)
 {
     struct Node *n;
     if (!list || !name || !name[0]) return FALSE;
@@ -1217,10 +1350,20 @@ static BOOL SelectEntryByName(Object *listGad, struct List *list, CONST_STRPTR n
             TAG_DONE);
         if (text && IUtility->Stricmp(text, name) == 0 && idx < (ULONG)gEntryCount)
         {
-            IIntuition->SetAttrs(listGad,
-                LISTBROWSER_Selected, idx,
-                LISTBROWSER_MakeVisible, idx,
-                TAG_DONE);
+            /* La lista dei pannelli e' MultiSelect: LISTBROWSER_Selected non
+               e' affidabile in quel caso.  Selezioniamo il nodo direttamente
+               e poi lo rendiamo visibile. */
+            IListBrowser->SetListBrowserNodeAttrs(n, LBNA_Selected, TRUE, TAG_DONE);
+            if (listGad)
+            {
+                if (win)
+                    IIntuition->SetGadgetAttrs((struct Gadget *)listGad, win, NULL,
+                        LISTBROWSER_MakeVisible, idx, TAG_DONE);
+                else
+                    IIntuition->SetAttrs(listGad, LISTBROWSER_MakeVisible, idx, TAG_DONE);
+                if (win)
+                    IIntuition->RefreshGList((struct Gadget *)listGad, win, NULL, 1);
+            }
             return TRUE;
         }
     }
@@ -1381,6 +1524,26 @@ static int64 RexxSelectedSize(int gp)
     return any ? total : -1;
 }
 
+/* Svuota il filtro rapido di un pannello.  Serve a REVEAL/Find: il file
+   cercato puo' essere stato nascosto dal filtro attivo. */
+static void ClearPaneFilter(int gp, struct Window *win)
+{
+    struct Pane *pn = &gPanes[gp];
+
+    if (!pn->filterBuffer[0] && !pn->filterApplied[0]) return;
+    pn->filterBuffer[0] = '\0';
+    pn->filterApplied[0] = '\0';
+    pn->filterSeen[0] = '\0';
+    if (pn->filterGad)
+    {
+        if (win)
+            IIntuition->SetGadgetAttrs((struct Gadget *)pn->filterGad, win, NULL,
+                STRINGA_TextVal, (ULONG)"", TAG_DONE);
+        else
+            IIntuition->SetAttrs(pn->filterGad, STRINGA_TextVal, (ULONG)"", TAG_DONE);
+    }
+}
+
 /* Porta il pannello attivo sulla cartella del path e seleziona il file.
    Usata dal comando REVEAL e dalla finestra risultati di Find/Grep. */
 BOOL RevealPath(CONST_STRPTR path, struct Window *win)
@@ -1394,18 +1557,34 @@ BOOL RevealPath(CONST_STRPTR path, struct Window *win)
     if (!path || !path[0] || !pn->listGad) return FALSE;
     if (!GetParentPath(path, parent, sizeof(parent))) return FALSE;
 
+    DBG("reveal: path='%s' pane=%d parent='%s'", path, gp, parent);
+
     targetName = FilePart(path);
     NavigateTo(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
-    selected = SelectEntryByName(pn->listGad, &pn->fileList, targetName);
-    if (!selected && gViewFilter == VIEW_FILTER_ICONS_ONLY)
+    selected = SelectEntryByName(pn->listGad, win, &pn->fileList, targetName);
+
+    /* Il file puo' essere nascosto dal filtro rapido o dal filtro "solo
+       icone": per rivelarlo bisogna mostrarlo.  Facciamo un solo reload
+       se uno dei due filtri e' attivo. */
+    if (!selected && (pn->filterBuffer[0] || gViewFilter == VIEW_FILTER_ICONS_ONLY))
     {
-        /* il file potrebbe essere nascosto dal filtro "solo icone" */
-        gViewFilter = VIEW_FILTER_ALL_FILES;
+        if (pn->filterBuffer[0])
+            ClearPaneFilter(gp, win);
+        if (gViewFilter == VIEW_FILTER_ICONS_ONLY)
+            gViewFilter = VIEW_FILTER_ALL_FILES;
         LoadPath(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
-        selected = SelectEntryByName(pn->listGad, &pn->fileList, targetName);
+        selected = SelectEntryByName(pn->listGad, win, &pn->fileList, targetName);
         UpdateMenu();
     }
-    if (selected && win) IIntuition->ActivateWindow(win);
+
+    DBG("reveal: selected=%ld name='%s' filter='%s' viewfilter=%lu",
+        (long)selected, targetName ? targetName : "",
+        pn->filterBuffer, (unsigned long)gViewFilter);
+    if (selected)
+    {
+        UpdateStatus(pn->listGad, pn->statusGad, win);
+        if (win) IIntuition->ActivateWindow(win);
+    }
     return selected;
 }
 
@@ -1463,7 +1642,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     if (!IUtility->Stricmp(cmd, "HELP"))
     {
         RexxSetResult(msg,
-            "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | PATH | ENTRIES | SELECTED | "
+            "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | PATH | ADDONINFO | PROGRESS | ENTRIES | SELECTED | "
             "RENAME <name> | DELETE | DUPLICATE | COPY | CUT | PASTE | INFO | SIZE | "
             "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | "
             "SPLIT | NEW | SCRIPT <file> | ASK <prompt> | "
@@ -1520,6 +1699,98 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         GoForward(listGad, pathGad, statusGad, win, fl);
     else if (!IUtility->Stricmp(cmd, "PATH"))
         RexxSetResult(msg, gPathBuffer);
+    else if (!IUtility->Stricmp(cmd, "PROGRESS"))
+    {
+        char *a = args;
+
+        if (!IUtility->Stricmp(a, "CLOSE"))
+        {
+            ProgressClose();
+            RexxSetResult(msg, "OK");
+        }
+        else
+        {
+            BOOL nocancel = FALSE;
+            BOOL indet = FALSE;
+            LONG done = 0, total = 0;
+            unsigned long long bytesDone = 0, bytesTotal = 0;
+            int n;
+
+            if (!IUtility->Strnicmp(a, "NOCANCEL", 8))
+            {
+                nocancel = TRUE;
+                a += 8;
+                while (*a == ' ' || *a == '\t') a++;
+            }
+            if (!IUtility->Strnicmp(a, "INDET", 5))
+            {
+                indet = TRUE;
+                a += 5;
+                while (*a == ' ' || *a == '\t') a++;
+            }
+
+            n = sscanf(a, "%ld %ld %llu %llu",
+                       &done, &total, &bytesDone, &bytesTotal);
+            if (n < 2)
+            {
+                msg->rm_Result1 = RC_ERROR;
+                RexxSetResult(msg,
+                    "PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal] | PROGRESS CLOSE");
+            }
+            else
+            {
+                if (!gProgActive || !gProgWin)
+                {
+                    if (gProgWinObj) ProgressClose();
+                    ProgressSetCancelable(nocancel ? FALSE : TRUE);
+                    ProgressOpen(win, total > 0 ? (ULONG)total : 1);
+                    if (indet || total <= 0) ProgressSetIndeterminate(TRUE);
+                }
+
+                ProgressSetCounts((done > 0) ? (ULONG)done : 0,
+                                  (total > 0) ? (ULONG)total : 1);
+                ProgressSetIndeterminateTotal(
+                    (indet && total > 0) ? (ULONG)total : 0);
+                if (n >= 4)
+                {
+                    gProgBytesDone  = (uint64)bytesDone;
+                    gProgBytesTotal = (uint64)bytesTotal;
+                }
+                else
+                {
+                    gProgBytesDone  = 0;
+                    gProgBytesTotal = 0;
+                }
+
+                ProgressUpdate();
+                ProgressPoll();
+                RexxSetResult(msg, gProgCancel ? "1" : "0");
+            }
+        }
+    }
+    else if (!IUtility->Stricmp(cmd, "ADDONINFO"))
+    {
+        char info[PATH_MAX_LEN * 3 + 64];
+        char listPath[PATH_MAX_LEN];
+        LONG n = WriteSelectedFullPaths(gp, listPath, sizeof(listPath));
+
+        if (n < 0)
+        {
+            msg->rm_Result1 = RC_ERROR;
+            RexxSetResult(msg, "");
+        }
+        else
+        {
+            snprintf(info, sizeof(info), "%ld\n%ld\n%s\n%s\n%ld\n%s",
+                     (long)(gPanes[1].paneLayout ? 1 : 0),
+                     (long)gp,
+                     gPanes[0].pathBuffer,
+                     gPanes[1].paneLayout ? gPanes[1].pathBuffer : "",
+                     (long)n,
+                     listPath);
+            RexxSetResult(msg, info);
+        }
+    }
     else if (!IUtility->Stricmp(cmd, "SEARCHPATH"))
     {
         char root[PATH_MAX_LEN];
@@ -1756,14 +2027,15 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
     }
 
     if (rcOut) *rcOut = msg->rm_Result1;
-    if (msg->rm_Result2 && result && resultSize)
+    /* rm_Result2 e' un argstring solo se rm_Result1 == 0. */
+    if (msg->rm_Result1 == 0 && msg->rm_Result2 && result && resultSize)
     {
         strncpy(result, (STRPTR)msg->rm_Result2, resultSize - 1);
         result[resultSize - 1] = '\0';
     }
 
     gIRexx->DeleteArgstring(msg->rm_Args[0]);
-    if (msg->rm_Result2)
+    if (msg->rm_Result1 == 0 && msg->rm_Result2)
         gIRexx->DeleteArgstring((STRPTR)msg->rm_Result2);
     gIRexx->DeleteRexxMsg(msg);
     IExec->FreeSysObject(ASOT_PORT, reply);
@@ -1793,10 +2065,6 @@ BOOL PostARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command)
     if (!gIRexx || !EnsureARexxReplyPort())
         return FALSE;
 
-    port = IExec->FindPort(portName);
-    if (!port)
-        return FALSE;
-
     msg = gIRexx->CreateRexxMsg(gARexxReplyPort, NULL, NULL);
     if (!msg)
         return FALSE;
@@ -1809,8 +2077,21 @@ BOOL PostARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command)
         return FALSE;
     }
 
+    /* FindPort() e PutMsg() sotto Forbid: la porta non puo' sparire
+       tra la ricerca e l'invio. */
+    IExec->Forbid();
+    port = IExec->FindPort(portName);
+    if (port)
+        IExec->PutMsg(port, (struct Message *)msg);
+    IExec->Permit();
+
+    if (!port)
+    {
+        gIRexx->DeleteArgstring((STRPTR)msg->rm_Args[0]);
+        gIRexx->DeleteRexxMsg(msg);
+        return FALSE;
+    }
     gARexxPending++;
-    IExec->PutMsg(port, (struct Message *)msg);
     return TRUE;
 }
 
@@ -1837,8 +2118,15 @@ void ProcessARexxReplies(void)
         if (gIRexx->IsRexxMsg(rx))
         {
             char result[256];
+            /* rm_Result2 e' un argstring SOLO se rm_Result1 == 0.  In caso
+               di errore (rm_Result1 != 0) contiene un codice numerico
+               (es. 10, 20): trattarlo come puntatore e passarlo a
+               DeleteArgstring() corrompe la memoria e blocca il sistema
+               (succedeva con MultiEdit, che risponde con errore ad alcuni
+               comandi). */
+            BOOL hasString = (rx->rm_Result1 == 0 && rx->rm_Result2 != 0);
             result[0] = '\0';
-            if (rx->rm_Result2)
+            if (hasString)
             {
                 strncpy(result, (STRPTR)rx->rm_Result2, sizeof(result) - 1);
                 result[sizeof(result) - 1] = '\0';
@@ -1851,11 +2139,9 @@ void ProcessARexxReplies(void)
                 gIRexx->DeleteArgstring((STRPTR)rx->rm_Args[0]);
                 rx->rm_Args[0] = NULL;
             }
-            if (rx->rm_Result2)
-            {
+            if (hasString)
                 gIRexx->DeleteArgstring((STRPTR)rx->rm_Result2);
-                rx->rm_Result2 = 0;
-            }
+            rx->rm_Result2 = 0;
             gIRexx->DeleteRexxMsg(rx);
         }
         else
@@ -2002,6 +2288,42 @@ static void RefreshAfterSelection(Object *listGad, struct Window *win)
         IIntuition->IDoMethod(gMainWinObj, WM_RETHINK);
 }
 
+/* Aggiorna il marcatore "*" del pannello attivo. */
+static void UpdatePaneMarkers(struct Window *win)
+{
+    int p;
+    BOOL split = (gPanes[1].listGad != NULL);
+
+    /* vista doppia: cornice blu attorno alla lista attiva (vista lista) */
+    for (p = 0; p < 2; p++)
+    {
+        Object *lg = gPanes[p].listGad;
+        ULONG on = (split && p == gActivePane) ? TRUE : FALSE;
+
+        if (!lg) continue;
+        if (win)
+            IIntuition->SetGadgetAttrs((struct Gadget *)lg, win, NULL,
+                FILEBROWSER_Highlight, on, TAG_DONE);
+        else
+            IIntuition->SetAttrs(lg, FILEBROWSER_Highlight, on, TAG_DONE);
+    }
+
+    for (p = 0; p < 2; p++)
+    {
+        Object *g = gPanes[p].activeGad;
+        ULONG img;
+
+        if (!g) continue;
+        img = (ULONG)((p == gActivePane) ? gPaneActiveImg : gPaneInactiveImg);
+        if (win)
+            IIntuition->RefreshSetGadgetAttrs((struct Gadget *)g, win, NULL,
+                BUTTON_RenderImage, img, BUTTON_SelectImage, img, TAG_DONE);
+        else
+            IIntuition->SetAttrs(g,
+                BUTTON_RenderImage, img, BUTTON_SelectImage, img, TAG_DONE);
+    }
+}
+
 /* Aggiorna le barre di stato (e lo stato "ghost" dei pulsanti) di ENTRAMBI i
    pannelli. Serve per esempio dopo Copia/Taglia, cosi' il pulsante Incolla
    si abilita subito anche nell'altro pannello. */
@@ -2015,11 +2337,13 @@ static void UpdateAllStatuses(struct Window *win)
         UpdateStatus(gPanes[q].listGad, gPanes[q].statusGad, win);
     }
     gActivePane = save;
+    UpdatePaneMarkers(win);
 }
 
-/* Cambia il pannello attivo e riallinea gli indicatori: "* " nella barra di
-   stato segna il pannello su cui agiscono menu e pulsanti, e il titolo della
-   finestra segue il percorso del pannello attivo. */
+/* Cambia il pannello attivo e riallinea gli indicatori: il marcatore "*"
+   nella riga del percorso segna il pannello su cui agiscono menu, pulsanti
+   e comandi dei plugin; il titolo della finestra segue il percorso del
+   pannello attivo. */
 static void SetActivePane(int p, struct Window *win)
 {
     if (p < 0 || p > 1) p = 0;
@@ -2054,6 +2378,190 @@ static void ClearOtherPaneSelection(int gp, struct Window *win)
     DeselectAllEntries(&gPanes[other].fileList);
     RefreshAfterSelection(gPanes[other].listGad, win);
     UpdateStatus(gPanes[other].listGad, gPanes[other].statusGad, win);
+}
+
+/* ===== Navigazione da tastiera ===== */
+
+static ULONG KeyQualifiers(void)
+{
+    ULONG qual = 0;
+
+    if (gMainWinObj)
+        IIntuition->GetAttr(WINDOW_Qualifier, gMainWinObj, &qual);
+    return qual;
+}
+
+static LONG PaneSelectedIndex(struct List *list)
+{
+    struct Node *n;
+
+    if (!list) return -1;
+    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE;
+        ULONG index = MAX_ENTRIES;
+
+        IListBrowser->GetListBrowserNodeAttrs(n,
+            LBNA_Selected, &sel,
+            LBNA_UserData, &index,
+            TAG_DONE);
+        if (sel && index < (ULONG)gEntryCount)
+            return (LONG)index;
+    }
+    return -1;
+}
+
+static void SelectPaneIndex(int gp, LONG index, struct Window *win)
+{
+    struct Pane *pn = &gPanes[gp];
+    struct Node *n;
+
+    if (!pn->listGad || !win || pn->entryCount <= 0) return;
+
+    if (index < 0) index = 0;
+    if (index >= pn->entryCount) index = pn->entryCount - 1;
+
+    for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+        IListBrowser->SetListBrowserNodeAttrs(n, LBNA_Selected, FALSE, TAG_DONE);
+
+    for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG idx = MAX_ENTRIES;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &idx, TAG_DONE);
+        if ((LONG)idx == index)
+        {
+            IListBrowser->SetListBrowserNodeAttrs(n, LBNA_Selected, TRUE, TAG_DONE);
+            break;
+        }
+    }
+
+    IIntuition->SetGadgetAttrs((struct Gadget *)pn->listGad, win, NULL,
+        LISTBROWSER_MakeVisible, index, TAG_DONE);
+    IIntuition->RefreshGList((struct Gadget *)pn->listGad, win, NULL, 1);
+    UpdateStatus(pn->listGad, pn->statusGad, win);
+    ClearOtherPaneSelection(gp, win);
+}
+
+static void MovePaneSelection(LONG delta, BOOL vertical, struct Window *win)
+{
+    struct Pane *pn = &gPanes[gActivePane];
+    LONG index;
+    LONG step = 1;
+
+    if (!pn->listGad || pn->entryCount <= 0) return;
+
+    if (vertical && pn->viewMode == FBVM_ICONS)
+    {
+        ULONG cols = 0;
+        IIntuition->GetAttr(FILEBROWSER_Columns, pn->listGad, &cols);
+        if (cols > 0) step = (LONG)cols;
+    }
+
+    index = PaneSelectedIndex(&pn->fileList);
+    if (index < 0)
+        index = 0;                       /* nessuna selezione: parti dal primo */
+    else
+        index += delta * step;
+
+    SelectPaneIndex(gActivePane, index, win);
+}
+
+static void SelectByLetter(unsigned char ch, struct Window *win)
+{
+    struct Pane *pn = &gPanes[gActivePane];
+    LONG i;
+    int upper = toupper((int)ch);
+
+    if (!pn->listGad || pn->entryCount <= 0) return;
+
+    for (i = 0; i < pn->entryCount; i++)
+    {
+        if (pn->names[i][0] &&
+            toupper((int)(unsigned char)pn->names[i][0]) == upper)
+        {
+            SelectPaneIndex(gActivePane, i, win);
+            return;
+        }
+    }
+}
+
+static void ClearPaneSelection(struct Window *win)
+{
+    struct Pane *pn = &gPanes[gActivePane];
+
+    if (!pn->listGad) return;
+    DeselectAllEntries(&pn->fileList);
+    RefreshAfterSelection(pn->listGad, win);
+    UpdateStatus(pn->listGad, pn->statusGad, win);
+}
+
+static void HandleVanillaKey(ULONG key, struct Window *win)
+{
+    ULONG qual = KeyQualifiers();
+
+    if (qual & (IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND |
+                IEQUALIFIER_LALT | IEQUALIFIER_RALT))
+        return;
+
+    /* con IDCMP_VANILLAKEY, TAB ed ESC arrivano qui come caratteri */
+    if (key == 9)
+    {
+        /* vista doppia: passa all'altra lista */
+        if (!(qual & IEQUALIFIER_REPEAT)) gTabSwitchRequest = TRUE;
+        return;
+    }
+    if (key == 27)
+    {
+        /* annulla la selezione corrente */
+        ClearPaneSelection(win);
+        return;
+    }
+
+    if (key >= 32 && key < 127 && isalpha((int)key))
+        SelectByLetter((unsigned char)key, win);
+}
+
+static void HandleRawKey(ULONG key, struct Window *win)
+{
+    ULONG qual = KeyQualifiers();
+
+    if (qual & (IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND |
+                IEQUALIFIER_LALT | IEQUALIFIER_RALT))
+        return;
+
+    if (key & IECODE_UP_PREFIX) return;   /* solo pressione, non rilascio */
+    key &= ~IECODE_UP_PREFIX;
+
+    switch (key)
+    {
+        case RAWKEY_CRSRUP:
+            MovePaneSelection(-1, TRUE, win);
+            break;
+
+        case RAWKEY_CRSRDOWN:
+            MovePaneSelection(1, TRUE, win);
+            break;
+
+        case RAWKEY_CRSRLEFT:
+            MovePaneSelection(-1, FALSE, win);
+            break;
+
+        case RAWKEY_CRSRRIGHT:
+            MovePaneSelection(1, FALSE, win);
+            break;
+
+        case RAWKEY_ESC:
+            ClearPaneSelection(win);
+            break;
+
+        case RAWKEY_TAB:
+            if (!(qual & IEQUALIFIER_REPEAT))
+                gTabSwitchRequest = TRUE;
+            break;
+
+        default:
+            break;
+    }
 }
 
 /* Ricarica la vista di un singolo pannello (imposta temporaneamente
@@ -2284,6 +2792,8 @@ int main(int argc, char **argv)
     snprintf(gDropPortName, sizeof(gDropPortName), "VFM_Drop_%08lx", (unsigned long)(ULONG)IExec->FindTask(NULL));
     gWinTag.vft_Magic = VFM_WINDOW_MAGIC;
     snprintf(gWinTag.vft_PortName, sizeof(gWinTag.vft_PortName), "%s", gDropPortName);
+    /* elenco delle AppWindow per il drop verso altri programmi */
+    AppRegistryEnsure();
     appPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT,
         ASOPORT_Name, (ULONG)gDropPortName,
         ASOPORT_Public, TRUE,
@@ -2348,6 +2858,8 @@ int main(int argc, char **argv)
         snprintf(sel, sizeof(sel), "%s_s", gIconNames[ii]);
         gBtnImgSel[ii] = LoadIconImage(gPubScreen, sel);
     }
+    gPaneActiveImg = LoadIconImage(gPubScreen, "lightroom_front");
+    gPaneInactiveImg = LoadIconImage(gPubScreen, "lightroom_front_g");
     LoadMenuImages(gPubScreen);
     ClampWindowGeom();
 
@@ -2367,9 +2879,6 @@ int main(int argc, char **argv)
 
     if (appPort)
     {
-        memset(&gFilterIdcmpHook, 0, sizeof(gFilterIdcmpHook));
-        gFilterIdcmpHook.h_Entry = (HOOKFUNC)FilterIDCMPHook;
-
         CreatePaneUI(0);
         LoadBookmarks();
         BuildMenu();
@@ -2387,6 +2896,9 @@ int main(int argc, char **argv)
             LAYOUT_AddChild, (ULONG)gPanesRow, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 100,
             TAG_DONE);
 
+        memset(&gKeyIDCMPHook, 0, sizeof(gKeyIDCMPHook));
+        gKeyIDCMPHook.h_Entry = (HOOKFUNC)KeyIDCMPHook;
+
         objects[OID_MAIN] = IIntuition->NewObject(NULL, "window.class",
             WA_Title, (ULONG)LS(MSG_APP_TITLE),
             WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE, WA_SizeGadget, TRUE,
@@ -2395,10 +2907,11 @@ int main(int argc, char **argv)
             gWinPosValid ? WA_Top  : TAG_IGNORE, gWinPosValid ? (ULONG)gWinTop  : 0,
             WINDOW_IconifyGadget, TRUE, WINDOW_AppPort, (ULONG)appPort, WINDOW_AppWindow, TRUE,
             WINDOW_MenuStrip, (ULONG)gMenuRoot,
-            WA_IDCMP, IDCMP_INTUITICKS | IDCMP_MOUSEBUTTONS | IDCMP_NEWSIZE | IDCMP_IDCMPUPDATE,
-            WINDOW_IDCMPHook, (ULONG)&gFilterIdcmpHook,
-            WINDOW_IDCMPHookBits, IDCMP_IDCMPUPDATE,
+            WA_IDCMP, IDCMP_INTUITICKS | IDCMP_MOUSEBUTTONS | IDCMP_NEWSIZE |
+                     IDCMP_VANILLAKEY | IDCMP_RAWKEY,
             WINDOW_GadgetHelp, TRUE,
+            WINDOW_IDCMPHook, (ULONG)&gKeyIDCMPHook,
+            WINDOW_IDCMPHookBits, IDCMP_RAWKEY | IDCMP_VANILLAKEY,
             gWinPosValid ? TAG_IGNORE : WINDOW_Position,
             gWinPosValid ? (ULONG)0 : (ULONG)WPOS_CENTERMOUSE,
             WINDOW_Layout, (ULONG)gRootLayout,
@@ -2425,12 +2938,14 @@ int main(int argc, char **argv)
                    (pulsante/voce "Dividi"). */
                 gActivePane = 0;
                 UpdateTopBar(windows[WID_MAIN]);
+                UpdatePaneMarkers(windows[WID_MAIN]);
 
                 while (!done)
                 {
                     ULONG notifyBits = 0;
                     ULONG rexxSig = gRexxPort ? (1UL << gRexxPort->mp_SigBit) : 0;
                     ULONG arexxSig = ARexxReplySignal();
+                    ULONG dragSig = DragTimerSignal();
                     ULONG appDropSig = AppDropReplySignal();
                     ULONG wait;
 
@@ -2439,14 +2954,19 @@ int main(int argc, char **argv)
                             notifyBits |= 1UL << gPanes[p].notifyPort->mp_SigBit;
 
                     wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig |
-                                       arexxSig | appDropSig | SIGBREAKF_CTRL_C);
+                                       arexxSig | dragSig | appDropSig |
+                                       SIGBREAKF_CTRL_C);
                     if (wait & SIGBREAKF_CTRL_C) done = TRUE;
 
                     /* risposte ai comandi inviati ad altre app (AmiDock) */
                     if (arexxSig && (wait & arexxSig))
                         ProcessARexxReplies();
+                    /* risposte agli AppMessage dei drop verso altre app */
                     if (appDropSig && (wait & appDropSig))
                         ProcessAppDropReplies();
+                    /* drag in corso: muove le icone ed evidenzia la destinazione */
+                    if (dragSig && (wait & dragSig))
+                        DragTick(windows[WID_MAIN]);
 
                     /* ---- comandi ARexx ---- */
                     if (rexxSig && (wait & rexxSig))
@@ -2521,13 +3041,14 @@ int main(int argc, char **argv)
                                 int tp = -1;
                                 if (windows[WID_MAIN] && gPanes[1].listGad)
                                 {
-                                    WORD wx = (WORD)(drop->vfm_MouseX - windows[WID_MAIN]->LeftEdge - windows[WID_MAIN]->BorderLeft);
-                                    WORD wy = (WORD)(drop->vfm_MouseY - windows[WID_MAIN]->TopEdge - windows[WID_MAIN]->BorderTop);
+                                    /* gadget coordinates include the window borders */
+                                    WORD wx = (WORD)(drop->vfm_MouseX - windows[WID_MAIN]->LeftEdge);
+                                    WORD wy = (WORD)(drop->vfm_MouseY - windows[WID_MAIN]->TopEdge);
                                     if (PointInPane(1, wx, wy)) tp = 1;
                                     else if (PointInPane(0, wx, wy)) tp = 0;
                                 }
                                 if (tp < 0) tp = 0;
-                                gActivePane = tp;
+                                SetActivePane(tp, windows[WID_MAIN]);
                                 if (gPanes[tp].listGad)
                                     HandleVFMDrop(drop, gPanes[tp].listGad, gPanes[tp].pathGad,
                                                   gPanes[tp].statusGad, windows[WID_MAIN], &gPanes[tp].fileList);
@@ -2539,11 +3060,14 @@ int main(int argc, char **argv)
                                     (long)appmsg->am_NumArgs,
                                     (int)appmsg->am_MouseX, (int)appmsg->am_MouseY);
                                 if (gPanes[1].listGad && PointInPane(1, appmsg->am_MouseX, appmsg->am_MouseY)) tp = 1;
-                                gActivePane = tp;
+                                SetActivePane(tp, windows[WID_MAIN]);
+                                /* HandleAppDrop replies the message itself, before
+                                   the Copy/Move requester */
                                 if (gPanes[tp].listGad)
                                     HandleAppDrop(appmsg, gPanes[tp].listGad, gPanes[tp].pathGad,
                                                   gPanes[tp].statusGad, windows[WID_MAIN], &gPanes[tp].fileList);
-                                IExec->ReplyMsg((struct Message *)appmsg);
+                                else
+                                    IExec->ReplyMsg((struct Message *)appmsg);
                             }
                             else if (appmsg->am_Type == AMTYPE_APPICON && appmsg->am_NumArgs == 0)
                             {
@@ -2717,7 +3241,8 @@ int main(int argc, char **argv)
                                     Object *toggleGad = gPanes[gp].toggleGad;
                                     struct List *fl   = &gPanes[gp].fileList;
 
-                                    gActivePane = gp;
+                                    SetActivePane(gp, windows[WID_MAIN]);
+
                                     /* menuclass: raccoglie tutti gli ID selezionati
                                        prima di eseguire i comandi (UpdateMenu puo'
                                        ricostruire l'albero) */
@@ -2785,6 +3310,11 @@ int main(int argc, char **argv)
                                                 case MENU_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
                                                 case MENU_REFRESH: LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_TOGGLE_VIEW: DoToggleView(listGad, toggleGad, windows[WID_MAIN]); LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
+                                                case MENU_ICON_SIZE_AUTO: ApplyPaneIconSize(0, listGad, windows[WID_MAIN]); UpdateMenu(); break;
+                                                case MENU_ICON_SIZE_32: ApplyPaneIconSize(32, listGad, windows[WID_MAIN]); UpdateMenu(); break;
+                                                case MENU_ICON_SIZE_48: ApplyPaneIconSize(48, listGad, windows[WID_MAIN]); UpdateMenu(); break;
+                                                case MENU_ICON_SIZE_64: ApplyPaneIconSize(64, listGad, windows[WID_MAIN]); UpdateMenu(); break;
+                                                case MENU_ICON_SIZE_96: ApplyPaneIconSize(96, listGad, windows[WID_MAIN]); UpdateMenu(); break;
                                                 case MENU_VIEW_ICONS: gViewFilter = VIEW_FILTER_ICONS_ONLY; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_VIEW_ALLFILES: gViewFilter = VIEW_FILTER_ALL_FILES; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_VIEW_SHOWINFO: gShowInfoFiles = !gShowInfoFiles; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
@@ -2808,7 +3338,7 @@ int main(int argc, char **argv)
                                         if (gDragButtonDown)
                                         {
                                             int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
-                                            gActivePane = gp;
+                                            SetActivePane(gp, windows[WID_MAIN]);
                                             PerformDragDrop(&gPanes[gp].fileList, windows[WID_MAIN]);
                                         }
                                         else
@@ -2882,11 +3412,7 @@ int main(int argc, char **argv)
                                         }
                                         if (gp >= 0)
                                         {
-                                            gActivePane = gp;
-                                            /* memorizza l'ultima posizione del puntatore durante il drag,
-                                               così il menu di drop usa la posizione di rilascio */
-                                            gLastDragX = windows[WID_MAIN]->MouseX;
-                                            gLastDragY = windows[WID_MAIN]->MouseY;
+                                            SetActivePane(gp, windows[WID_MAIN]);
                                             if (!gDragButtonDown)
                                             {
                                                 /* press started on the list/icon gadget */
@@ -2936,11 +3462,29 @@ int main(int argc, char **argv)
                                     }
                                     break;
                                 }
+                                case WMHI_VANILLAKEY:
+                                {
+                                    if (windows[WID_MAIN] && gPanes[gActivePane].listGad)
+                                        HandleVanillaKey((ULONG)(result & WMHI_KEYMASK),
+                                                         windows[WID_MAIN]);
+                                    break;
+                                }
+                                case WMHI_RAWKEY:
+                                {
+                                    if (windows[WID_MAIN] && gPanes[gActivePane].listGad)
+                                        HandleRawKey((ULONG)(result & WMHI_KEYMASK),
+                                                     windows[WID_MAIN]);
+                                    break;
+                                }
                                 default: break;
                             }
                         }
-                        if (gFilterPendingPane >= 0)
-                            gFilterPendingPane = -1;   /* il debounce e' nel tick */
+                        if (gTabSwitchRequest)
+                        {
+                            gTabSwitchRequest = FALSE;
+                            if (windows[WID_MAIN] && gPanes[1].listGad)
+                                SetActivePane(gActivePane ? 0 : 1, windows[WID_MAIN]);
+                        }
                         if (needStatus && windows[WID_MAIN])
                         {
                             int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
@@ -3024,8 +3568,13 @@ int main(int argc, char **argv)
         if (gBtnImg[ii])    IIntuition->DisposeObject(gBtnImg[ii]);
         if (gBtnImgSel[ii]) IIntuition->DisposeObject(gBtnImgSel[ii]);
     }
+    if (gPaneActiveImg) IIntuition->DisposeObject(gPaneActiveImg);
+    if (gPaneInactiveImg) IIntuition->DisposeObject(gPaneInactiveImg);
     if (gPubScreen) IIntuition->UnlockPubScreen(NULL, gPubScreen);
     ShutdownDragDropInput();
+    AppRegistryRemove();
     FreeProgressBarClass();
+    FreeDirectoryScratch();
+    FreeCopyBuffer();
     return RETURN_OK;
 }

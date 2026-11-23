@@ -26,6 +26,9 @@
 
 #include "VagaFileManager.h"
 
+static BOOL IconFileExists(CONST_STRPTR path);
+static BOOL TbimagesAvailable(void);
+
 /* ===== Gadget progress bar personalizzato ===== */
 
 #define PB_Dummy        (TAG_USER + 0x50420000)
@@ -180,6 +183,21 @@ void FreeProgressBarClass(void)
 
 /* ===== Dialoghi semplici ===== */
 
+/* Tutti i requester si aprono centrati sotto il puntatore del mouse. */
+static struct TagItem gReqAtMouse[] =
+{
+    { ESA_Position, REQPOS_CENTERMOUSE },
+    { TAG_DONE, 0 }
+};
+
+static void InitEasyAtMouse(struct EasyStruct *es)
+{
+    memset(es, 0, sizeof(*es));
+    es->es_StructSize = sizeof(*es);
+    es->es_Flags = ESF_TAGGED;
+    es->es_TagList = gReqAtMouse;
+}
+
 void ShowMessage(CONST_STRPTR title, CONST_STRPTR body)
 {
     struct EasyStruct es;
@@ -187,8 +205,7 @@ void ShowMessage(CONST_STRPTR title, CONST_STRPTR body)
 
     if (!body) body = "";
     if (!title) title = LS(MSG_APP_TITLE);
-    memset(&es, 0, sizeof(es));
-    es.es_StructSize = sizeof(es);
+    InitEasyAtMouse(&es);
     es.es_Title = (STRPTR)title;
     es.es_TextFormat = (STRPTR)"%s";
     es.es_GadgetFormat = (STRPTR)LS(MSG_BTN_OK);
@@ -203,8 +220,7 @@ BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body)
 
     if (!body) body = "";
     if (!title) title = LS(MSG_APP_TITLE);
-    memset(&es, 0, sizeof(es));
-    es.es_StructSize = sizeof(es);
+    InitEasyAtMouse(&es);
     es.es_Title = (STRPTR)title;
     es.es_TextFormat = (STRPTR)"%s";
     es.es_GadgetFormat = (STRPTR)LS(MSG_BTN_OK_CANCEL);
@@ -227,11 +243,32 @@ LONG AskConflict(CONST_STRPTR name)
         LS(MSG_CONFLICT_OVERWRITE), LS(MSG_CONFLICT_OVERWRITE_ALL),
         LS(MSG_CONFLICT_UPDATE), LS(MSG_CONFLICT_UPDATE_ALL),
         LS(MSG_CONFLICT_RENAME), LS(MSG_CONFLICT_SKIP));
-    memset(&es, 0, sizeof(es));
-    es.es_StructSize = sizeof(es);
+    InitEasyAtMouse(&es);
     es.es_Title = (STRPTR)LS(MSG_CONFLICT_TITLE);
     es.es_TextFormat = (STRPTR)"%s";
     es.es_GadgetFormat = buttons;
+    args[0] = (APTR)body;
+    return IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
+}
+
+/* Errore durante una copia, come il Workbench: nome dell'oggetto e testo
+   dell'errore DOS (Fault(), nella lingua del sistema, per esempio
+   "oggetto in uso").  Ritorna 1=Riprova, 2=Salta, 0=Annulla. */
+LONG AskCopyError(CONST_STRPTR name, LONG err)
+{
+    struct EasyStruct es;
+    APTR args[1];
+    char fault[160];
+    char body[PATH_MAX_LEN + 200];
+
+    fault[0] = '\0';
+    IDOS->Fault(err, NULL, fault, sizeof(fault));
+    snprintf(body, sizeof(body), LS(MSG_COPY_ERROR_BODY),
+             (name && name[0]) ? name : "", fault);
+    InitEasyAtMouse(&es);
+    es.es_Title = (STRPTR)LS(MSG_ERROR_TITLE);
+    es.es_TextFormat = (STRPTR)"%s";
+    es.es_GadgetFormat = (STRPTR)LS(MSG_COPY_ERROR_BUTTONS);
     args[0] = (APTR)body;
     return IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
 }
@@ -252,7 +289,7 @@ BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize)
 
     renWinObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)title, WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 360, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 360, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
@@ -319,7 +356,7 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)title, WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 420, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 420, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
@@ -453,7 +490,7 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
         WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
         WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
         WA_InnerWidth, 560, WA_InnerHeight, 140,
-        WINDOW_Position, WPOS_CENTERSCREEN,
+        WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)labelGad, CHILD_WeightedHeight, 0,
@@ -540,7 +577,7 @@ BOOL ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count,
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)title, WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, TRUE, WA_InnerWidth, 700, WA_InnerHeight, 380, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, TRUE, WA_InnerWidth, 700, WA_InnerHeight, 380, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)listGad, CHILD_WeightedHeight, 100,
@@ -575,27 +612,52 @@ BOOL ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count,
                             case WMHI_GADGETUP:
                             {
                                 ULONG id = res & WMHI_GADGETMASK;
-                                if (id == GID_LIST || id == GID_RENAME_OK)
+                                BOOL accept = TRUE;
+
+                                /* Un solo click seleziona la riga ma NON
+                                   chiude la finestra: prima la finestra si
+                                   chiudeva subito e, se la selezione non era
+                                   ancora applicata, non rivelava nulla.
+                                   Il doppio click (o OK) conferma. */
+                                if (id == GID_LIST)
                                 {
-                                    struct Node *n;
-                                    for (n = resultList->lh_Head; n->ln_Succ; n = n->ln_Succ)
+                                    uint32 rel = 0;
+                                    IIntuition->GetAttrs(listGad,
+                                        LISTBROWSER_RelEvent, &rel, TAG_DONE);
+                                    accept = (rel == LBRE_DOUBLECLICK);
+                                }
+
+                                if (accept && (id == GID_LIST || id == GID_RENAME_OK))
+                                {
+                                    struct Node *n = NULL;
+
+                                    /* Prima la selezione "ufficiale" del
+                                       listbrowser, poi (fallback) la scansione
+                                       dei nodi. */
+                                    IIntuition->GetAttr(LISTBROWSER_SelectedNode,
+                                        listGad, (ULONG *)&n);
+                                    if (!n)
                                     {
-                                        ULONG sel = FALSE;
-                                        IListBrowser->GetListBrowserNodeAttrs(n,
-                                            LBNA_Selected, &sel, TAG_DONE);
-                                        if (sel)
+                                        struct Node *scan;
+                                        for (scan = resultList->lh_Head; scan->ln_Succ; scan = scan->ln_Succ)
                                         {
-                                            STRPTR text = NULL;
-                                            IListBrowser->GetListBrowserNodeAttrs(n,
-                                                LBNA_Column, 0, LBNCA_Text, (ULONG *)&text,
-                                                TAG_DONE);
-                                            if (text && selected && selectedSize)
-                                            {
-                                                strncpy(selected, text, selectedSize - 1);
-                                                selected[selectedSize - 1] = '\0';
-                                                picked = TRUE;
-                                            }
-                                            break;
+                                            ULONG sel = FALSE;
+                                            IListBrowser->GetListBrowserNodeAttrs(scan,
+                                                LBNA_Selected, &sel, TAG_DONE);
+                                            if (sel) { n = scan; break; }
+                                        }
+                                    }
+                                    if (n)
+                                    {
+                                        STRPTR text = NULL;
+                                        IListBrowser->GetListBrowserNodeAttrs(n,
+                                            LBNA_Column, 0, LBNCA_Text, (ULONG *)&text,
+                                            TAG_DONE);
+                                        if (text && selected && selectedSize)
+                                        {
+                                            strncpy(selected, text, selectedSize - 1);
+                                            selected[selectedSize - 1] = '\0';
+                                            picked = TRUE;
                                         }
                                     }
                                     done = TRUE;
@@ -624,6 +686,17 @@ static Object *gProgInfoGad = NULL;
 static ULONG gProgTotal = 0;
 static BOOL gProgIndeterminate = FALSE;
 static ULONG gProgPhase = 0;
+static ULONG gProgAdvanceCount = 0;
+static BOOL gProgCancelable = TRUE;
+static ULONG gProgIndetTotal = 0;
+
+/* Abilita/disabilita Cancel e Pause.  Usato dai comandi PROGRESS degli
+   addon: per operazioni esterne (LHA) i pulsanti non devono fermare il
+   processo figlio. */
+void ProgressSetCancelable(BOOL on)
+{
+    gProgCancelable = on;
+}
 
 /* ===== Finestra di avanzamento ===== */
 
@@ -649,8 +722,13 @@ static void BuildProgInfo(STRPTR buf, ULONG size)
         static const char *dots[4] = { "", ".", "..", "..." };
         char a[32];
         FormatBytes(gProgBytesDone, a, sizeof(a));
-        snprintf(buf, size, "%lu file   %s %s",
-                 (unsigned long)gProgDone, a, dots[gProgPhase & 3]);
+        if (gProgIndetTotal > 0)
+            snprintf(buf, size, "%lu file   %s %s",
+                     (unsigned long)gProgIndetTotal,
+                     a, dots[gProgPhase & 3]);
+        else
+            snprintf(buf, size, "%lu file   %s %s",
+                     (unsigned long)gProgDone, a, dots[gProgPhase & 3]);
         return;
     }
 
@@ -678,6 +756,13 @@ void ProgressSetBytes(uint64 total)
     gProgBytesTotal = total;
     gProgBytesDone = 0;
     ProgressUpdate();
+}
+
+/* Imposta il conteggio mostrato dalla progress bar. */
+void ProgressSetCounts(ULONG done, ULONG total)
+{
+    gProgDone  = done;
+    gProgTotal = (total > 0) ? total : 1;
 }
 
 /* Ridisegna la progress bar e la riga informativa (percentuale, byte,
@@ -779,7 +864,13 @@ void ProgressAdvance(void)
 {
     if (!gProgActive) return;
     if (gProgDone < gProgTotal) gProgDone++;
-    ProgressUpdate();
+    gProgAdvanceCount++;
+
+    /* Ridisegna ogni 8 elementi (e sempre sull'ultimo): copiando migliaia
+       di file piccoli un refresh completo per file dominava il tempo.
+       ProgressPoll resta a ogni chiamata, per Cancel/Pausa reattivi. */
+    if ((gProgAdvanceCount & 7) == 0 || gProgDone >= gProgTotal)
+        ProgressUpdate();
     ProgressPoll();
 }
 
@@ -790,10 +881,17 @@ void ProgressSetIndeterminate(BOOL on)
 {
     gProgIndeterminate = on;
     gProgPhase = 0;
+    gProgIndetTotal = 0;
     if (gProgBar)
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
             PB_Indeterminate, on, PB_Max, on ? 1 : gProgTotal, PB_Level, 0, TAG_DONE);
     ProgressUpdate();
+}
+
+/* Totale mostrato nella riga informativa della barra indeterminata. */
+void ProgressSetIndeterminateTotal(ULONG total)
+{
+    gProgIndetTotal = total;
 }
 
 /* Apre la finestra di avanzamento con il numero totale di elementi. */
@@ -812,6 +910,7 @@ void ProgressOpen(struct Window *win, ULONG total)
     gProgBytesTotal = 0;
     gProgIndeterminate = FALSE;
     gProgPhase = 0;
+    gProgAdvanceCount = 0;
 
     /* Barra di progresso vera (gadget custom); fallback di solo testo. */
     gProgBar = IIntuition->NewObject(MakeProgressBarClass(), NULL,
@@ -834,10 +933,11 @@ void ProgressOpen(struct Window *win, ULONG total)
         (unsigned long)gProgTotal, (void *)gProgBar, (void *)gProgTextGad);
 
     gProgWinObj = IIntuition->NewObject(NULL, "window.class",
-        WA_Title, (ULONG)LS(MSG_PROG_TITLE), WA_DragBar, TRUE, WA_DepthGadget, TRUE, WA_CloseGadget, TRUE,
+        WA_Title, (ULONG)LS(MSG_PROG_TITLE), WA_DragBar, TRUE, WA_DepthGadget, TRUE,
+        WA_CloseGadget, gProgCancelable ? TRUE : FALSE,
         WA_SizeGadget, FALSE, WA_Activate, TRUE,
         WA_InnerWidth, 460, WA_InnerHeight, 112,
-        WINDOW_Position, WPOS_CENTERSCREEN,
+        WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)progGad, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
@@ -846,8 +946,8 @@ void ProgressOpen(struct Window *win, ULONG total)
                 CHILD_MinHeight, 18, CHILD_MaxHeight, 18,
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ, LAYOUT_EvenSize, TRUE,
-                LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_CANCEL, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_BTN_CANCEL), TAG_DONE),
-                LAYOUT_AddChild, (ULONG)(gProgPauseBtn = IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_PAUSE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_PROG_PAUSE), TAG_DONE)),
+                LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_CANCEL, GA_RelVerify, TRUE, GA_Disabled, gProgCancelable ? FALSE : TRUE, GA_Text, (ULONG)LS(MSG_BTN_CANCEL), TAG_DONE),
+                LAYOUT_AddChild, (ULONG)(gProgPauseBtn = IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_PAUSE, GA_RelVerify, TRUE, GA_Disabled, gProgCancelable ? FALSE : TRUE, GA_Text, (ULONG)LS(MSG_PROG_PAUSE), TAG_DONE)),
             TAG_DONE), CHILD_WeightedHeight, 0,
         TAG_DONE), TAG_DONE);
 
@@ -864,6 +964,7 @@ void ProgressOpen(struct Window *win, ULONG total)
     {
         /* niente finestra: evita di restare in stato "progress" */
         gProgActive = FALSE;
+        gProgCancelable = TRUE;
     }
 }
 
@@ -875,6 +976,8 @@ void ProgressClose(void)
     gProgBytesDone = 0; gProgBytesTotal = 0;
     gProgIndeterminate = FALSE; gProgPhase = 0;
     gProgActive = FALSE; gProgCancel = FALSE; gProgPause = FALSE;
+    gProgCancelable = TRUE;
+    gProgIndetTotal = 0;
 }
 
 /* ===== Cambio vista ===== */
@@ -931,15 +1034,26 @@ void ShowAbout(struct Window *win)
     char suffixText[128];
     char verText[128];
     char rexxText[128];
+    char thanksText[256];
+    CONST_STRPTR thanksPtr;
 
     snprintf(byText, sizeof(byText), "%s ", LS(MSG_ABOUT_BY));
     snprintf(suffixText, sizeof(suffixText), " %s", LS(MSG_ABOUT_AUTHOR_SUFFIX));
     snprintf(verText, sizeof(verText), LS(MSG_ABOUT_VERSION), VFM_VERSION_LONG);
     snprintf(rexxText, sizeof(rexxText), "ARexx: %s", gRexxPortName);
 
+    /* I cataloghi .catalog gia' installati possono essere precedenti
+       all'aggiunta di AlfredONE: appendilo alla stringa localizzata. */
+    thanksPtr = LS(MSG_ABOUT_THANKS);
+    if (!strstr(thanksPtr, "AlfredONE"))
+    {
+        snprintf(thanksText, sizeof(thanksText), "%s, AlfredONE", thanksPtr);
+        thanksPtr = thanksText;
+    }
+
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_APP_TITLE), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_InnerHeight, 210, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_InnerHeight, 210, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
 
@@ -965,7 +1079,7 @@ void ShowAbout(struct Window *win)
             LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_ABOUT_MAIL), 0),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
-            LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_ABOUT_THANKS), 0),
+            LAYOUT_AddChild, (ULONG)MakeAboutLabel(thanksPtr, 0),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
@@ -1088,7 +1202,7 @@ BOOL PromptBookmark(STRPTR nameBuf, ULONG nameSize, STRPTR pathBuf, ULONG pathSi
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_MENU_ADDBOOKMARK), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 420, WA_InnerHeight, 120, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 420, WA_InnerHeight, 120, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
@@ -1154,7 +1268,19 @@ static CONST_STRPTR gMenuImgFiles[MIMG_COUNT] =
     "m_new", "m_info", "m_quit", "m_rename", "m_delete", "m_duplicate",
     "m_copy", "m_cut", "m_paste", "m_size", "m_open", "m_refresh",
     "m_icons", "m_showinfo", "m_filter", "m_sort", "m_bookmark",
-    "m_bookmarkadd", "m_settings", "m_script", "m_folder", "m_shell"
+    "m_bookmarkadd", "m_settings", "m_script", "m_folder", "m_shell",
+    "m_selectall", "m_unselectall", "m_invert"
+};
+
+/* Corrispondenti nomi AISS in tbimages: per i menu si usano le icone
+   24x24 installate da AISS; se mancano si torna alle copie locali 20x20. */
+static CONST_STRPTR gMenuImgAiss[MIMG_COUNT] =
+{
+    "new", "info", "quit", "rename", "delete", "duplicate",
+    "copy", "cut", "paste", "filesize", "open", "refresh",
+    "window", "info", "filter", "sortingandgrouping", "bookmark",
+    "bookmarkadd", "settings", "filetext", "folder", "shell",
+    "file_selectall", "file_unselectall", "fx_invert"
 };
 
 /* ===== Menu ===== */
@@ -1166,7 +1292,15 @@ void LoadMenuImages(struct Screen *scr)
     {
         char path[300];
         if (gMenuImg[i]) continue;
-        snprintf(path, sizeof(path), "PROGDIR:icons/%s.png", gMenuImgFiles[i]);
+        path[0] = '\0';
+        if (TbimagesAvailable())
+        {
+            snprintf(path, sizeof(path), "tbimages:%s", gMenuImgAiss[i]);
+            if (!IconFileExists(path))
+                path[0] = '\0';
+        }
+        if (!path[0])
+            snprintf(path, sizeof(path), "PROGDIR:icons/%s.png", gMenuImgFiles[i]);
         gMenuImg[i] = IIntuition->NewObject(NULL, "bitmap.image",
             BITMAP_SourceFile, (ULONG)path,
             BITMAP_Screen, (ULONG)scr,
@@ -1246,15 +1380,16 @@ void BuildMenu(void)
 
     /* Edit */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
+    AddMenuItem(tags, &n, LS(MSG_BTN_OPEN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_TEXTFILE), MENU_NEW_TEXTFILE, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_END);
     AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_MENU_SELECT_ALL), MENU_SELECT_ALL, "A", -1, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_MENU_INVERT_SELECTION), MENU_INVERT_SELECTION, NULL, -1, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_MENU_DESELECT_ALL), MENU_DESELECT_ALL, NULL, -1, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_SELECT_ALL), MENU_SELECT_ALL, "A", MIMG_SELECTALL, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_INVERT_SELECTION), MENU_INVERT_SELECTION, NULL, MIMG_INVERT, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_DESELECT_ALL), MENU_DESELECT_ALL, NULL, MIMG_UNSELECTALL, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
@@ -1268,7 +1403,20 @@ void BuildMenu(void)
 
     /* View */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_VIEW));
-    AddMenuItem(tags, &n, LS(MSG_BTN_OPEN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_COL_SIZE), 0, NULL, MIMG_ICONS, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
+    AddMenuItem(tags, &n, "Auto", MENU_ICON_SIZE_AUTO, NULL, -1,
+                TRUE, (gIconSize == 0), FALSE);
+    AddMenuItem(tags, &n, "32 x 32", MENU_ICON_SIZE_32, NULL, -1,
+                TRUE, (gIconSize == 32), FALSE);
+    AddMenuItem(tags, &n, "48 x 48", MENU_ICON_SIZE_48, NULL, -1,
+                TRUE, (gIconSize == 48), FALSE);
+    AddMenuItem(tags, &n, "64 x 64", MENU_ICON_SIZE_64, NULL, -1,
+                TRUE, (gIconSize == 64), FALSE);
+    AddMenuItem(tags, &n, "96 x 96", MENU_ICON_SIZE_96, NULL, -1,
+                TRUE, (gIconSize == 96), FALSE);
+    AddMenuTag(tags, &n, NM_SubItems, SI_END);
+    AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_BTN_ICONS), MENU_TOGGLE_VIEW, NULL, MIMG_ICONS, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
@@ -1371,7 +1519,7 @@ void ManageBookmarks(Object *mainWinObj)
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_MENU_MANAGE), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, TRUE, WA_InnerWidth, 500, WA_InnerHeight, 300, WINDOW_Position, WPOS_CENTERSCREEN,
+        WA_SizeGadget, TRUE, WA_InnerWidth, 500, WA_InnerHeight, 300, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)bmGad, CHILD_WeightedHeight, 100,
@@ -1479,9 +1627,12 @@ void SetViewMode(ULONG mode, Object *listGad, Object *toggleGad, struct Window *
     {
         if (win)
             IIntuition->SetGadgetAttrs((struct Gadget *)listGad, win, NULL,
-                FILEBROWSER_ViewMode, gViewMode, TAG_DONE);
+                FILEBROWSER_ViewMode, gViewMode,
+                FILEBROWSER_IconSize, gIconSize, TAG_DONE);
         else
-            IIntuition->SetAttrs(listGad, FILEBROWSER_ViewMode, gViewMode, TAG_DONE);
+            IIntuition->SetAttrs(listGad,
+                FILEBROWSER_ViewMode, gViewMode,
+                FILEBROWSER_IconSize, gIconSize, TAG_DONE);
     }
 
     if (toggleGad)
@@ -1546,11 +1697,50 @@ void LaunchNewInstance(void)
 
 /* ===== Immagini e pulsanti ===== */
 
+static BOOL IconFileExists(CONST_STRPTR path)
+{
+    BPTR lock;
+    if (!path || !path[0]) return FALSE;
+    lock = IDOS->Lock((STRPTR)path, SHARED_LOCK);
+    if (!lock) return FALSE;
+    IDOS->UnLock(lock);
+    return TRUE;
+}
+
+/* Controlla il DosList invece di Lock("tbimages:..."): su un sistema senza
+   AISS un Lock su un volume inesistente potrebbe aprire un requester
+   "Please insert volume". */
+static BOOL TbimagesAvailable(void)
+{
+    struct DosList *dl;
+    BOOL found = FALSE;
+
+    dl = IDOS->LockDosList(LDF_ASSIGNS | LDF_READ);
+    if (dl)
+    {
+        if (IDOS->FindDosEntry(dl, "tbimages", LDF_ASSIGNS))
+            found = TRUE;
+        IDOS->UnLockDosList(LDF_ASSIGNS | LDF_READ);
+    }
+    return found;
+}
+
 Object *LoadIconImage(struct Screen *scr, CONST_STRPTR name)
 {
     char path[300];
     if (!name) return NULL;
-    snprintf(path, sizeof(path), "PROGDIR:icons/%s.png", name);
+
+    /* AISS installs its 24x24 toolbar PNGs in tbimages: (no extension). */
+    path[0] = '\0';
+    if (TbimagesAvailable())
+    {
+        snprintf(path, sizeof(path), "tbimages:%s", name);
+        if (!IconFileExists(path))
+            path[0] = '\0';
+    }
+    if (!path[0])
+        snprintf(path, sizeof(path), "PROGDIR:icons/%s.png", name);
+
     return IIntuition->NewObject(NULL, "bitmap.image",
         BITMAP_SourceFile, (ULONG)path,
         BITMAP_Screen, (ULONG)scr,

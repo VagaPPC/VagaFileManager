@@ -48,6 +48,7 @@
 **             like the list view (own bar only if the class can't be
 **             opened); everything icon mode draws is clipped to the gadget
 **             and to the inside of the window's borders
+**  2026-11-23 VFM: FILEBROWSER_GetIndexAt method for drag & drop targets
 */
 
 #include <exec/types.h>
@@ -94,6 +95,7 @@ struct FBData
  uint32 iconSize;                 /* FILEBROWSER_IconSize, 0 = original size */
  BOOL   multiSelect;
  BOOL   persistSelect;
+ BOOL   highlight;                /* FILEBROWSER_Highlight */
 
  /* icon mode layout, recalculated before each render */
  struct IBox box, area, sb;
@@ -1011,6 +1013,10 @@ static BOOL SetAttrs(struct FBData *d, struct TagItem *tags, BOOL *modeChanged)
     d->iconSize = tag->ti_Data;
     redraw = TRUE;
     break;
+   case FILEBROWSER_Highlight:
+    /* only drawn in details mode: no icon view redraw */
+    d->highlight = tag->ti_Data ? TRUE : FALSE;
+    break;
    case LISTBROWSER_Labels:
     d->labels = (tag->ti_Data == (uint32)~0) ? NULL : (struct List *)tag->ti_Data;
     d->selIndex = -1;
@@ -1449,6 +1455,25 @@ static uint32 HandleScroll(Class *cl, Object *o, struct gpInput *gpi)
 ** in icon mode rendering, hit testing, input and the selection related
 ** attributes are handled here.
 */
+/*
+** Details mode: FILLPEN frame (2 pixels) over the listbrowser border,
+** marking the active list (FILEBROWSER_Highlight).
+*/
+static void DrawHighlight(Object *o, struct GadgetInfo *gi, struct RastPort *rp)
+{
+ struct Gadget *g = (struct Gadget *)o;
+ struct DrawInfo *dri = gi ? gi->gi_DrInfo : NULL;
+ int32 x0 = g->LeftEdge, y0 = g->TopEdge;
+ int32 x1 = x0 + g->Width - 1, y1 = y0 + g->Height - 1;
+
+ if(!rp || g->Width < 6 || g->Height < 6) return;
+ IGraphics->SetAPen(rp, dri ? dri->dri_Pens[FILLPEN] : 3);
+ IGraphics->RectFill(rp, x0, y0, x1, y0 + 1);
+ IGraphics->RectFill(rp, x0, y1 - 1, x1, y1);
+ IGraphics->RectFill(rp, x0, y0, x0 + 1, y1);
+ IGraphics->RectFill(rp, x1 - 1, y0, x1, y1);
+}
+
 static uint32 Dispatch(Class *cl, Object *o, Msg msg)
 {
  struct FBData *d;
@@ -1479,8 +1504,13 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
   case OM_UPDATE:
   {
    struct opSet *ops = (struct opSet *)msg;
-   BOOL modeChanged = FALSE, redraw;
+   BOOL modeChanged = FALSE, redraw, hlChanged = FALSE;
    d = INST_DATA(cl, o);
+
+   {
+    struct TagItem *hl = IUtility->FindTagItem(FILEBROWSER_Highlight, ops->ops_AttrList);
+    if(hl && (hl->ti_Data ? TRUE : FALSE) != d->highlight) hlChanged = TRUE;
+   }
 
    if(d->mode == FBVM_ICONS)
    {
@@ -1498,7 +1528,18 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
 
    if(ops->ops_GInfo)
    {
-    if(d->mode == FBVM_DETAILS && !modeChanged && result != 0)
+    if(d->mode == FBVM_DETAILS && !modeChanged && hlChanged)
+    {
+     /* frame on or off: full redraw restores the listbrowser border */
+     struct RastPort *rp;
+     if((rp = IIntuition->ObtainGIRPort(ops->ops_GInfo)))
+     {
+      IIntuition->IDoSuperMethod(cl, o, GM_RENDER, ops->ops_GInfo, rp, GREDRAW_REDRAW);
+      if(d->highlight) DrawHighlight(o, ops->ops_GInfo, rp);
+      IIntuition->ReleaseGIRPort(rp);
+     }
+    }
+    else if(d->mode == FBVM_DETAILS && !modeChanged && result != 0)
     {
      /* BOOPSI rule: a class only renders after OM_SET when it is the
         object's true class (OCLASS(o) == cl), so for a subclass the
@@ -1507,6 +1548,7 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
      if((rp = IIntuition->ObtainGIRPort(ops->ops_GInfo)))
      {
       IIntuition->IDoSuperMethod(cl, o, GM_RENDER, ops->ops_GInfo, rp, GREDRAW_UPDATE);
+      if(d->highlight) DrawHighlight(o, ops->ops_GInfo, rp);
       IIntuition->ReleaseGIRPort(rp);
      }
     }
@@ -1529,11 +1571,83 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
      if((rp = IIntuition->ObtainGIRPort(ops->ops_GInfo)))
      {
       IIntuition->IDoSuperMethod(cl, o, GM_RENDER, ops->ops_GInfo, rp, GREDRAW_REDRAW);
+      if(d->highlight) DrawHighlight(o, ops->ops_GInfo, rp);
       IIntuition->ReleaseGIRPort(rp);
      }
     }
    }
    return result;
+  }
+
+  case FILEBROWSER_GetIndexAt:
+  {
+   struct FBGetIndexAt *hi = (struct FBGetIndexAt *)msg;
+   struct Gadget *g = (struct Gadget *)o;
+   d = INST_DATA(cl, o);
+
+   hi->fbgia_Box.Left = hi->fbgia_Box.Top = 0;
+   hi->fbgia_Box.Width = hi->fbgia_Box.Height = 0;
+   if(d->mode == FBVM_ICONS)
+   {
+    /* Without a render/layout the geometry is not valid yet. */
+    hi->fbgia_Index = (d->cols > 0 && d->slotW > 0 && d->cellH > 0)
+      ? IndexAt(d, hi->fbgia_X, hi->fbgia_Y) : -1;
+    if(hi->fbgia_Index >= 0)
+    {
+     struct IBox b;
+     int32 top, bottom;
+     CellBox(d, hi->fbgia_Index, &b);
+     /* clip to the visible cell area */
+     top = b.Top < d->area.Top ? d->area.Top : b.Top;
+     bottom = b.Top + b.Height;
+     if(bottom > d->area.Top + d->area.Height) bottom = d->area.Top + d->area.Height;
+     if(bottom > top)
+     {
+      hi->fbgia_Box.Left = b.Left;
+      hi->fbgia_Box.Top = top;
+      hi->fbgia_Box.Width = b.Width;
+      hi->fbgia_Box.Height = bottom - top;
+     }
+    }
+   }
+   else
+   {
+    /* details mode: same fixed metrics as the listbrowser: row height is
+       font height + 2, the column-title bar is one row + 2, the vertical
+       prop is 16 pixels wide. */
+    LONG rowH = (hi->fbgia_FontY > 0 ? hi->fbgia_FontY : 12) + 2;
+    LONG titleH = rowH + 2;
+    LONG cLeft = g->LeftEdge + 2;
+    LONG cTop = g->TopEdge + 2 + titleH;
+    LONG cWidth = g->Width - 4;
+    LONG cHeight = g->Height - 4 - titleH;
+    ULONG top = 0;
+    ULONG vprop = TRUE;
+
+    IIntuition->GetAttr(LISTBROWSER_VerticalProp, o, &vprop);
+    if(vprop) cWidth -= 16;
+    IIntuition->GetAttr(LISTBROWSER_Top, o, &top);
+
+    hi->fbgia_Index = -1;
+    if(hi->fbgia_X >= cLeft && hi->fbgia_X < cLeft + cWidth &&
+       hi->fbgia_Y >= cTop && hi->fbgia_Y < cTop + cHeight)
+    {
+     LONG row = (hi->fbgia_Y - cTop) / rowH;
+     LONG index = (LONG)top + row;
+     if(index >= 0 && index < CountNodes(d->labels))
+     {
+      LONG rTop = cTop + row * rowH;
+      LONG rBottom = rTop + rowH;
+      if(rBottom > cTop + cHeight) rBottom = cTop + cHeight;
+      hi->fbgia_Index = index;
+      hi->fbgia_Box.Left = cLeft;
+      hi->fbgia_Box.Top = rTop;
+      hi->fbgia_Box.Width = cWidth;
+      hi->fbgia_Box.Height = rBottom - rTop;
+     }
+    }
+   }
+   return 0;
   }
 
   case OM_GET:
@@ -1548,6 +1662,8 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
     case FILEBROWSER_BackgroundPen: *opg->opg_Storage = (uint32)d->bgPen; return TRUE;
     case FILEBROWSER_IconHook:      *opg->opg_Storage = (uint32)d->iconHook; return TRUE;
     case FILEBROWSER_IconSize:      *opg->opg_Storage = d->iconSize; return TRUE;
+    case FILEBROWSER_Highlight:     *opg->opg_Storage = d->highlight; return TRUE;
+    case FILEBROWSER_Columns:       *opg->opg_Storage = (uint32)d->cols; return TRUE;
    }
    if(d->mode == FBVM_ICONS)
    {
@@ -1588,7 +1704,13 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
     RenderIcons(d, o, gpr->gpr_GInfo, gpr->gpr_RPort);
     return TRUE;
    }
-   break;
+   else
+   {
+    struct gpRender *gpr = (struct gpRender *)msg;
+    uint32 r = IIntuition->IDoSuperMethodA(cl, o, msg);
+    if(d->highlight) DrawHighlight(o, gpr->gpr_GInfo, gpr->gpr_RPort);
+    return r;
+   }
 
   case GM_HITTEST:
    d = INST_DATA(cl, o);

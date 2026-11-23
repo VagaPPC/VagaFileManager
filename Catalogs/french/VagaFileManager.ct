@@ -6,7 +6,7 @@ MSG_APP_TITLE
 VagaFileManager
 ;
 MSG_VIEW_ICONS_ONLY
-par icônes
+par icï¿½nes
 ;
 MSG_VIEW_ALL_FILES
 tous les fichiers
@@ -15,7 +15,7 @@ MSG_SORT_BY_TYPE
 type
 ;
 MSG_SORT_ALPHABETICAL
-Alphabétique
+Alphabï¿½tique
 ;
 MSG_SORT_BY_NAME
 nom
@@ -27,7 +27,7 @@ MSG_SORT_BY_SIZE
 taille
 ;
 MSG_TYPE_DIR_LINK
-Rép. (lien)
+Rï¿½p. (lien)
 ;
 MSG_TYPE_LINK
 Lien
@@ -45,7 +45,7 @@ MSG_TYPE_OTHER
 Autre
 ;
 MSG_TYPE_DEVICE
-Périphérique
+Pï¿½riphï¿½rique
 ;
 MSG_TYPE_VOLUME
 Volume
@@ -57,13 +57,13 @@ MSG_TYPE_LATE_ASSIGN
 Assignation tardive
 ;
 MSG_TYPE_NONBINDING
-Non liée
+Non liï¿½e
 ;
 MSG_ROOT_ASSIGNS
-(Périphériques et assignations)
+(Pï¿½riphï¿½riques et assignations)
 ;
 MSG_STATUS_FORMAT
-Éléments : %ld  |  Sélectionnés : %lu
+ï¿½lï¿½ments : %ld  |  Sï¿½lectionnï¿½s : %lu
 ;
 MSG_BTN_OK
 OK
@@ -81,7 +81,7 @@ MSG_RENAME
 Renommer
 ;
 MSG_RENAME_SELECT_ONE
-Sélectionnez un seul élément à renommer.
+Sï¿½lectionnez un seul ï¿½lï¿½ment ï¿½ renommer.
 ;
 MSG_RENAME_FAILED
 Impossible de renommer :\n%s
@@ -93,31 +93,31 @@ MSG_DELETE
 Supprimer
 ;
 MSG_DELETE_NONE
-Aucun élément sélectionné.
+Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
 ;
 MSG_DELETE_CONFIRM_ONE
-Supprimer l'élément sélectionné ?
+Supprimer l'ï¿½lï¿½ment sï¿½lectionnï¿½ ?
 ;
 MSG_DELETE_CONFIRM_MANY
-Supprimer %ld éléments sélectionnés ?
+Supprimer %ld ï¿½lï¿½ments sï¿½lectionnï¿½s ?
 ;
 MSG_DELETE_CONFIRM_TITLE
 Confirmer la suppression
 ;
 MSG_DELETE_FAILED
-Impossible de supprimer :\n%s\n(Le dossier n'est peut-être pas vide)
+Impossible de supprimer :\n%s\n(Le dossier n'est peut-ï¿½tre pas vide)
 ;
 MSG_DUPLICATE
 Dupliquer
 ;
 MSG_DUPLICATE_ROOT
-Opération non disponible dans cette vue.
+Opï¿½ration non disponible dans cette vue.
 ;
 MSG_DUPLICATE_NONE
-Aucun élément sélectionné.
+Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
 ;
 MSG_DUPLICATE_ERRORS
-Certains éléments n'ont pas pu être dupliqués.
+Certains ï¿½lï¿½ments n'ont pas pu ï¿½tre dupliquï¿½s.
 ;
 MSG_COPY_PREFIX
 Copie_%ld_%s
@@ -126,7 +126,7 @@ MSG_COPY
 Copier
 ;
 MSG_COPY_NONE
-Aucun élément sélectionné.
+Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
 ;
 MSG_PASTE
 Coller
@@ -138,7 +138,7 @@ MSG_PASTE_EMPTY
 Le presse-papiers est vide.
 ;
 MSG_PASTE_ERRORS
-Certains éléments n'ont pas pu être collés.
+Certains ï¿½lï¿½ments n'ont pas pu ï¿½tre collï¿½s.
 ;
 MSG_INFO
 Infos
@@ -147,13 +147,13 @@ MSG_INFO_TITLE
 Informations
 ;
 MSG_INFO_SELECT_ONE
-Sélectionnez un seul élément.
+Sï¿½lectionnez un seul ï¿½lï¿½ment.
 ;
 MSG_DROP_COPY_FAILED
-Erreur lors de la copie de l'élément déposé.
+Erreur lors de la copie de l'ï¿½lï¿½ment dï¿½posï¿½.
 ;
 MSG_DRAGDROP_TITLE
-Glisser-déposer
+Glisser-dï¿½poser
 ;
 MSG_DROP_ROOT
 Impossible de copier dans la liste des assignations.
@@ -174,13 +174,13 @@ MSG_COL_DATE
 Date
 ;
 MSG_STATUS_EMPTY
-Éléments : 0  |  Sélectionnés : 0
+ï¿½lï¿½ments : 0  |  Sï¿½lectionnï¿½s : 0
 ;
 MSG_BTN_ICONS
-Icônes
+Icï¿½nes
 ;
 MSG_BTN_DETAILS
-Détails
+Dï¿½tails
 ;
 MSG_BTN_UP
 Haut
@@ -204,13 +204,13 @@ MSG_LABEL_PATH
 Chemin :
 ;
 MSG_DROP_NO_TARGET
-Aucune cible de dépôt valide trouvée.
+Aucune cible de dï¿½pï¿½t valide trouvï¿½e.
 ;
 MSG_COL_COMMENT
 Commentaire
 ;
 MSG_BTN_BACK
-Précédent
+Prï¿½cï¿½dent
 ;
 MSG_BTN_FORWARD
 Suivant
@@ -228,7 +228,7 @@ MSG_MENU_QUIT
 Quitter
 ;
 MSG_MENU_EDIT
-Édition
+ï¿½dition
 ;
 MSG_MENU_VIEW
 Affichage
@@ -240,10 +240,10 @@ MSG_MENU_ADDBOOKMARK
 Ajouter aux favoris
 ;
 MSG_BOOKMARK_ADDED
-Ajouté aux favoris.
+Ajoutï¿½ aux favoris.
 ;
 MSG_MENU_MANAGE
-Gérer...
+Gï¿½rer...
 ;
 MSG_CUT
 Couper
@@ -264,13 +264,13 @@ MSG_ABOUT_EMAIL
 mail : vagappc@yahoo.it
 ;
 MSG_ABOUT_LICENSE
-Logiciel libre : GNU General Public License v3 ou ultérieure
+Logiciel libre : GNU General Public License v3 ou ultï¿½rieure
 ;
 MSG_MOVE
-Déplacer
+Dï¿½placer
 ;
 MSG_PROG_TITLE
-Opération fichier
+Opï¿½ration fichier
 ;
 MSG_PROG_STATUS
 Copie...
@@ -321,7 +321,7 @@ MSG_ABOUT_MAIL
 Mail : vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Remerciements : ldg72, Flash, Kaffeine et ACube
+Remerciements : ldg72, Flash, Kaffeine, ACube et AlfredONE
 ;
 MSG_MENU_WBREPLACE
 Remplacer le Workbench
@@ -412,4 +412,10 @@ Renommer
 ;
 MSG_CONFLICT_SKIP
 Passer
+;
+MSG_COPY_ERROR_BODY
+Erreur pendant la copie de '%s' :\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Reessayer|Passer|Annuler
 ;

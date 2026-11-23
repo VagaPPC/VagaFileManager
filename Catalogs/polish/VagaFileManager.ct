@@ -27,10 +27,10 @@ MSG_SORT_BY_SIZE
 rozmiar
 ;
 MSG_TYPE_DIR_LINK
-Kat. (odno¶nik)
+Kat. (odnoï¿½nik)
 ;
 MSG_TYPE_LINK
-Odno¶nik
+Odnoï¿½nik
 ;
 MSG_TYPE_DRAWER
 Katalog
@@ -39,13 +39,13 @@ MSG_TYPE_FILE
 Plik
 ;
 MSG_TYPE_SOFTLINK
-Dowi±zanie miêkkie
+Dowiï¿½zanie miï¿½kkie
 ;
 MSG_TYPE_OTHER
 Inne
 ;
 MSG_TYPE_DEVICE
-Urz±dzenie
+Urzï¿½dzenie
 ;
 MSG_TYPE_VOLUME
 Wolumen
@@ -54,13 +54,13 @@ MSG_TYPE_ASSIGN
 Przypisanie
 ;
 MSG_TYPE_LATE_ASSIGN
-Przypisanie pó¼ne
+Przypisanie pï¿½ne
 ;
 MSG_TYPE_NONBINDING
-Niewi±¿±ce
+Niewiï¿½ï¿½ï¿½ce
 ;
 MSG_ROOT_ASSIGNS
-(Urz±dzenia i przypisania)
+(Urzï¿½dzenia i przypisania)
 ;
 MSG_STATUS_FORMAT
 Elementy: %ld  |  Zaznaczone: %lu
@@ -75,49 +75,49 @@ MSG_BTN_OK_CANCEL
 OK|Anuluj
 ;
 MSG_RENAME_TITLE
-Zmieñ nazwê: %s
+Zmieï¿½ nazwï¿½: %s
 ;
 MSG_RENAME
-Zmieñ nazwê
+Zmieï¿½ nazwï¿½
 ;
 MSG_RENAME_SELECT_ONE
 Wybierz jeden element do zmiany nazwy.
 ;
 MSG_RENAME_FAILED
-Nie mo¿na zmieniæ nazwy:\n%s
+Nie moï¿½na zmieniï¿½ nazwy:\n%s
 ;
 MSG_ERROR_TITLE
-B³±d
+Bï¿½ï¿½d
 ;
 MSG_DELETE
-Usuñ
+Usuï¿½
 ;
 MSG_DELETE_NONE
 Nie wybrano elementu.
 ;
 MSG_DELETE_CONFIRM_ONE
-Usun±æ wybrany element?
+Usunï¿½ï¿½ wybrany element?
 ;
 MSG_DELETE_CONFIRM_MANY
-Usun±æ %ld wybranych elementów?
+Usunï¿½ï¿½ %ld wybranych elementï¿½w?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Potwierd¼ usuniêcie
+Potwierdï¿½ usuniï¿½cie
 ;
 MSG_DELETE_FAILED
-Nie mo¿na usun±æ:\n%s\n(Katalog mo¿e nie byæ pusty)
+Nie moï¿½na usunï¿½ï¿½:\n%s\n(Katalog moï¿½e nie byï¿½ pusty)
 ;
 MSG_DUPLICATE
 Duplikuj
 ;
 MSG_DUPLICATE_ROOT
-Operacja niedostêpna w tym widoku.
+Operacja niedostï¿½pna w tym widoku.
 ;
 MSG_DUPLICATE_NONE
 Nie wybrano elementu.
 ;
 MSG_DUPLICATE_ERRORS
-Niektórych elementów nie uda³o siê zduplikowaæ.
+Niektï¿½rych elementï¿½w nie udaï¿½o siï¿½ zduplikowaï¿½.
 ;
 MSG_COPY_PREFIX
 Kopia_%ld_%s
@@ -132,13 +132,13 @@ MSG_PASTE
 Wklej
 ;
 MSG_PASTE_ROOT
-Nie mo¿na wkleiæ do listy przypisañ.
+Nie moï¿½na wkleiï¿½ do listy przypisaï¿½.
 ;
 MSG_PASTE_EMPTY
 Schowek jest pusty.
 ;
 MSG_PASTE_ERRORS
-Niektórych elementów nie uda³o siê wkleiæ.
+Niektï¿½rych elementï¿½w nie udaï¿½o siï¿½ wkleiï¿½.
 ;
 MSG_INFO
 Informacje
@@ -150,16 +150,16 @@ MSG_INFO_SELECT_ONE
 Wybierz jeden element.
 ;
 MSG_DROP_COPY_FAILED
-B³±d podczas kopiowania upuszczonego elementu.
+Bï¿½ï¿½d podczas kopiowania upuszczonego elementu.
 ;
 MSG_DRAGDROP_TITLE
-Przeci±gnij i upu¶æ
+Przeciï¿½gnij i upuï¿½ï¿½
 ;
 MSG_DROP_ROOT
-Nie mo¿na kopiowaæ do listy przypisañ.
+Nie moï¿½na kopiowaï¿½ do listy przypisaï¿½.
 ;
 MSG_DROP_COPY_ERROR_NAME
-B³±d kopiowania:\n%s
+Bï¿½ï¿½d kopiowania:\n%s
 ;
 MSG_COL_NAME
 Nazwa
@@ -180,16 +180,16 @@ MSG_BTN_ICONS
 Ikony
 ;
 MSG_BTN_DETAILS
-Szczegó³y
+Szczegï¿½y
 ;
 MSG_BTN_UP
-W górê
+W gï¿½rï¿½
 ;
 MSG_BTN_OPEN
-Otwórz
+Otwï¿½rz
 ;
 MSG_BTN_REFRESH
-Od¶wie¿
+Odï¿½wieï¿½
 ;
 MSG_BTN_HOME
 Start
@@ -201,10 +201,10 @@ MSG_LABEL_LIST
 Lista:
 ;
 MSG_LABEL_PATH
-¦cie¿ka:
+ï¿½cieï¿½ka:
 ;
 MSG_DROP_NO_TARGET
-Nie znaleziono prawid³owego celu upuszczenia.
+Nie znaleziono prawidï¿½owego celu upuszczenia.
 ;
 MSG_COL_COMMENT
 Komentarz
@@ -225,7 +225,7 @@ MSG_MENU_INFO
 Informacje...
 ;
 MSG_MENU_QUIT
-Zakoñcz
+Zakoï¿½cz
 ;
 MSG_MENU_EDIT
 Edycja
@@ -234,16 +234,16 @@ MSG_MENU_VIEW
 Widok
 ;
 MSG_MENU_BOOKMARKS
-Zak³adki
+Zakï¿½adki
 ;
 MSG_MENU_ADDBOOKMARK
-Dodaj do zak³adek
+Dodaj do zakï¿½adek
 ;
 MSG_BOOKMARK_ADDED
-Dodano do zak³adek.
+Dodano do zakï¿½adek.
 ;
 MSG_MENU_MANAGE
-Zarz±dzaj...
+Zarzï¿½dzaj...
 ;
 MSG_CUT
 Wytnij
@@ -267,7 +267,7 @@ MSG_ABOUT_LICENSE
 Wolne oprogramowanie: GNU GPL v3 lub nowsza
 ;
 MSG_MOVE
-Przenie¶
+Przenieï¿½
 ;
 MSG_PROG_TITLE
 Operacja na plikach
@@ -282,7 +282,7 @@ MSG_PROG_CONTINUE
 Kontynuuj
 ;
 MSG_MENU_SHOW
-Poka¿ wg
+Pokaï¿½ wg
 ;
 MSG_MENU_SCRIPT
 Skrypt
@@ -321,7 +321,7 @@ MSG_ABOUT_MAIL
 Mail: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Podziekowania: ldg72, Flash, Kaffeine i ACube
+Podziekowania: ldg72, Flash, Kaffeine, ACube i AlfredONE
 ;
 MSG_MENU_WBREPLACE
 Zastap Workbench
@@ -412,4 +412,10 @@ Zmien nazwe
 ;
 MSG_CONFLICT_SKIP
 Pomin
+;
+MSG_COPY_ERROR_BODY
+Blad podczas kopiowania '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Ponow|Pomin|Anuluj
 ;

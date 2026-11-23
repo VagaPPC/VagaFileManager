@@ -3,6 +3,366 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 52 - 2026-11-23
+
+### Changed
+- In split view the active list is outlined with a frame in the fill
+  color, the same color as the drag & drop target frame (list view).  The
+  file browser class draws it itself (`FILEBROWSER_Highlight`), so it
+  survives refreshes and window resizing.
+- Every requester and dialog now opens centred under the mouse pointer
+  (`REQPOS_CENTERMOUSE` for EasyRequests, `WPOS_CENTERMOUSE` for the
+  ReAction windows).
+
+### Fixed
+- Copy errors are reported like the Workbench does: the name of the item
+  and the system's own error text (for example "object is in use" when
+  overwriting a busy file), with Retry, Skip and Cancel.  Skip keeps the
+  source of a move; Cancel stops the operation without a further generic
+  error message.  The same applies to a drawer that cannot be created.
+- Cancelling a drag & drop copy no longer shows "Error while copying the
+  dropped item".
+- New catalog strings `MSG_COPY_ERROR_BODY` and `MSG_COPY_ERROR_BUTTONS`
+  in all six languages.
+- `WB2_BUILD` is now 52.
+
+## 1.0 build 51 - 2026-11-23
+
+### Fixed
+- TAB in split view now switches between the two lists, and ESC clears
+  the current selection.  The window asks for `IDCMP_VANILLAKEY`, so both
+  keys arrive as characters (9 and 27), not as raw keys, and were ignored.
+- `WB2_BUILD` is now 51.
+
+## 1.0 build 50 - 2026-11-23
+
+### Changed
+- The list of AppWindows used for drops on other programs is now kept by
+  VFM itself (`AppWinRegistry.c`), not by WB2VagaFileManager, which again
+  only replaces Workbench drawer windows.  The first VFM started patches
+  `AddAppWindow[A]`, `RemoveAppWindow`, `AddAppWindowDropZone[A]`,
+  `RemoveAppWindowDropZone` and Intuition `CloseWindow`; other VFM
+  windows use its list.  When that VFM quits it removes the patches, and
+  another open VFM installs a new list at its next drag.
+- Only AppWindows opened after VFM started are known: AmiDock, or an
+  editor already open when VFM starts, does not receive drops.  On those
+  windows the old behaviour stays (path typed into Shell windows and
+  requesters, nothing on AmiDock or MultiEdit).
+- `WB2_BUILD` is now 50 (no other change to WB2VagaFileManager).
+
+## 1.0 build 49 - 2026-11-23
+
+### Changed
+- Dropping files on another program now works like the Workbench: VFM
+  sends the window under the pointer the same AppMessage
+  (`AMTYPE_APPWINDOW`, or `AMTYPE_APPWINDOWZONE` inside a drop zone) the
+  Workbench would send, with the program's own ID and UserData.  Text
+  editors such as MultiEdit open the file, AmiDock adds the object.  An
+  AppWindow with drop zones only accepts drops inside a zone, and the zone
+  is what gets outlined.  No ARexx command is involved.
+- WB2VagaFileManager keeps a public list of AppWindows (semaphore
+  `VagaFileManager.AppWindows`), because the Workbench does not tell other
+  programs which port belongs to an AppWindow.  It patches
+  `AddAppWindow[A]`, `RemoveAppWindow`, `AddAppWindowDropZone[A]`,
+  `RemoveAppWindowDropZone` and Intuition `CloseWindow`.  AppWindows opened
+  before WB2VagaFileManager started are not known: start it before AmiDock.
+  Exchange "Disable" still turns off only the drawer replacement.
+- Without WB2VagaFileManager, or on a window that is not a known
+  AppWindow, the old behaviour stays: the path is typed into Shell windows
+  and requesters, and dropping on AmiDock or MultiEdit does nothing.
+- `WB2_BUILD` is now 49.
+
+## 1.0 build 48 - 2026-11-23
+
+### Fixed
+- The system froze after dropping files on a text editor (MultiEdit) and
+  then clicking anywhere: the mouse stopped moving.  A drop no longer
+  sends any ARexx command to another program.
+
+### Removed
+- Dropping on MultiEdit (ARexx `ADDFILE`) and on AmiDock (ARexx
+  `ADDOBJECT`): both windows are no longer drop targets and are not
+  outlined while dragging.  Dropping on them does nothing.
+- `WB2_BUILD` is now 48.
+
+## 1.0 build 47 - 2026-11-23
+
+### Changed
+- Drag & drop rewritten to look and behave like the Workbench:
+  - the icons of the dragged items (up to six, cascaded, with their
+    names) follow the mouse pointer.  They are a shaped, borderless window
+    that never takes input; with compositing it is semi-transparent.  If
+    the icons cannot be shown, the standard drag & drop pointer is used.
+  - the drop target under the pointer is outlined while dragging: the
+    drawer icon or row in a VFM pane, the pane itself, another VFM window,
+    a Workbench drawer window or drawer/disk icon, AmiDock, MultiEdit or a
+    Shell window.
+  - dropping where nothing can happen (the same drawer the items come
+    from, a dragged drawer onto itself, the Workbench desktop, a window
+    that accepts nothing) does nothing, without a message.
+- The window under the pointer is found in the real front-to-back order of
+  the screen's layers, so a window behind another one is no longer picked.
+- Dropping on a drawer in a pane with an active filter now picks the
+  drawer actually shown under the pointer.
+- `WB2_BUILD` is now 47.
+
+### Removed
+- VFM no longer sends Workbench AppMessages to AmiDock's private, unnamed
+  ports: a wrong port could receive a message it did not expect and hang
+  the system.  AmiDock is reached only through its public ARexx
+  `ADDOBJECT` command.
+
+## 1.0 build 46 - 2026-11-23
+
+### Fixed
+- The system froze after dropping files on MultiEdit.  When an external
+  ARexx host answers a command with an error, `rm_Result2` holds a
+  numeric error code, not a result string; VFM read it as a string and
+  freed it with `DeleteArgstring()`, corrupting memory.  The result
+  string is now used and freed only when `rm_Result1` is 0.
+- Sending an ARexx command to another program now finds the port and
+  sends the message under `Forbid()`, so the port cannot disappear in
+  between.
+- `WB2_BUILD` is now 46.
+
+## 1.0 build 45 - 2026-11-23
+
+### Fixed
+- Dropping files on a MultiEdit window now opens them in MultiEdit.
+  VFM sends `ADDFILE` / `DISPLAYFILE` to MultiEdit's ARexx port
+  (`MULTIEDIT.n`, or the custom `PORTNAME`) instead of typing the path
+  as keystrokes, which MultiEdit ignored.
+- `WB2_BUILD` is now 45.
+
+## 1.0 build 44 - 2026-11-23
+
+### Fixed
+- Drag & drop between two VFM windows: the drop position was shifted by
+  the window borders (about one title-bar height), so the item landed in
+  the drawer one row above the pointer, or in the current path.  The
+  screen-to-window conversion now subtracts only the window position,
+  because gadget coordinates already include the borders.  The same fix
+  applies to choosing the target pane in Split mode.
+- Dropping from Workbench no longer blocks Workbench while the
+  Copy / Move requester is open or during the transfer: the AppMessage is
+  replied as soon as the dropped paths have been copied.
+- `WB2_BUILD` is now 44.
+
+## 1.0 build 43 - 2026-11-23
+
+### Fixed
+- Drag & drop onto a drawer under the mouse now works in **details/list
+  view too**, not only in icon view.  The row is found from the
+  listbrowser metrics (font height + 2, column-title bar + 2) and
+  `LISTBROWSER_Top`.
+- The details-view hit test ignores the column-title bar and the vertical
+  scrollbar, so a drop on empty space falls back to the current path.
+- `WB2_BUILD` is now 43.
+
+## 1.0 build 42 - 2026-11-23
+
+### Added
+- Toolbar, menu and active-pane icons now try the AISS `tbimages:` assign
+  first (24x24 PNGs).  If AISS or a specific icon is not available, VFM
+  falls back to the local `PROGDIR:icons` copies.
+- Menu icons are mapped to their AISS names (for example
+  `file_selectall`, `file_unselectall`, `fx_invert`, `filesize`,
+  `sortingandgrouping`, `window`, `filetext`).
+- Special thanks: added **AlfredONE**.
+
+### Fixed
+- The `m_showinfo` menu icon was identical to the filter icon; it now uses
+  the AISS information icon.  The `m_script` icon was identical to the
+  shell icon; it now uses the AISS text-file icon.
+- Avoid touching the `tbimages:` volume when AISS is not installed: the
+  assign is checked through the DOS list first, so no "Please insert
+  volume" requester appears.
+
+### Notes
+- The local `PROGDIR:icons` copies remain the fallback.
+- Build 41 source changes (file drop into a drawer under the mouse, View >
+  Size, Open moved to Edit) are included in this build.
+- The built-in English special-thanks string is updated.  To update the
+  localized `.catalog` files, run `make catalogs` on Amiga (CatComp is not
+  available in the Linux cross-build environment).
+- `WB2_BUILD` is now 42.
+
+## 1.0 build 41 - 2026-11-23
+
+### Added
+- Drag & drop onto a drawer cell/icon inside a VFM pane now copies or
+  moves the dropped items **into that drawer**, instead of always using
+  the current pane path.  The destination drawer is found from the mouse
+  position (FileBrowser `FILEBROWSER_GetIndexAt`).
+- View menu: a **Size** submenu at the top with `Auto`, `32 x 32`,
+  `48 x 48`, `64 x 64` and `96 x 96` fixed icon boxes.  The choice applies
+  to the active pane and is saved per path in the preferences
+  (`IconSize=`).
+
+### Changed
+- The **Open** item moved from the View menu to the Edit menu, immediately
+  above **New**.
+- `WB2_BUILD` is now 41.
+
+## 1.0 build 40 - 2026-11-22
+
+### Fixed
+- `CompressLZX.py` failed even when LZX had created the archive.  The
+  success check now accepts the normal "Operation successful" output and
+  ignores harmless text such as "0 errors"; it only treats explicit
+  failure messages as errors.
+- The LZX command line is closer to the documented syntax:
+  `LZX -m -X0 [-r] a archive files`; `-r` is used only when a drawer is
+  selected, directory names get a trailing slash, and `-X0` prevents a
+  second `.lzx` suffix.
+- The source drawer is passed to `CD` without a trailing slash.
+- LZX command lines are now written to `T:CompressLZX.log` for diagnosis.
+
+### Changed
+- The Copy / Move / Cancel requester is now a small ReAction window
+  opened with `WPOS_CENTERMOUSE`, so it appears at the mouse pointer
+  instead of at the centre of the screen.
+- `WB2_BUILD` is now 40.
+
+## 1.0 build 39 - 2026-11-22
+
+### Added
+- Drag & drop now asks **Copy / Move / Cancel** before transferring files.
+  The question is shown when dropping on another VFM pane, another VFM
+  window, or a Workbench drawer/disk icon.  Text drops on Shell/requester
+  windows are unchanged.
+- AISS menu icons:
+  - Select all: `file_selectall`
+  - Deselect all: `file_unselectall`
+  - Invert selection: `fx_invert`
+- `Plugins/CompressLZX.py`: creates an LZX archive with `C:LZX`, with the
+  same save/destination/default-name/Add/Overwrite/Progress behaviour as
+  `CompressLHA.py`.  Requires `C:LZX`.
+- `Plugins/CompressGZIP.py`: packs the selection with `C:TAR`, compresses
+  the TAR with `C:gzip` and stores it as `.tar.gz`.  Add mode decompresses
+  the existing archive, appends the new entries and recompresses it.
+  Requires `C:TAR` and `C:gzip`.
+- `WB2_BUILD` is now 39.
+
+### Changed
+- The old drag rule "same device = move, other device = copy" is replaced
+  by the explicit user choice.
+- README documents the new menu icons and archive add-ons.
+
+## 1.0 build 38 - 2026-11-22
+
+### Fixed
+- Cursor up/down in icon view now move by a whole row (using the number
+  of columns reported by the FileBrowser), while left/right move by one
+  entry.  In list view all cursor keys move by one entry.
+- TAB now switches the active pane reliably in split view: a window IDCMP
+  hook catches TAB even when window.class would consume it; the main loop
+  performs the switch.
+- `CompressLHA.py`: progress shows the total file count; default archive
+  name from the first selected file/drawer; Add/Overwrite/Cancel prompt
+  when the archive exists.
+
+### Changed
+- The active-pane marker is now the AISS `lightroom_front` icon at the
+  right of the path field: lit for the active pane, dim
+  (`lightroom_front_g`) for the other.
+- `WB2_BUILD` is now 38.
+
+## 1.0 build 37 - 2026-11-22
+
+### Added
+- Keyboard navigation in the panes:
+  - cursor keys move the selection (if nothing is selected, the first
+    entry is selected);
+  - typing a letter selects the first entry starting with that letter;
+  - ESC clears the selection;
+  - TAB switches the active pane when the split view is open.
+  Qualifier keys (Amiga/Alt) are ignored, so menu shortcuts still work.
+- Active-pane marker: a bold `*` at the left of the path row of the pane
+  that receives menus, buttons and add-on commands.  It is updated when
+  clicking a pane, moving with TAB, opening/closing the split or dropping
+  files.
+- `CompressLHA.py`:
+  - default archive name from the first selected file or drawer (for a
+    file the extension is removed, then `.lha` is added);
+  - if the archive already exists, asks **Add / Overwrite / Cancel**;
+  - the progress window now shows the total file count while LHA works.
+- `PROGRESS [NOCANCEL] [INDET] done total ...` adds an indeterminate
+  progress mode with a total count for add-ons.
+- `WB2_BUILD` is now 37.
+
+## 1.0 build 36 - 2026-11-22
+
+### Added
+- New `PROGRESS` channel/ARexx command for add-ons:
+  `PROGRESS [NOCANCEL] done total [bytesDone bytesTotal]` opens or updates
+  the VFM progress window and returns `1` when Cancel was pressed;
+  `PROGRESS CLOSE` closes it.  `NOCANCEL` opens a progress window without
+  Cancel/Pause (used for external processes that cannot be interrupted).
+- The native FIND and GREP commands now show the VFM progress window.
+  FIND is indeterminate and can be cancelled; GREP updates per selected
+  file and while scanning long lines.
+- `Plugins/Grep.py` shows an indeterminate progress bar while scanning and
+  stops when Cancel is pressed.
+- `Plugins/CompressLHA.py` runs LHA asynchronously through a small script
+  and animates a non-cancellable progress bar until LHA finishes.
+- `WB2_BUILD` is now 36.
+
+## 1.0 build 35 - 2026-11-22
+
+### Added
+- New `ADDONINFO` channel/ARexx command.  It returns the split state,
+  active pane, both pane paths, the number of selected entries and the path
+  of a temporary file containing the selected full paths (one per line).
+  This lets add-ons handle file names with spaces and the split view
+  reliably.
+- `Plugins/CompressLHA.py`: creates an LHA archive from the selected
+  files.  With no selection it asks to select files; in single-pane mode
+  it uses an ASL save requester; in split view it asks only for the name
+  and writes the archive into the other pane.  It uses the installed
+  `C:LHA` executable and `LHA -m` (no overwrite queries).
+- `WB2_BUILD` is now 35.
+
+## 1.0 build 34 - 2026-11-22
+
+### Fixed
+- Find/Grep results window: a single click now only selects the row and
+  keeps the window open.  Previously the window could close on the first
+  release, before the selection was applied, so it revealed nothing.
+  Use OK or a double-click to confirm the selected path.
+- "Reveal" now highlights the found file reliably: the pane list is
+  multi-select, where `LISTBROWSER_Selected` is not reliable.  The target
+  node is selected directly, scrolled into view and refreshed.
+- Reveal also clears an active quick filter (and, if needed, switches from
+  "icons only" to all files) so the requested file is actually visible
+  after the pane navigates to its drawer.
+- `FIND`/`REVEAL` write the resolved parent, target name, active filter
+  and result to `T:VagaFileManager.log` for diagnostics.
+- `WB2_BUILD` is now 34.
+
+## 1.0 build 33 - 2026-11-22
+
+### Changed
+- Code review and optimization pass.  No unused functions were found; dead
+  code was removed instead (the quick-filter IDCMP hook and its
+  `IDCMP_IDCMPUPDATE`/`gFilterPendingPane` plumbing, plus the write-only
+  `gLastDragX`/`gLastDragY` globals).
+- `ReadDirectory()` reuses a persistent scratch buffer instead of
+  allocating and clearing about 500 KB on every directory read
+  (navigation, refresh, quick filter).
+- `CopySingleFile()` reuses a 64 KB copy buffer instead of allocating and
+  freeing it for every file.
+- The progress window redraws every eight items (and always on the last
+  one) instead of once per file; Cancel/Pause polling is unchanged.
+- `UpdateStatus()` no longer reads and validates the shared clipboard file
+  on every status refresh.  The main loop still reloads it on window
+  activation and about once per second, and Paste reloads it explicitly.
+- The AmiDock port diagnostic logging copies port name/flags/signal while
+  the Exec port list is still protected by `Forbid()`, avoiding a
+  potential use-after-free after `Permit()`.
+- `FreeDirectoryScratch()` and `FreeCopyBuffer()` release the two new
+  buffers at shutdown.  `WB2_BUILD` is now 33.
+
 ## 1.0 build 32 - 2026-11-22
 
 ### Fixed

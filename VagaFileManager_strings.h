@@ -178,6 +178,8 @@
 #define MSG_CONFLICT_UPDATE_ALL 134
 #define MSG_CONFLICT_RENAME 135
 #define MSG_CONFLICT_SKIP 136
+#define MSG_COPY_ERROR_BODY 137
+#define MSG_COPY_ERROR_BUTTONS 138
 
 #endif /* CATCOMP_NUMBERS */
 
@@ -293,7 +295,7 @@
 #define MSG_ABOUT_AUTHOR_NAME_STR "VagaPPC"
 #define MSG_ABOUT_AUTHOR_SUFFIX_STR "(Benedetto Lorello)"
 #define MSG_ABOUT_MAIL_STR "Mail: vagappc@yahoo.it"
-#define MSG_ABOUT_THANKS_STR "Special thanks: ldg72, Flash, Kaffeine and ACube"
+#define MSG_ABOUT_THANKS_STR "Special thanks: ldg72, Flash, Kaffeine, ACube and AlfredONE"
 #define MSG_MENU_WBREPLACE_STR "Replace Workbench"
 #define MSG_MENU_WBRESTORE_STR "Restore Workbench"
 #define MSG_FIND_TITLE_STR "Find file"
@@ -324,6 +326,8 @@
 #define MSG_CONFLICT_UPDATE_ALL_STR "Update all"
 #define MSG_CONFLICT_RENAME_STR "Rename"
 #define MSG_CONFLICT_SKIP_STR "Skip"
+#define MSG_COPY_ERROR_BODY_STR "Error while copying '%s':\n%s"
+#define MSG_COPY_ERROR_BUTTONS_STR "Retry|Skip|Cancel"
 
 #endif /* CATCOMP_STRINGS */
 
@@ -478,6 +482,8 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_CONFLICT_UPDATE_ALL,(CONST_STRPTR)MSG_CONFLICT_UPDATE_ALL_STR},
     {MSG_CONFLICT_RENAME,(CONST_STRPTR)MSG_CONFLICT_RENAME_STR},
     {MSG_CONFLICT_SKIP,(CONST_STRPTR)MSG_CONFLICT_SKIP_STR},
+    {MSG_COPY_ERROR_BODY,(CONST_STRPTR)MSG_COPY_ERROR_BODY_STR},
+    {MSG_COPY_ERROR_BUTTONS,(CONST_STRPTR)MSG_COPY_ERROR_BUTTONS_STR},
 };
 
 #endif /* CATCOMP_ARRAY */
@@ -702,8 +708,8 @@ STATIC CONST UBYTE CatCompBlock[] =
     MSG_ABOUT_AUTHOR_SUFFIX_STR "\x00"
     "\x00\x00\x00\x69\x00\x18"
     MSG_ABOUT_MAIL_STR "\x00\x00"
-    "\x00\x00\x00\x6A\x00\x32"
-    MSG_ABOUT_THANKS_STR "\x00\x00"
+    "\x00\x00\x00\x6A\x00\x3C"
+    MSG_ABOUT_THANKS_STR "\x00"
     "\x00\x00\x00\x6B\x00\x12"
     MSG_MENU_WBREPLACE_STR "\x00"
     "\x00\x00\x00\x6C\x00\x12"
@@ -764,6 +770,10 @@ STATIC CONST UBYTE CatCompBlock[] =
     MSG_CONFLICT_RENAME_STR "\x00\x00"
     "\x00\x00\x00\x88\x00\x06"
     MSG_CONFLICT_SKIP_STR "\x00\x00"
+    "\x00\x00\x00\x89\x00\x1E"
+    MSG_COPY_ERROR_BODY_STR "\x00\x00"
+    "\x00\x00\x00\x8A\x00\x12"
+    MSG_COPY_ERROR_BUTTONS_STR "\x00"
 };
 
 #endif /* CATCOMP_BLOCK */

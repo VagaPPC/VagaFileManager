@@ -32,6 +32,26 @@ static BOOL IsLinkPath(CONST_STRPTR path);
 static void ClearWriteDelete(CONST_STRPTR path);
 static BOOL PathExists(CONST_STRPTR path);
 
+/* Buffer di copia condiviso: CopySingleFile viene chiamata una volta per
+   ogni file, allocare e liberare 64 KB ogni volta era inutile.  VFM e'
+   single-threaded: la copia non e' ricorsiva e il buffer non viene mai
+   usato da due copie contemporaneamente. */
+#define COPY_BUFFER_SIZE (64 * 1024)
+static UBYTE *gCopyBuffer = NULL;
+
+static UBYTE *GetCopyBuffer(void)
+{
+    if (!gCopyBuffer)
+        gCopyBuffer = (UBYTE *)IExec->AllocVecTags(COPY_BUFFER_SIZE,
+            AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    return gCopyBuffer;
+}
+
+void FreeCopyBuffer(void)
+{
+    if (gCopyBuffer) { IExec->FreeVec(gCopyBuffer); gCopyBuffer = NULL; }
+}
+
 /* ===== Percorsi e sicurezza ===== */
 
 BOOL GetResolvedPath(CONST_STRPTR path, STRPTR out, ULONG outSize)
@@ -210,6 +230,14 @@ static uint64 CountBytesRec(CONST_STRPTR src, ULONG depth)
 
 uint64 CountBytesRecursive(CONST_STRPTR src) { return CountBytesRec(src, 0); }
 
+/* Ultimo errore DOS di CopySingleFile (0 se annullata o nessun errore):
+   CopyFileAsk lo mostra come il Workbench. */
+static LONG gCopyLastErr = 0;
+/* TRUE se l'ultima CopyDirectoryRecursive ha saltato il cassetto (non
+   creato): in tal caso non se ne copia l'icona. */
+static BOOL gLastDirSkipped = FALSE;
+static BOOL gCopySkipped;   /* definita piu' avanti (conflitti) */
+
 BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
 {
     BPTR inF, outF;
@@ -217,7 +245,7 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
     LONG n, chunks;
     BOOL ok = FALSE;
 
-    buf = (UBYTE *)IExec->AllocVecTags(65536, AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    buf = GetCopyBuffer();
     if (!buf) return FALSE;
 
     inF = IDOS->Open(src, MODE_OLDFILE);
@@ -228,11 +256,12 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
         {
             ok = TRUE;
             chunks = 0;
-            while ((n = IDOS->Read(inF, buf, 65536)) > 0)
+            while ((n = IDOS->Read(inF, buf, COPY_BUFFER_SIZE)) > 0)
             {
                 if (IDOS->Write(outF, buf, n) != n)
                 {
-                    DBG("copy: write '%s' failed (IoErr=%ld)", dst, (long)IDOS->IoErr());
+                    gCopyLastErr = IDOS->IoErr();
+                    DBG("copy: write '%s' failed (IoErr=%ld)", dst, (long)gCopyLastErr);
                     ok = FALSE;
                     break;
                 }
@@ -250,7 +279,8 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
             }
             if (n < 0)
             {
-                DBG("copy: read '%s' failed (IoErr=%ld)", src, (long)IDOS->IoErr());
+                gCopyLastErr = IDOS->IoErr();
+                DBG("copy: read '%s' failed (IoErr=%ld)", src, (long)gCopyLastErr);
                 ok = FALSE;
             }
             IDOS->Close(outF);
@@ -258,12 +288,18 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
             else CopyAttributes(src, dst);
         }
         else
-            DBG("copy: cannot create '%s' (IoErr=%ld)", dst, (long)IDOS->IoErr());
+        {
+            gCopyLastErr = IDOS->IoErr();
+            DBG("copy: cannot create '%s' (IoErr=%ld)", dst, (long)gCopyLastErr);
+        }
         IDOS->Close(inF);
     }
     else
-        DBG("copy: cannot open '%s' (IoErr=%ld)", src, (long)IDOS->IoErr());
-    IExec->FreeVec(buf);
+    {
+        gCopyLastErr = IDOS->IoErr();
+        DBG("copy: cannot open '%s' (IoErr=%ld)", src, (long)gCopyLastErr);
+    }
+    if (gProgCancel) gCopyLastErr = 0;   /* annullata: nessun errore da mostrare */
     return ok;
 }
 
@@ -324,11 +360,27 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
         if (IsPathSameOrInside(b->dstRes, b->srcRes)) { IExec->FreeVec(b); return FALSE; }
     }
 
-    if (!CreateDirUnlocked(dst))
+    gLastDirSkipped = FALSE;
+    while (!CreateDirUnlocked(dst))
     {
+        LONG err = IDOS->IoErr();
         BPTR l = IDOS->Lock(dst, SHARED_LOCK);
-        if (!l) { IExec->FreeVec(b); return FALSE; }
-        IDOS->UnLock(l);
+        if (l) { IDOS->UnLock(l); break; }   /* esiste gia': si unisce */
+        DBG("copy: cannot create drawer '%s' (IoErr=%ld)", dst, (long)err);
+        /* come il Workbench: Riprova / Salta / Annulla */
+        switch (AskCopyError(FilePart(src), err))
+        {
+            case 1: continue;
+            case 2:
+                gCopySkipped = TRUE;
+                gLastDirSkipped = TRUE;
+                IExec->FreeVec(b);
+                return TRUE;
+            default:
+                gProgCancel = TRUE;
+                IExec->FreeVec(b);
+                return FALSE;
+        }
     }
     /* resolve dst after creation for comparison */
     if (GetResolvedPath(dst, b->dstRes, sizeof(b->dstRes))) { /* ok */ } else { b->dstRes[0]='\0'; }
@@ -372,6 +424,7 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
     IDOS->ReleaseDirContext(ctx);
     CopyAttributes(src, dst);
     IExec->FreeVec(b);
+    gLastDirSkipped = FALSE;
     return ok;
 }
 
@@ -419,6 +472,7 @@ static void MakeUniqueDstName(STRPTR dst, ULONG dstSize)
     char dir[PATH_MAX_LEN];
     char baseName[NAME_MAX_LEN];
     CONST_STRPTR base;
+    ULONG cut;
 
     if (!dst || !dst[0]) return;
     strncpy(dir, dst, sizeof(dir) - 1);
@@ -428,7 +482,15 @@ static void MakeUniqueDstName(STRPTR dst, ULONG dstSize)
     strncpy(baseName, base, sizeof(baseName) - 1);
     baseName[sizeof(baseName) - 1] = '\0';
     if (base > dir)
-        ((char *)base)[-1] = '\0';   /* taglia via il separatore */
+    {
+        /* Remove the separator but keep the ':' of a volume/assign root:
+           "Work:file" must become "Work:", not the relative path "Work". */
+        cut = (ULONG)(base - dir);
+        if (dir[cut - 1] == ':')
+            dir[cut] = '\0';
+        else
+            dir[cut - 1] = '\0';
+    }
     else
         dir[0] = '\0';
     if (dir[0] == '\0')
@@ -487,6 +549,25 @@ static int ResolveCopyConflict(CONST_STRPTR src, STRPTR dst, ULONG dstSize)
     }
 }
 
+/* Copia un file; se non riesce mostra l'errore come il Workbench
+   (Riprova / Salta / Annulla).  Ritorna 1 copiato, 0 errore o annullato,
+   -1 saltato. */
+static int CopyFileAsk(CONST_STRPTR src, CONST_STRPTR dst)
+{
+    for (;;)
+    {
+        gCopyLastErr = 0;
+        if (CopySingleFile(src, dst)) return 1;
+        if (gProgCancel || gCopyLastErr == 0) return 0;
+        switch (AskCopyError(FilePart(src), gCopyLastErr))
+        {
+            case 1: continue;                         /* Riprova */
+            case 2: gCopySkipped = TRUE; return -1;   /* Salta */
+            default: gProgCancel = TRUE; return 0;    /* Annulla */
+        }
+    }
+}
+
 /* Copia una voce (file o directory) gestendo i conflitti con la
    destinazione.  Ritorna FALSE in caso di errore o di annullamento. */
 BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
@@ -525,8 +606,12 @@ BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
             strncpy(gCopyResolvedDst, b->dstPath, sizeof(gCopyResolvedDst) - 1);
             gCopyResolvedDst[sizeof(gCopyResolvedDst) - 1] = '\0';
         }
-        ok = CopySingleFile(src, b->dstPath);
-        if (ok) { CopyInfoFileIfPresent(src, b->dstPath); ProgressAdvance(); }
+        {
+            int r = CopyFileAsk(src, b->dstPath);
+            ok = (r != 0);
+            if (r > 0) CopyInfoFileIfPresent(src, b->dstPath);
+            if (ok) ProgressAdvance();
+        }
         goto done;
     }
 
@@ -580,13 +665,16 @@ BOOL CopyEntryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
     {
         ok = CopyDirectoryRecursive(src, b->dstPath);
         /* copia anche l'icona del cassetto stesso (dir.info), che non sta
-           dentro la directory */
-        if (ok) CopyInfoFileIfPresent(src, b->dstPath);
+           dentro la directory (non se il cassetto e' stato saltato) */
+        if (ok && !gLastDirSkipped) CopyInfoFileIfPresent(src, b->dstPath);
+        gLastDirSkipped = FALSE;
     }
     else
     {
-        ok = CopySingleFile(src, b->dstPath);
-        if (ok) { CopyInfoFileIfPresent(src, b->dstPath); ProgressAdvance(); }
+        int r = CopyFileAsk(src, b->dstPath);
+        ok = (r != 0);
+        if (r > 0) CopyInfoFileIfPresent(src, b->dstPath);
+        if (ok) ProgressAdvance();
     }
 
 done:
@@ -1645,6 +1733,19 @@ static BOOL FindNameMatches(CONST_STRPTR name, CONST_STRPTR textPattern,
     return NameContains(name, textPattern);
 }
 
+/* Aggiorna la barra durante FIND: la barra e' indeterminata, gProgDone
+   conta le voci esaminate. */
+static void FindProgressTick(void)
+{
+    if (!gProgActive) return;
+    gProgDone++;
+    if ((gProgDone & 0x3F) == 0)
+    {
+        ProgressUpdate();
+        ProgressPoll();
+    }
+}
+
 static void FindRec(CONST_STRPTR dir, CONST_STRPTR textPattern,
                     CONST_STRPTR parsedPattern, BOOL usePattern,
                     struct List *list, LONG *count, ULONG depth)
@@ -1652,15 +1753,18 @@ static void FindRec(CONST_STRPTR dir, CONST_STRPTR textPattern,
     APTR ctx;
     struct ExamineData *ed;
 
-    if (!dir || depth > 32 || *count >= 200) return;
+    if (!dir || depth > 32 || *count >= 200 || gProgCancel) return;
 
     ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)dir,
                                      EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
     if (!ctx) return;
 
-    while (*count < 200 && (ed = IDOS->ExamineDir(ctx)) != NULL)
+    while (*count < 200 && !gProgCancel &&
+           (ed = IDOS->ExamineDir(ctx)) != NULL)
     {
         char sub[PATH_MAX_LEN];
+
+        FindProgressTick();
 
         strncpy(sub, dir, sizeof(sub) - 1);
         sub[sizeof(sub) - 1] = '\0';
@@ -1701,7 +1805,22 @@ void DoFindFile(struct Window *win)
     }
 
     IExec->NewList(&list);
+
+    if (gProgWinObj) ProgressClose();
+    ProgressSetCancelable(TRUE);
+    ProgressOpen(win, 1);
+    ProgressSetIndeterminate(TRUE);
     FindRec(gPathBuffer, pattern, parsed, usePattern, &list, &count, 0);
+
+    {
+        BOOL canceled = gProgCancel;
+        ProgressClose();
+        if (canceled)
+        {
+            IListBrowser->FreeListBrowserList(&list);
+            return;
+        }
+    }
 
     if (count == 0)
     {
@@ -1714,7 +1833,13 @@ void DoFindFile(struct Window *win)
                           picked, sizeof(picked)) &&
         picked[0])
     {
-        RevealPath(picked, win);
+        if (!RevealPath(picked, win))
+        {
+            DBG("FIND: cannot reveal '%s'", picked);
+            ShowMessage(LS(MSG_FIND_RESULTS),
+                "The selected item could not be revealed.\n"
+                "See T:VagaFileManager.log for details.");
+        }
     }
 }
 
@@ -1728,9 +1853,14 @@ static void GrepFile(CONST_STRPTR path, CONST_STRPTR word, struct List *list, LO
     fh = IDOS->Open(path, MODE_OLDFILE);
     if (!fh) return;
 
-    while (*count < 200 && IDOS->FGets(fh, line, sizeof(line)))
+    while (*count < 200 && !gProgCancel && IDOS->FGets(fh, line, sizeof(line)))
     {
         ln++;
+        if (gProgActive && ((ln & 0x7F) == 0))
+        {
+            ProgressUpdate();
+            ProgressPoll();
+        }
         if (NameContains(line, word))
         {
             char res[PATH_MAX_LEN + 1100];
@@ -1751,17 +1881,23 @@ void DoGrep(struct Window *win)
     LONG count = 0;
     struct Node *n;
 
-    (void)win;
     if (!PromptString(LS(MSG_GREP_TITLE), word, sizeof(word))) return;
     if (!word[0]) return;
 
     IExec->NewList(&list);
+
+    if (gProgWinObj) ProgressClose();
+    ProgressSetCancelable(TRUE);
+    ProgressOpen(win, 1);
+    ProgressSetIndeterminate(TRUE);
 
     for (n = gPanes[gActivePane].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES;
         STRPTR name = NULL;
         char full[PATH_MAX_LEN];
+
+        if (gProgCancel) break;
 
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
         if (!sel) continue;
@@ -1777,7 +1913,20 @@ void DoGrep(struct Window *win)
         else if (!BuildChildPath(gPathBuffer, name, full, sizeof(full)))
             continue;
 
+        gProgDone++;
+        ProgressUpdate();
+        ProgressPoll();
         GrepFile(full, word, &list, &count);
+    }
+
+    {
+        BOOL canceled = gProgCancel;
+        ProgressClose();
+        if (canceled)
+        {
+            IListBrowser->FreeListBrowserList(&list);
+            return;
+        }
     }
 
     if (count == 0)
