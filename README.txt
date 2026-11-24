@@ -112,8 +112,7 @@ Views:
   the text height.
 - Clicking a column title (Name/Type/Size/Date) sorts by that column
   (click again to reverse).
-- The active pane is marked with an AISS `lightroom_front` icon at the
-  right of its path row (lit for the active pane, dim for the other).
+- In split view the active pane's list is outlined with a frame.
 - View > Size sets a fixed icon box (Auto, 32, 48, 64 or 96 pixels).  The
   choice is remembered per path.
 

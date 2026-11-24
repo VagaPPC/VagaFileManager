@@ -3,6 +3,13 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 61 - 2026-11-25
+
+- All context menus now have "Show" (by icons / all files) and
+  "Bookmarks", like the View and Bookmarks menus.
+- Removed the small active-pane icon at the right of the path field; the
+  active list is still outlined in split view.
+
 ## 1.0 build 60 - 2026-11-24
 
 - New "Open with..." in the context menu of files: opens the selected

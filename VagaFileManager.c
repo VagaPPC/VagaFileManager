@@ -127,10 +127,6 @@ CONST_STRPTR gIconNames[IMG_COUNT] =
 Object *gBtnImg[IMG_COUNT];
 Object *gBtnImgSel[IMG_COUNT];
 
-/* Icona AISS del pannello attivo/inattivo (lightroom_front accesa/spenta). */
-static Object *gPaneActiveImg = NULL;
-static Object *gPaneInactiveImg = NULL;
-
 Object *gMainWinObj = NULL;
 
 /* ---- impostazioni persistenti ---- */
@@ -179,7 +175,6 @@ static void PaneInit(int p, CONST_STRPTR path)
     pn->listGad = pn->pathGad = pn->statusGad = pn->toggleGad = NULL;
     pn->filterGad = NULL;
     pn->sizeGad = NULL;
-    pn->activeGad = NULL;
     pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
     pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
     pn->paneLayout = NULL;
@@ -747,16 +742,6 @@ static Object *CreatePaneUI(int p)
         (pn->viewMode == FBVM_ICONS) ? gBtnImgSel[IMG_DETAILS] : gBtnImgSel[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? LS(MSG_BTN_DETAILS) : LS(MSG_BTN_ICONS));
 
-    /* Indicatore del pannello attivo: icona AISS lightroom_front accesa
-       per il pannello che riceve menu, pulsanti e comandi dei plugin,
-       spenta per l'altro.  Sta a destra del campo percorso. */
-    pn->activeGad = IIntuition->NewObject(NULL, "button.gadget",
-        GA_ID, GID_ACTIVE_MARK + off, GA_ReadOnly, TRUE,
-        BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
-        BUTTON_RenderImage, (ULONG)gPaneInactiveImg,
-        BUTTON_SelectImage, (ULONG)gPaneInactiveImg,
-        TAG_DONE);
-
     /* barra del percorso */
     pathRow = IIntuition->NewObject(NULL, "layout.gadget",
         LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
@@ -766,7 +751,6 @@ static Object *CreatePaneUI(int p)
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_FORWARD + off, gBtnImg[IMG_FORWARD], gBtnImgSel[IMG_FORWARD], LS(MSG_BTN_FORWARD)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_REFRESH + off, gBtnImg[IMG_REFRESH], gBtnImgSel[IMG_REFRESH], LS(MSG_BTN_REFRESH)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)pn->pathGad, CHILD_WeightedWidth, 100,
-        LAYOUT_AddChild, (ULONG)pn->activeGad, CHILD_WeightedWidth, 0,
         TAG_DONE);
 
     /* barra operazioni; "Calcola dimensione" e "Dividi" */
@@ -966,7 +950,6 @@ static void ToggleSplitPanes(struct Window *win, Object *winObj)
         pn->listGad = pn->pathGad = pn->statusGad = pn->toggleGad = NULL;
         pn->filterGad = NULL;
         pn->sizeGad = NULL;
-        pn->activeGad = NULL;
         pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
         pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
         if (pn->colInfo) { IListBrowser->FreeLBColumnInfo(pn->colInfo); pn->colInfo = NULL; }
@@ -2204,7 +2187,7 @@ static void RefreshAfterSelection(Object *listGad, struct Window *win)
         IIntuition->IDoMethod(gMainWinObj, WM_RETHINK);
 }
 
-/* Aggiorna il marcatore "*" del pannello attivo. */
+/* Evidenzia la lista del pannello attivo. */
 static void UpdatePaneMarkers(struct Window *win)
 {
     int p;
@@ -2222,21 +2205,6 @@ static void UpdatePaneMarkers(struct Window *win)
                 FILEBROWSER_Highlight, on, TAG_DONE);
         else
             IIntuition->SetAttrs(lg, FILEBROWSER_Highlight, on, TAG_DONE);
-    }
-
-    for (p = 0; p < 2; p++)
-    {
-        Object *g = gPanes[p].activeGad;
-        ULONG img;
-
-        if (!g) continue;
-        img = (ULONG)((p == gActivePane) ? gPaneActiveImg : gPaneInactiveImg);
-        if (win)
-            IIntuition->RefreshSetGadgetAttrs((struct Gadget *)g, win, NULL,
-                BUTTON_RenderImage, img, BUTTON_SelectImage, img, TAG_DONE);
-        else
-            IIntuition->SetAttrs(g,
-                BUTTON_RenderImage, img, BUTTON_SelectImage, img, TAG_DONE);
     }
 }
 
@@ -2448,6 +2416,7 @@ static uint32 ContextMenuHookFunc(struct Hook *hook, struct Window *win, struct 
         hi.fbgia_Index = -1;
         IIntuition->IDoMethodA((Object *)g, (Msg)&hi);
 
+        SyncContextMenus();
         if (hi.fbgia_Index < 0)
             menu = gCtxMenuEmpty;
         else
@@ -2936,8 +2905,6 @@ int main(int argc, char **argv)
         snprintf(sel, sizeof(sel), "%s_s", gIconNames[ii]);
         gBtnImgSel[ii] = LoadIconImage(gPubScreen, sel);
     }
-    gPaneActiveImg = LoadIconImage(gPubScreen, "lightroom_front");
-    gPaneInactiveImg = LoadIconImage(gPubScreen, "lightroom_front_g");
     LoadMenuImages(gPubScreen);
     ClampWindowGeom();
 
@@ -3628,8 +3595,6 @@ int main(int argc, char **argv)
         if (gBtnImg[ii])    IIntuition->DisposeObject(gBtnImg[ii]);
         if (gBtnImgSel[ii]) IIntuition->DisposeObject(gBtnImgSel[ii]);
     }
-    if (gPaneActiveImg) IIntuition->DisposeObject(gPaneActiveImg);
-    if (gPaneInactiveImg) IIntuition->DisposeObject(gPaneInactiveImg);
     if (gPubScreen) IIntuition->UnlockPubScreen(NULL, gPubScreen);
     ShutdownDragDropInput();
     AppRegistryRemove();

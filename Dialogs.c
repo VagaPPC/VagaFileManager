@@ -1432,6 +1432,36 @@ Object *gCtxMenuItem = NULL;
 Object *gCtxMenuFile = NULL;
 Object *gCtxMenuEmpty = NULL;
 
+/* Separatore + sottomenu "Mostra" (per icone / tutti file) e
+   "Preferiti", comuni a tutti i menu contestuali.  La spunta di "Mostra"
+   viene riallineata da SyncContextMenus() prima di ogni apertura; i
+   preferiti cambiano raramente e i menu vengono ricostruiti da
+   RefreshContextMenus() quando la lista cambia. */
+static void AddCtxViewEntries(struct TagItem *tags, int *n)
+{
+    AddMenuSeparator(tags, n);
+    AddMenuItem(tags, n, LS(MSG_MENU_SHOW), 0, NULL, MIMG_FILTER, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, n, NM_SubItems, SI_BEGIN);
+    AddMenuItem(tags, n, LS(MSG_VIEW_ICONS_ONLY), MENU_VIEW_ICONS, NULL, MIMG_ICONS,
+                TRUE, (gViewFilter == VIEW_FILTER_ICONS_ONLY), FALSE);
+    AddMenuItem(tags, n, LS(MSG_VIEW_ALL_FILES), MENU_VIEW_ALLFILES, NULL, MIMG_FILTER,
+                TRUE, (gViewFilter == VIEW_FILTER_ALL_FILES), FALSE);
+    AddMenuTag(tags, n, NM_SubItems, SI_END);
+
+    AddMenuItem(tags, n, LS(MSG_MENU_BOOKMARKS), 0, NULL, MIMG_BOOKMARK, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, n, NM_SubItems, SI_BEGIN);
+    AddMenuItem(tags, n, LS(MSG_MENU_ADDBOOKMARK), MENU_ADDBOOKMARK, NULL, MIMG_BOOKMARKADD, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_MENU_MANAGE), MENU_MANAGE, NULL, MIMG_SETTINGS, FALSE, FALSE, FALSE);
+    if (gBookmarkCount > 0)
+    {
+        int j;
+        AddMenuSeparator(tags, n);
+        for (j = 0; j < gBookmarkCount; j++)
+            AddMenuItem(tags, n, gBookmarks[j].name, MENU_BOOKMARK_BASE + j, NULL, MIMG_BOOKMARK, FALSE, FALSE, FALSE);
+    }
+    AddMenuTag(tags, n, NM_SubItems, SI_END);
+}
+
 /* Voci per un file o un cassetto; withOpenWith aggiunge "Apri con..."
    (solo per i file). */
 static void AddCtxItemEntries(struct TagItem *tags, int *n, BOOL withOpenWith)
@@ -1450,31 +1480,54 @@ static void AddCtxItemEntries(struct TagItem *tags, int *n, BOOL withOpenWith)
     AddMenuSeparator(tags, n);
     AddMenuItem(tags, n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
     AddMenuItem(tags, n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
+    AddCtxViewEntries(tags, n);
     AddMenuTag(tags, n, TAG_DONE, 0);
+}
+
+#define CTX_TAGS 1024     /* 64 preferiti x ~6 tag + le voci fisse */
+
+/* Firma della lista preferiti con cui sono stati costruiti i menu
+   contestuali: se cambia (aggiunta, rimozione, rinomina, riordino) i
+   menu vanno ricostruiti. */
+static ULONG gCtxBookmarkSig = 0;
+
+static ULONG BookmarkSignature(void)
+{
+    ULONG h = 5381 + (ULONG)gBookmarkCount;
+    int j;
+    const char *c;
+
+    for (j = 0; j < gBookmarkCount; j++)
+    {
+        for (c = gBookmarks[j].name; *c; c++) h = h * 33 + (UBYTE)*c;
+        h = h * 33 + 1;
+    }
+    return h;
 }
 
 void BuildContextMenus(void)
 {
     struct TagItem *tags;
+    Object *mItem, *mFile, *mEmpty, *oItem, *oFile, *oEmpty;
     int n;
 
-    tags = (struct TagItem *)IExec->AllocVecTags(256 * sizeof(struct TagItem),
+    tags = (struct TagItem *)IExec->AllocVecTags(CTX_TAGS * sizeof(struct TagItem),
         AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
     if (!tags) return;
 
     /* cassetto */
     n = 0;
     AddCtxItemEntries(tags, &n, FALSE);
-    gCtxMenuItem = NewMenuTree(tags);
+    mItem = NewMenuTree(tags);
 
     /* file */
-    memset(tags, 0, 256 * sizeof(struct TagItem));
+    memset(tags, 0, CTX_TAGS * sizeof(struct TagItem));
     n = 0;
     AddCtxItemEntries(tags, &n, TRUE);
-    gCtxMenuFile = NewMenuTree(tags);
+    mFile = NewMenuTree(tags);
 
     /* spazio vuoto */
-    memset(tags, 0, 256 * sizeof(struct TagItem));
+    memset(tags, 0, CTX_TAGS * sizeof(struct TagItem));
     n = 0;
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
@@ -1486,10 +1539,61 @@ void BuildContextMenus(void)
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_SHELL), MENU_SHELL, NULL, MIMG_SHELL, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
+    AddCtxViewEntries(tags, &n);
     AddMenuTag(tags, &n, TAG_DONE, 0);
-    gCtxMenuEmpty = NewMenuTree(tags);
+    mEmpty = NewMenuTree(tags);
 
     IExec->FreeVec(tags);
+
+    /* Sostituisce i puntatori in un colpo solo (l'hook del menu
+       contestuale li legge dal task input.device), poi libera i vecchi. */
+    IExec->Forbid();
+    oItem = gCtxMenuItem;   gCtxMenuItem = mItem;
+    oFile = gCtxMenuFile;   gCtxMenuFile = mFile;
+    oEmpty = gCtxMenuEmpty; gCtxMenuEmpty = mEmpty;
+    IExec->Permit();
+    if (oItem)  IIntuition->DisposeObject(oItem);
+    if (oFile)  IIntuition->DisposeObject(oFile);
+    if (oEmpty) IIntuition->DisposeObject(oEmpty);
+
+    gCtxBookmarkSig = BookmarkSignature();
+}
+
+/* Ricostruisce i menu contestuali se i preferiti sono cambiati. */
+void RefreshContextMenus(void)
+{
+    if (gCtxBookmarkSig != BookmarkSignature())
+        BuildContextMenus();
+}
+
+/* I menu contestuali sono costruiti una volta sola: prima di mostrarne
+   uno si riallinea la spunta di "Mostra" al filtro
+   corrente (puo' essere cambiato dal menu Vista o da un click precedente). */
+static void SetCtxChecked(Object *root, ULONG id, BOOL on)
+{
+    struct mpSetState ss;
+    ss.MethodID = MM_SETSTATE;
+    ss.mpss_Reserved = 0;
+    ss.mpss_ID = id;
+    ss.mpss_ApplyMask = MS_CHECKED;
+    ss.mpss_StateMask = on ? MS_CHECKED : 0;
+    IIntuition->IDoMethodA(root, (Msg)&ss);
+}
+
+void SyncContextMenus(void)
+{
+    Object *menus[3];
+    int i;
+
+    menus[0] = gCtxMenuItem;
+    menus[1] = gCtxMenuFile;
+    menus[2] = gCtxMenuEmpty;
+    for (i = 0; i < 3; i++)
+    {
+        if (!menus[i]) continue;
+        SetCtxChecked(menus[i], MENU_VIEW_ICONS, gViewFilter == VIEW_FILTER_ICONS_ONLY);
+        SetCtxChecked(menus[i], MENU_VIEW_ALLFILES, gViewFilter == VIEW_FILTER_ALL_FILES);
+    }
 }
 
 void FreeContextMenus(void)
@@ -1681,6 +1785,7 @@ void UpdateMenu(void)
         IIntuition->SetAttrs(gMainWinObj, WINDOW_MenuStrip, (ULONG)gMenuRoot, TAG_DONE);
     if (old && old != gMenuRoot)
         IIntuition->DisposeObject(old);
+    RefreshContextMenus();
 }
 
 /* Lancia una nuova istanza di VFM sul percorso indicato ("-" = vista

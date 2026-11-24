@@ -141,8 +141,7 @@ enum
     GID_FILTER,
     GID_TOP_COPY,
     GID_TOP_MOVE,
-    GID_TOP_DELETE,
-    GID_ACTIVE_MARK
+    GID_TOP_DELETE
 };
 
 enum
@@ -327,7 +326,6 @@ struct Pane
     Object     *listGad, *pathGad, *statusGad, *toggleGad;
     Object     *filterGad;
     Object     *sizeGad;
-    Object     *activeGad;
     Object     *btnRename, *btnDelete, *btnDuplicate, *btnCopy, *btnCut, *btnPaste, *btnInfo;
     Object     *paneLayout;
     struct ColumnInfo *colInfo;
@@ -600,6 +598,8 @@ void UpdateMenu(void);
 void BuildContextMenus(void);
 void DoOpenWith(struct Window *win, struct List *list);   /* OpenWith.c */
 void FreeContextMenus(void);
+void SyncContextMenus(void);
+void RefreshContextMenus(void);
 void ManageBookmarks(Object *mainWinObj);
 void AddBookmark(void);
 void LoadBookmarks(void);
