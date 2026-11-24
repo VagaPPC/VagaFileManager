@@ -152,46 +152,13 @@ void CopyAttributes(CONST_STRPTR src, CONST_STRPTR dst)
 
 /* ===== Conteggio e copia ===== */
 
-static ULONG CountFilesRec(CONST_STRPTR src, ULONG depth)
+/* Conta in un solo passaggio gli oggetti da copiare (file e link; i
+   cassetti non contano, gli .info viaggiano col loro oggetto) e i byte
+   dei file sotto 'src'.  I valori vengono SOMMATI a *files e *bytes. */
+static void CountTreeRec(CONST_STRPTR src, ULONG depth, ULONG *files, uint64 *bytes)
 {
-    ULONG count = 0;
-    if (IsLinkPath(src)) return 1;
-    if (depth >= MAX_COPY_DEPTH) return 1;
-    if (IsDirectoryPath(src))
-    {
-        APTR ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)src, EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
-        STRPTR s = ctx ? (STRPTR)IExec->AllocVecTags(PATH_MAX_LEN, AVT_Type, MEMF_PRIVATE, TAG_DONE) : NULL;
-        if (ctx && s)
-        {
-            struct ExamineData *ed;
-            while ((ed = IDOS->ExamineDir(ctx)) != NULL)
-            {
-                ULONG nlen = strlen(ed->Name);
-                /* gli .info si copiano insieme al file/cassetto: non contano */
-                if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
-                    continue;
-                if (!BuildChildPath(src, ed->Name, s, PATH_MAX_LEN)) continue;
-                if (EXD_IS_LINK(ed)) count++;
-                else if (EXD_IS_DIRECTORY(ed)) count += CountFilesRec(s, depth + 1);
-                else count++;
-            }
-        }
-        if (s) IExec->FreeVec(s);
-        if (ctx) IDOS->ReleaseDirContext(ctx);
-    }
-    else count = 1;
-    return count;
-}
-
-ULONG CountFilesRecursive(CONST_STRPTR src) { return CountFilesRec(src, 0); }
-
-/* Somma la dimensione (in byte) di tutti i file sotto 'src'. */
-static uint64 CountBytesRec(CONST_STRPTR src, ULONG depth)
-{
-    uint64 bytes = 0;
-    if (!src || !src[0]) return 0;
-    if (depth >= MAX_COPY_DEPTH) return 0;
-    if (IsLinkPath(src)) return 0;
+    if (!src || !src[0]) return;
+    if (IsLinkPath(src) || depth >= MAX_COPY_DEPTH) { (*files)++; return; }
     if (IsDirectoryPath(src))
     {
         APTR ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)src,
@@ -202,14 +169,16 @@ static uint64 CountBytesRec(CONST_STRPTR src, ULONG depth)
             struct ExamineData *ed;
             while ((ed = IDOS->ExamineDir(ctx)) != NULL)
             {
-                ULONG nlen = strlen(ed->Name);
                 /* gli .info si copiano insieme al file/cassetto: non contano */
-                if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
-                    continue;
+                if (PathIsInfo(ed->Name)) continue;
                 if (!BuildChildPath(src, ed->Name, s, PATH_MAX_LEN)) continue;
-                if (EXD_IS_LINK(ed)) continue;
-                if (EXD_IS_DIRECTORY(ed)) bytes += CountBytesRec(s, depth + 1);
-                else if (ed->FileSize > 0) bytes += (uint64)ed->FileSize;
+                if (EXD_IS_LINK(ed)) (*files)++;
+                else if (EXD_IS_DIRECTORY(ed)) CountTreeRec(s, depth + 1, files, bytes);
+                else
+                {
+                    (*files)++;
+                    if (ed->FileSize > 0) *bytes += (uint64)ed->FileSize;
+                }
             }
         }
         if (s) IExec->FreeVec(s);
@@ -219,16 +188,26 @@ static uint64 CountBytesRec(CONST_STRPTR src, ULONG depth)
     {
         struct ExamineData *ed = IDOS->ExamineObjectTags(EX_StringNameInput, (ULONG)src,
                     EX_DataFields, EXF_SIZE, TAG_END);
+        (*files)++;
         if (ed)
         {
-            if (ed->FileSize > 0) bytes = (uint64)ed->FileSize;
+            if (ed->FileSize > 0) *bytes += (uint64)ed->FileSize;
             IDOS->FreeDosObject(DOS_EXAMINEDATA, ed);
         }
     }
-    return bytes;
 }
 
-uint64 CountBytesRecursive(CONST_STRPTR src) { return CountBytesRec(src, 0); }
+void CountTreeRecursive(CONST_STRPTR src, ULONG *files, uint64 *bytes)
+{
+    CountTreeRec(src, 0, files, bytes);
+}
+
+ULONG CountFilesRecursive(CONST_STRPTR src)
+{
+    ULONG files = 0; uint64 bytes = 0;
+    CountTreeRec(src, 0, &files, &bytes);
+    return files;
+}
 
 /* Ultimo errore DOS di CopySingleFile (0 se annullata o nessun errore):
    CopyFileAsk lo mostra come il Workbench. */
@@ -390,13 +369,11 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
 
     while (!gProgCancel && (ed = IDOS->ExamineDir(ctx)) != NULL)
     {
-        ULONG nlen = strlen(ed->Name);
-
         /* i file .info non si copiano qui: vengono copiati come icona
            insieme al file/cassetto a cui appartengono (CopyInfoFileIfPresent),
            altrimenti verrebbero copiati due volte e sembrerebbero "esistere
            gia'" al secondo passaggio. */
-        if (nlen > 5 && IUtility->Stricmp(ed->Name + nlen - 5, ".info") == 0)
+        if (PathIsInfo(ed->Name))
             continue;
 
         if (!BuildChildPath(src, ed->Name, b->s, sizeof(b->s))) { ok = FALSE; continue; }
@@ -502,7 +479,7 @@ static void MakeUniqueDstName(STRPTR dst, ULONG dstSize)
 }
 
 /* TRUE se il nome (ultimo componente) termina con ".info". */
-static BOOL PathIsInfo(CONST_STRPTR path)
+BOOL PathIsInfo(CONST_STRPTR path)
 {
     CONST_STRPTR base;
     ULONG len;
@@ -1221,8 +1198,7 @@ void DoDuplicateSelected(Object *listGad, Object *pathGad, Object *statusGad, st
         if (!name || index >= (ULONG)gEntryCount) continue;
         if (BuildChildPath(gPathBuffer, name, src, sizeof(src)))
         {
-            total += CountFilesRecursive(src);
-            bytes += CountBytesRecursive(src);
+            CountTreeRecursive(src, &total, &bytes);
         }
     }
 
@@ -1365,8 +1341,7 @@ void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window 
 
     for (i = 0; i < gClipboardCount; i++)
     {
-        total += CountFilesRecursive(gClipboard[i]);
-        bytes += CountBytesRecursive(gClipboard[i]);
+        CountTreeRecursive(gClipboard[i], &total, &bytes);
     }
     ProgressOpen(win, total);
     ProgressSetBytes(bytes);
@@ -1452,8 +1427,7 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index, LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
         if (!name || index >= (ULONG)gEntryCount) continue;
         if (!BuildChildPath(srcDir, name, full, sizeof(full))) continue;
-        total += CountFilesRecursive(full);
-        bytes += CountBytesRecursive(full);
+        CountTreeRecursive(full, &total, &bytes);
     }
     DBG("transfer: total=%lu bytes=%lu", (unsigned long)total,
         (unsigned long)(bytes & 0xffffffffUL));

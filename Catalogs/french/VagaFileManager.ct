@@ -6,7 +6,7 @@ MSG_APP_TITLE
 VagaFileManager
 ;
 MSG_VIEW_ICONS_ONLY
-par icï¿½nes
+par icônes
 ;
 MSG_VIEW_ALL_FILES
 tous les fichiers
@@ -15,7 +15,7 @@ MSG_SORT_BY_TYPE
 type
 ;
 MSG_SORT_ALPHABETICAL
-Alphabï¿½tique
+Alphabétique
 ;
 MSG_SORT_BY_NAME
 nom
@@ -27,7 +27,7 @@ MSG_SORT_BY_SIZE
 taille
 ;
 MSG_TYPE_DIR_LINK
-Rï¿½p. (lien)
+Rép. (lien)
 ;
 MSG_TYPE_LINK
 Lien
@@ -45,7 +45,7 @@ MSG_TYPE_OTHER
 Autre
 ;
 MSG_TYPE_DEVICE
-Pï¿½riphï¿½rique
+Périphérique
 ;
 MSG_TYPE_VOLUME
 Volume
@@ -57,13 +57,13 @@ MSG_TYPE_LATE_ASSIGN
 Assignation tardive
 ;
 MSG_TYPE_NONBINDING
-Non liï¿½e
+Non liée
 ;
 MSG_ROOT_ASSIGNS
-(Pï¿½riphï¿½riques et assignations)
+(Périphériques et assignations)
 ;
 MSG_STATUS_FORMAT
-ï¿½lï¿½ments : %ld  |  Sï¿½lectionnï¿½s : %lu
+Éléments : %ld  |  Sélectionnés : %lu
 ;
 MSG_BTN_OK
 OK
@@ -81,7 +81,7 @@ MSG_RENAME
 Renommer
 ;
 MSG_RENAME_SELECT_ONE
-Sï¿½lectionnez un seul ï¿½lï¿½ment ï¿½ renommer.
+Sélectionnez un seul élément à renommer.
 ;
 MSG_RENAME_FAILED
 Impossible de renommer :\n%s
@@ -93,31 +93,31 @@ MSG_DELETE
 Supprimer
 ;
 MSG_DELETE_NONE
-Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
+Aucun élément sélectionné.
 ;
 MSG_DELETE_CONFIRM_ONE
-Supprimer l'ï¿½lï¿½ment sï¿½lectionnï¿½ ?
+Supprimer l'élément sélectionné ?
 ;
 MSG_DELETE_CONFIRM_MANY
-Supprimer %ld ï¿½lï¿½ments sï¿½lectionnï¿½s ?
+Supprimer %ld éléments sélectionnés ?
 ;
 MSG_DELETE_CONFIRM_TITLE
 Confirmer la suppression
 ;
 MSG_DELETE_FAILED
-Impossible de supprimer :\n%s\n(Le dossier n'est peut-ï¿½tre pas vide)
+Impossible de supprimer :\n%s\n(Le dossier n'est peut-être pas vide)
 ;
 MSG_DUPLICATE
 Dupliquer
 ;
 MSG_DUPLICATE_ROOT
-Opï¿½ration non disponible dans cette vue.
+Opération non disponible dans cette vue.
 ;
 MSG_DUPLICATE_NONE
-Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
+Aucun élément sélectionné.
 ;
 MSG_DUPLICATE_ERRORS
-Certains ï¿½lï¿½ments n'ont pas pu ï¿½tre dupliquï¿½s.
+Certains éléments n'ont pas pu être dupliqués.
 ;
 MSG_COPY_PREFIX
 Copie_%ld_%s
@@ -126,7 +126,7 @@ MSG_COPY
 Copier
 ;
 MSG_COPY_NONE
-Aucun ï¿½lï¿½ment sï¿½lectionnï¿½.
+Aucun élément sélectionné.
 ;
 MSG_PASTE
 Coller
@@ -138,7 +138,7 @@ MSG_PASTE_EMPTY
 Le presse-papiers est vide.
 ;
 MSG_PASTE_ERRORS
-Certains ï¿½lï¿½ments n'ont pas pu ï¿½tre collï¿½s.
+Certains éléments n'ont pas pu être collés.
 ;
 MSG_INFO
 Infos
@@ -147,13 +147,13 @@ MSG_INFO_TITLE
 Informations
 ;
 MSG_INFO_SELECT_ONE
-Sï¿½lectionnez un seul ï¿½lï¿½ment.
+Sélectionnez un seul élément.
 ;
 MSG_DROP_COPY_FAILED
-Erreur lors de la copie de l'ï¿½lï¿½ment dï¿½posï¿½.
+Erreur lors de la copie de l'élément déposé.
 ;
 MSG_DRAGDROP_TITLE
-Glisser-dï¿½poser
+Glisser-déposer
 ;
 MSG_DROP_ROOT
 Impossible de copier dans la liste des assignations.
@@ -174,13 +174,13 @@ MSG_COL_DATE
 Date
 ;
 MSG_STATUS_EMPTY
-ï¿½lï¿½ments : 0  |  Sï¿½lectionnï¿½s : 0
+Éléments : 0  |  Sélectionnés : 0
 ;
 MSG_BTN_ICONS
-Icï¿½nes
+Icônes
 ;
 MSG_BTN_DETAILS
-Dï¿½tails
+Détails
 ;
 MSG_BTN_UP
 Haut
@@ -204,13 +204,13 @@ MSG_LABEL_PATH
 Chemin :
 ;
 MSG_DROP_NO_TARGET
-Aucune cible de dï¿½pï¿½t valide trouvï¿½e.
+Aucune cible de dépôt valide trouvée.
 ;
 MSG_COL_COMMENT
 Commentaire
 ;
 MSG_BTN_BACK
-Prï¿½cï¿½dent
+Précédent
 ;
 MSG_BTN_FORWARD
 Suivant
@@ -228,7 +228,7 @@ MSG_MENU_QUIT
 Quitter
 ;
 MSG_MENU_EDIT
-ï¿½dition
+Édition
 ;
 MSG_MENU_VIEW
 Affichage
@@ -240,10 +240,10 @@ MSG_MENU_ADDBOOKMARK
 Ajouter aux favoris
 ;
 MSG_BOOKMARK_ADDED
-Ajoutï¿½ aux favoris.
+Ajouté aux favoris.
 ;
 MSG_MENU_MANAGE
-Gï¿½rer...
+Gérer...
 ;
 MSG_CUT
 Couper
@@ -264,13 +264,13 @@ MSG_ABOUT_EMAIL
 mail : vagappc@yahoo.it
 ;
 MSG_ABOUT_LICENSE
-Logiciel libre : GNU General Public License v3 ou ultï¿½rieure
+Logiciel libre : GNU General Public License v3 ou ultérieure
 ;
 MSG_MOVE
-Dï¿½placer
+Déplacer
 ;
 MSG_PROG_TITLE
-Opï¿½ration fichier
+Opération fichier
 ;
 MSG_PROG_STATUS
 Copie...
@@ -300,7 +300,7 @@ MSG_SIZE_TITLE
 Taille
 ;
 MSG_SIZE_SELECT_DIR
-Selectionnez un tiroir ou un volume.
+Sélectionnez un tiroir ou un volume.
 ;
 MSG_SIZE_RESULT
 Taille : %s (%lld octets)   Fichiers : %lld   Tiroirs : %lld
@@ -333,19 +333,19 @@ MSG_FIND_TITLE
 Rechercher un fichier
 ;
 MSG_FIND_NONE
-Aucun fichier trouve.
+Aucun fichier trouvé.
 ;
 MSG_FIND_RESULTS
-Resultats de la recherche
+Résultats de la recherche
 ;
 MSG_GREP_TITLE
 grep
 ;
 MSG_GREP_NONE
-Aucune correspondance dans les fichiers selectionnes.
+Aucune correspondance dans les fichiers sélectionnés.
 ;
 MSG_GREP_RESULTS
-Resultats grep
+Résultats grep
 ;
 MSG_MENU_SHOWINFO
 Afficher infos fichier
@@ -366,13 +366,13 @@ MSG_MENU_NEW_TEXTFILE
 Fichier texte
 ;
 MSG_MENU_SELECT_ALL
-Tout selectionner
+Tout sélectionner
 ;
 MSG_MENU_INVERT_SELECTION
-Inverser la selection
+Inverser la sélection
 ;
 MSG_MENU_DESELECT_ALL
-Tout deselectionner
+Tout désélectionner
 ;
 MSG_NEW_DRAWER_PROMPT
 Nom du nouveau dossier :
@@ -381,31 +381,31 @@ MSG_NEW_FILE_PROMPT
 Nom du nouveau fichier texte :
 ;
 MSG_NEW_DRAWER_FAILED
-Impossible de creer le dossier.
+Impossible de créer le dossier.
 ;
 MSG_NEW_FILE_FAILED
-Impossible de creer le fichier.
+Impossible de créer le fichier.
 ;
 MSG_NEW_FILE_EXISTS
-Un fichier de ce nom existe deja.
+Un fichier de ce nom existe déjà.
 ;
 MSG_CONFLICT_TITLE
-Le fichier existe deja
+Le fichier existe déjà
 ;
 MSG_CONFLICT_BODY
-Le fichier %s existe deja.\n\nQue voulez-vous faire ?
+Le fichier %s existe déjà.\n\nQue voulez-vous faire ?
 ;
 MSG_CONFLICT_OVERWRITE
-Ecraser
+Écraser
 ;
 MSG_CONFLICT_OVERWRITE_ALL
-Tout ecraser
+Tout écraser
 ;
 MSG_CONFLICT_UPDATE
-Mettre a jour
+Mettre à jour
 ;
 MSG_CONFLICT_UPDATE_ALL
-Tout mettre a jour
+Tout mettre à jour
 ;
 MSG_CONFLICT_RENAME
 Renommer
@@ -417,5 +417,11 @@ MSG_COPY_ERROR_BODY
 Erreur pendant la copie de '%s' :\n%s
 ;
 MSG_COPY_ERROR_BUTTONS
-Reessayer|Passer|Annuler
+Réessayer|Passer|Annuler
+;
+MSG_OPEN_MANY_CONFIRM
+Ouvrir %ld fichiers ?
+;
+MSG_MENU_OPEN_NEWWIN
+Ouvrir dans une nouvelle fenêtre
 ;

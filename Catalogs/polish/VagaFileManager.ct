@@ -27,10 +27,10 @@ MSG_SORT_BY_SIZE
 rozmiar
 ;
 MSG_TYPE_DIR_LINK
-Kat. (odnoï¿½nik)
+Kat. (odno¶nik)
 ;
 MSG_TYPE_LINK
-Odnoï¿½nik
+Odno¶nik
 ;
 MSG_TYPE_DRAWER
 Katalog
@@ -39,13 +39,13 @@ MSG_TYPE_FILE
 Plik
 ;
 MSG_TYPE_SOFTLINK
-Dowiï¿½zanie miï¿½kkie
+Dowi±zanie miêkkie
 ;
 MSG_TYPE_OTHER
 Inne
 ;
 MSG_TYPE_DEVICE
-Urzï¿½dzenie
+Urz±dzenie
 ;
 MSG_TYPE_VOLUME
 Wolumen
@@ -54,13 +54,13 @@ MSG_TYPE_ASSIGN
 Przypisanie
 ;
 MSG_TYPE_LATE_ASSIGN
-Przypisanie pï¿½ne
+Przypisanie pó¼ne
 ;
 MSG_TYPE_NONBINDING
-Niewiï¿½ï¿½ï¿½ce
+Niewi±¿±ce
 ;
 MSG_ROOT_ASSIGNS
-(Urzï¿½dzenia i przypisania)
+(Urz±dzenia i przypisania)
 ;
 MSG_STATUS_FORMAT
 Elementy: %ld  |  Zaznaczone: %lu
@@ -75,49 +75,49 @@ MSG_BTN_OK_CANCEL
 OK|Anuluj
 ;
 MSG_RENAME_TITLE
-Zmieï¿½ nazwï¿½: %s
+Zmieñ nazwê: %s
 ;
 MSG_RENAME
-Zmieï¿½ nazwï¿½
+Zmieñ nazwê
 ;
 MSG_RENAME_SELECT_ONE
 Wybierz jeden element do zmiany nazwy.
 ;
 MSG_RENAME_FAILED
-Nie moï¿½na zmieniï¿½ nazwy:\n%s
+Nie mo¿na zmieniæ nazwy:\n%s
 ;
 MSG_ERROR_TITLE
-Bï¿½ï¿½d
+B³±d
 ;
 MSG_DELETE
-Usuï¿½
+Usuñ
 ;
 MSG_DELETE_NONE
 Nie wybrano elementu.
 ;
 MSG_DELETE_CONFIRM_ONE
-Usunï¿½ï¿½ wybrany element?
+Usun±æ wybrany element?
 ;
 MSG_DELETE_CONFIRM_MANY
-Usunï¿½ï¿½ %ld wybranych elementï¿½w?
+Usun±æ %ld wybranych elementów?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Potwierdï¿½ usuniï¿½cie
+Potwierd¼ usuniêcie
 ;
 MSG_DELETE_FAILED
-Nie moï¿½na usunï¿½ï¿½:\n%s\n(Katalog moï¿½e nie byï¿½ pusty)
+Nie mo¿na usun±æ:\n%s\n(Katalog mo¿e nie byæ pusty)
 ;
 MSG_DUPLICATE
 Duplikuj
 ;
 MSG_DUPLICATE_ROOT
-Operacja niedostï¿½pna w tym widoku.
+Operacja niedostêpna w tym widoku.
 ;
 MSG_DUPLICATE_NONE
 Nie wybrano elementu.
 ;
 MSG_DUPLICATE_ERRORS
-Niektï¿½rych elementï¿½w nie udaï¿½o siï¿½ zduplikowaï¿½.
+Niektórych elementów nie uda³o siê zduplikowaæ.
 ;
 MSG_COPY_PREFIX
 Kopia_%ld_%s
@@ -132,13 +132,13 @@ MSG_PASTE
 Wklej
 ;
 MSG_PASTE_ROOT
-Nie moï¿½na wkleiï¿½ do listy przypisaï¿½.
+Nie mo¿na wkleiæ do listy przypisañ.
 ;
 MSG_PASTE_EMPTY
 Schowek jest pusty.
 ;
 MSG_PASTE_ERRORS
-Niektï¿½rych elementï¿½w nie udaï¿½o siï¿½ wkleiï¿½.
+Niektórych elementów nie uda³o siê wkleiæ.
 ;
 MSG_INFO
 Informacje
@@ -150,16 +150,16 @@ MSG_INFO_SELECT_ONE
 Wybierz jeden element.
 ;
 MSG_DROP_COPY_FAILED
-Bï¿½ï¿½d podczas kopiowania upuszczonego elementu.
+B³±d podczas kopiowania upuszczonego elementu.
 ;
 MSG_DRAGDROP_TITLE
-Przeciï¿½gnij i upuï¿½ï¿½
+Przeci±gnij i upu¶æ
 ;
 MSG_DROP_ROOT
-Nie moï¿½na kopiowaï¿½ do listy przypisaï¿½.
+Nie mo¿na kopiowaæ do listy przypisañ.
 ;
 MSG_DROP_COPY_ERROR_NAME
-Bï¿½ï¿½d kopiowania:\n%s
+B³±d kopiowania:\n%s
 ;
 MSG_COL_NAME
 Nazwa
@@ -180,16 +180,16 @@ MSG_BTN_ICONS
 Ikony
 ;
 MSG_BTN_DETAILS
-Szczegï¿½y
+Szczegó³y
 ;
 MSG_BTN_UP
-W gï¿½rï¿½
+W górê
 ;
 MSG_BTN_OPEN
-Otwï¿½rz
+Otwórz
 ;
 MSG_BTN_REFRESH
-Odï¿½wieï¿½
+Od¶wie¿
 ;
 MSG_BTN_HOME
 Start
@@ -201,10 +201,10 @@ MSG_LABEL_LIST
 Lista:
 ;
 MSG_LABEL_PATH
-ï¿½cieï¿½ka:
+¦cie¿ka:
 ;
 MSG_DROP_NO_TARGET
-Nie znaleziono prawidï¿½owego celu upuszczenia.
+Nie znaleziono prawid³owego celu upuszczenia.
 ;
 MSG_COL_COMMENT
 Komentarz
@@ -225,7 +225,7 @@ MSG_MENU_INFO
 Informacje...
 ;
 MSG_MENU_QUIT
-Zakoï¿½cz
+Zakoñcz
 ;
 MSG_MENU_EDIT
 Edycja
@@ -234,16 +234,16 @@ MSG_MENU_VIEW
 Widok
 ;
 MSG_MENU_BOOKMARKS
-Zakï¿½adki
+Zak³adki
 ;
 MSG_MENU_ADDBOOKMARK
-Dodaj do zakï¿½adek
+Dodaj do zak³adek
 ;
 MSG_BOOKMARK_ADDED
-Dodano do zakï¿½adek.
+Dodano do zak³adek.
 ;
 MSG_MENU_MANAGE
-Zarzï¿½dzaj...
+Zarz±dzaj...
 ;
 MSG_CUT
 Wytnij
@@ -267,7 +267,7 @@ MSG_ABOUT_LICENSE
 Wolne oprogramowanie: GNU GPL v3 lub nowsza
 ;
 MSG_MOVE
-Przenieï¿½
+Przenie¶
 ;
 MSG_PROG_TITLE
 Operacja na plikach
@@ -282,16 +282,16 @@ MSG_PROG_CONTINUE
 Kontynuuj
 ;
 MSG_MENU_SHOW
-Pokaï¿½ wg
+Poka¿ wg
 ;
 MSG_MENU_SCRIPT
 Skrypt
 ;
 MSG_SCRIPT_REFRESH
-Odswiez liste
+Od¶wie¿ listê
 ;
 MSG_SCRIPT_OPENDIR
-Otworz szuflade wtyczek
+Otwórz szufladê wtyczek
 ;
 MSG_CALC_SIZE
 Oblicz rozmiar
@@ -300,10 +300,10 @@ MSG_SIZE_TITLE
 Rozmiar
 ;
 MSG_SIZE_SELECT_DIR
-Wybierz szuflade lub wolumin.
+Wybierz szufladê lub wolumin.
 ;
 MSG_SIZE_RESULT
-Rozmiar: %s (%lld bajtow)   Pliki: %lld   Szuflady: %lld
+Rozmiar: %s (%lld bajtów)   Pliki: %lld   Szuflady: %lld
 ;
 MSG_BTN_SPLIT_HINT
 Podziel / zamknij drugi panel
@@ -321,16 +321,16 @@ MSG_ABOUT_MAIL
 Mail: vagappc@yahoo.it
 ;
 MSG_ABOUT_THANKS
-Podziekowania: ldg72, Flash, Kaffeine, ACube i AlfredONE
+Podziêkowania: ldg72, Flash, Kaffeine, ACube i AlfredONE
 ;
 MSG_MENU_WBREPLACE
-Zastap Workbench
+Zast±p Workbench
 ;
 MSG_MENU_WBRESTORE
-Przywroc Workbench
+Przywróæ Workbench
 ;
 MSG_FIND_TITLE
-Znajdz plik
+Znajd¼ plik
 ;
 MSG_FIND_NONE
 Nie znaleziono pliku.
@@ -342,16 +342,16 @@ MSG_GREP_TITLE
 grep
 ;
 MSG_GREP_NONE
-Brak dopasowan w wybranych plikach.
+Brak dopasowañ w wybranych plikach.
 ;
 MSG_GREP_RESULTS
 Wyniki grep
 ;
 MSG_MENU_SHOWINFO
-Pokaz info plikow
+Poka¿ info plików
 ;
 MSG_BTN_SHELL_HINT
-Otworz powloke tutaj
+Otwórz pow³okê tutaj
 ;
 MSG_MENU_SHELL
 Shell
@@ -369,7 +369,7 @@ MSG_MENU_SELECT_ALL
 Zaznacz wszystko
 ;
 MSG_MENU_INVERT_SELECTION
-Odwroc zaznaczenie
+Odwróæ zaznaczenie
 ;
 MSG_MENU_DESELECT_ALL
 Odznacz wszystko
@@ -381,19 +381,19 @@ MSG_NEW_FILE_PROMPT
 Nazwa nowego pliku tekstowego:
 ;
 MSG_NEW_DRAWER_FAILED
-Nie mozna utworzyc katalogu.
+Nie mo¿na utworzyæ katalogu.
 ;
 MSG_NEW_FILE_FAILED
-Nie mozna utworzyc pliku.
+Nie mo¿na utworzyæ pliku.
 ;
 MSG_NEW_FILE_EXISTS
-Plik o tej nazwie juz istnieje.
+Plik o tej nazwie ju¿ istnieje.
 ;
 MSG_CONFLICT_TITLE
-Plik juz istnieje
+Plik ju¿ istnieje
 ;
 MSG_CONFLICT_BODY
-Plik %s juz istnieje.\n\nCo chcesz zrobic?
+Plik %s ju¿ istnieje.\n\nCo chcesz zrobiæ?
 ;
 MSG_CONFLICT_OVERWRITE
 Nadpisz
@@ -408,14 +408,20 @@ MSG_CONFLICT_UPDATE_ALL
 Aktualizuj wszystkie
 ;
 MSG_CONFLICT_RENAME
-Zmien nazwe
+Zmieñ nazwê
 ;
 MSG_CONFLICT_SKIP
-Pomin
+Pomiñ
 ;
 MSG_COPY_ERROR_BODY
-Blad podczas kopiowania '%s':\n%s
+B³±d podczas kopiowania '%s':\n%s
 ;
 MSG_COPY_ERROR_BUTTONS
-Ponow|Pomin|Anuluj
+Ponów|Pomiñ|Anuluj
+;
+MSG_OPEN_MANY_CONFIRM
+Otworzyæ %ld plików?
+;
+MSG_MENU_OPEN_NEWWIN
+Otwórz w nowym oknie
 ;

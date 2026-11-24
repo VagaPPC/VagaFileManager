@@ -254,8 +254,7 @@ BOOL DirHasInfoFiles(CONST_STRPTR drawer)
     if (!ctx) return FALSE;
     while ((ed = IDOS->ExamineDir(ctx)) != NULL)
     {
-        ULONG len = strlen(ed->Name);
-        if (len > 5 && IUtility->Stricmp(ed->Name + len - 5, ".info") == 0)
+        if (PathIsInfo(ed->Name))
         {
             found = TRUE;
             break;
@@ -556,11 +555,10 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         {
             while (count < MAX_ENTRIES && (ed = IDOS->ExamineDir(context)) != NULL)
             {
-                ULONG nameLen = strlen(ed->Name);
                 char fullPath[PATH_MAX_LEN];
                 BOOL hasInfo, isInfo;
 
-                isInfo = (nameLen > 5 && IUtility->Stricmp(ed->Name + nameLen - 5, ".info") == 0) ? TRUE : FALSE;
+                isInfo = PathIsInfo(ed->Name);
                 /* i .info si mostrano solo nella vista a lista, e solo se
                    l'utente ha attivato "Mostra file info" */
                 if (isInfo && (!gShowInfoFiles || gViewMode == FBVM_ICONS))
@@ -625,10 +623,8 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         {
             /* Per un file .info mostrato in elenco carica l'icona dal file
                stesso: GetIconTags("x") apre "x.info". */
-            ULONG nlen = strlen(itemPath);
-            if (!entries[i].isDir && nlen > 5 &&
-                IUtility->Stricmp(itemPath + nlen - 5, ".info") == 0)
-                itemPath[nlen - 5] = '\0';
+            if (!entries[i].isDir && PathIsInfo(itemPath))
+                itemPath[strlen(itemPath) - 5] = '\0';
         }
 
         /* Carica l'icona; se il file .info e' appena stato riscritto (es. dopo
@@ -938,6 +934,62 @@ BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct
     }
 
     NavigateTo(newPath, listGad, pathGad, statusGad, win, list);
+    return TRUE;
+}
+
+/* Oltre questo numero di file, Enter chiede conferma prima di lanciarli. */
+#define OPEN_MANY_CONFIRM_LIMIT 10
+
+/* Enter sulla lista: con una sola voce selezionata si comporta come il
+   doppio click.  Con piu' voci lancia tutti i file selezionati via
+   Workbench (i cassetti vengono ignorati: si entra in un cassetto solo
+   se e' l'unica voce selezionata).  Oltre OPEN_MANY_CONFIRM_LIMIT file
+   chiede conferma. */
+BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+{
+    struct Node *n;
+    LONG selCount, fileCount = 0;
+    char newPath[PATH_MAX_LEN];
+
+    selCount = CountSelectedEntries(list);
+    if (selCount <= 0) return FALSE;
+    if (selCount == 1)
+        return TryOpenSelected(listGad, pathGad, statusGad, win, list, FALSE);
+
+    /* prima passata: conta i file (non i cassetti) */
+    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES;
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index, TAG_DONE);
+        if (sel && index < (ULONG)gEntryCount && !gIsDir[index]) fileCount++;
+    }
+    if (fileCount == 0) return FALSE;
+    if (!WorkbenchBase || !IWorkbench)
+    {
+        DBG("cannot launch files: workbench.library not available");
+        return FALSE;
+    }
+
+    if (fileCount > OPEN_MANY_CONFIRM_LIMIT)
+    {
+        char msg[128];
+        snprintf(msg, sizeof(msg), LS(MSG_OPEN_MANY_CONFIRM), (long)fileCount);
+        if (!ConfirmRequest(LS(MSG_BTN_OPEN), msg)) return FALSE;
+    }
+
+    /* seconda passata: lancia i file */
+    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
+        ULONG sel = FALSE, index = MAX_ENTRIES;
+        STRPTR name = NULL;
+
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index,
+                                              LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+        if (!sel || !name || index >= (ULONG)gEntryCount || gIsDir[index]) continue;
+        if (!BuildChildPath(gPathBuffer, name, newPath, sizeof(newPath))) continue;
+        DBG("launch '%s' via Workbench", newPath);
+        IWorkbench->OpenWorkbenchObjectA(newPath, NULL);
+    }
     return TRUE;
 }
 

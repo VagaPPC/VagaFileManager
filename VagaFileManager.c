@@ -74,6 +74,20 @@ WORD  gDragStartX = 0, gDragStartY = 0;
 BOOL  gDragButtonDown = FALSE;
 
 static volatile BOOL gTabSwitchRequest = FALSE;
+
+/* Menu contestuale: l'hook (contesto input.device) annota qui il pannello
+   e la posizione visibile sotto il mouse; il loop principale li legge
+   quando arriva la scelta.  gCtxMenuBlocked disattiva l'hook mentre i
+   gadget delle liste vengono creati o distrutti (ToggleSplit). */
+struct CtxMenuInfo
+{
+    int     pane;
+    LONG    pos;      /* posizione visibile nella lista, -1 = spazio vuoto */
+    Object *menu;     /* menu restituito a Intuition */
+};
+static struct CtxMenuInfo gCtxInfo;
+static struct Hook gCtxMenuHook;
+static volatile BOOL gCtxMenuBlocked = FALSE;
 static struct Hook gKeyIDCMPHook;
 
 char gDropPortName[64];
@@ -91,12 +105,6 @@ char gRexxPortName[64] = REXX_PORT_NAME;
 static struct Library *gRexxBase = NULL;
 static struct RexxSysIFace *gIRexx = NULL;
 static volatile BOOL gRexxQuit = FALSE;
-
-/* Porta di risposta per i comandi ARexx inviati ad altre applicazioni
-   (per esempio AmiDock/ADDOBJECT).  E' asincrona: VFM non resta bloccato
-   se l'applicazione di destinazione non risponde subito o non risponde. */
-static struct MsgPort *gARexxReplyPort = NULL;
-static LONG gARexxPending = 0;
 
 volatile BOOL gProgActive = FALSE;
 volatile BOOL gProgCancel = FALSE;
@@ -924,7 +932,16 @@ static void UpdatePaneMarkers(struct Window *win);
 
 /* Attiva/disattiva la modalita' split: mostra o nasconde il secondo
    pannello e la barra comandi condivisa. */
+static void ToggleSplitPanes(struct Window *win, Object *winObj);
+
 static void ToggleSplit(struct Window *win, Object *winObj)
+{
+    gCtxMenuBlocked = TRUE;
+    ToggleSplitPanes(win, winObj);
+    gCtxMenuBlocked = FALSE;
+}
+
+static void ToggleSplitPanes(struct Window *win, Object *winObj)
 {
     struct Pane *pn = &gPanes[1];
 
@@ -1237,6 +1254,21 @@ void ScanPlugins(void)
         gPluginCount++;
     }
     IDOS->ReleaseDirContext(ctx);
+
+    /* Ordine alfabetico (senza distinzione maiuscole/minuscole) sul nome
+       del file, cosi' il menu Script e' stabile e facile da consultare. */
+    {
+        static char tmp[PATH_MAX_LEN];
+        LONG i, j;
+        for (i = 1; i < gPluginCount; i++)
+        {
+            strcpy(tmp, gPlugins[i]);
+            for (j = i - 1; j >= 0 &&
+                 IUtility->Stricmp(FilePart(gPlugins[j]), FilePart(tmp)) > 0; j--)
+                strcpy(gPlugins[j + 1], gPlugins[j]);
+            strcpy(gPlugins[j + 1], tmp);
+        }
+    }
     DBG("plugins found: %ld", (long)gPluginCount);
 }
 
@@ -1474,14 +1506,8 @@ static LONG RexxDeleteSelected(int gp, struct Window *win)
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
             LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
         if (!name || index >= (ULONG)gEntryCount) continue;
-
-        if (IsRootPath(gPathBuffer))
-        {
-            strncpy(full, name, sizeof(full) - 1);
-            full[sizeof(full) - 1] = '\0';
-        }
-        else if (!BuildChildPath(gPathBuffer, name, full, sizeof(full)))
-            continue;
+        /* la radice e' gia' esclusa all'inizio della funzione */
+        if (!BuildChildPath(gPathBuffer, name, full, sizeof(full))) continue;
 
         if (DeleteEntryRecursive(full, 0)) { DeleteSiblingInfo(full); count++; }
     }
@@ -2041,116 +2067,6 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
     IExec->FreeSysObject(ASOT_PORT, reply);
 }
 
-/* Crea (una sola volta) la porta su cui arrivano le risposte ARexx. */
-static BOOL EnsureARexxReplyPort(void)
-{
-    if (gARexxReplyPort) return TRUE;
-    if (!gIRexx) return FALSE;
-    gARexxReplyPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
-    return (gARexxReplyPort != NULL);
-}
-
-/* Invia un comando a una porta ARexx pubblica esterna senza aspettare la
-   risposta.  Il RexxMsg viene messo nella porta di destinazione e la
-   risposta verra' raccolta da ProcessARexxReplies() nel loop principale.
-   Questo evita che VFM si blocchi se AmiDock (o un altro host) non risponde
-   subito: il trascinamento resta reattivo. */
-BOOL PostARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command)
-{
-    struct MsgPort *port;
-    struct RexxMsg *msg;
-
-    if (!portName || !portName[0] || !command || !command[0])
-        return FALSE;
-    if (!gIRexx || !EnsureARexxReplyPort())
-        return FALSE;
-
-    msg = gIRexx->CreateRexxMsg(gARexxReplyPort, NULL, NULL);
-    if (!msg)
-        return FALSE;
-
-    msg->rm_Action = RXCOMM | RXFF_RESULT;
-    msg->rm_Args[0] = gIRexx->CreateArgstring((STRPTR)command, strlen(command));
-    if (!msg->rm_Args[0])
-    {
-        gIRexx->DeleteRexxMsg(msg);
-        return FALSE;
-    }
-
-    /* FindPort() e PutMsg() sotto Forbid: la porta non puo' sparire
-       tra la ricerca e l'invio. */
-    IExec->Forbid();
-    port = IExec->FindPort(portName);
-    if (port)
-        IExec->PutMsg(port, (struct Message *)msg);
-    IExec->Permit();
-
-    if (!port)
-    {
-        gIRexx->DeleteArgstring((STRPTR)msg->rm_Args[0]);
-        gIRexx->DeleteRexxMsg(msg);
-        return FALSE;
-    }
-    gARexxPending++;
-    return TRUE;
-}
-
-/* Segnale da aggiungere al Wait principale, 0 se la porta non esiste. */
-ULONG ARexxReplySignal(void)
-{
-    return gARexxReplyPort ? (1UL << gARexxReplyPort->mp_SigBit) : 0;
-}
-
-/* Raccoglie e libera le risposte ARexx arrivate.  Viene chiamata dal loop
-   principale quando il segnale della porta di risposta e' attivo. */
-void ProcessARexxReplies(void)
-{
-    struct Message *m;
-
-    if (!gARexxReplyPort || !gIRexx) return;
-
-    while ((m = IExec->GetMsg(gARexxReplyPort)) != NULL)
-    {
-        struct RexxMsg *rx = (struct RexxMsg *)m;
-
-        if (gARexxPending > 0) gARexxPending--;
-
-        if (gIRexx->IsRexxMsg(rx))
-        {
-            char result[256];
-            /* rm_Result2 e' un argstring SOLO se rm_Result1 == 0.  In caso
-               di errore (rm_Result1 != 0) contiene un codice numerico
-               (es. 10, 20): trattarlo come puntatore e passarlo a
-               DeleteArgstring() corrompe la memoria e blocca il sistema
-               (succedeva con MultiEdit, che risponde con errore ad alcuni
-               comandi). */
-            BOOL hasString = (rx->rm_Result1 == 0 && rx->rm_Result2 != 0);
-            result[0] = '\0';
-            if (hasString)
-            {
-                strncpy(result, (STRPTR)rx->rm_Result2, sizeof(result) - 1);
-                result[sizeof(result) - 1] = '\0';
-            }
-            DBG("ARexx reply: result1=%ld result='%s' arg='%s'",
-                (long)rx->rm_Result1, result,
-                rx->rm_Args[0] ? (STRPTR)rx->rm_Args[0] : "");
-            if (rx->rm_Args[0])
-            {
-                gIRexx->DeleteArgstring((STRPTR)rx->rm_Args[0]);
-                rx->rm_Args[0] = NULL;
-            }
-            if (hasString)
-                gIRexx->DeleteArgstring((STRPTR)rx->rm_Result2);
-            rx->rm_Result2 = 0;
-            gIRexx->DeleteRexxMsg(rx);
-        }
-        else
-        {
-            IExec->ReplyMsg(m);
-        }
-    }
-}
-
 static void ProcessPluginRequests(struct Window *win)
 {
     for (;;)
@@ -2495,6 +2411,139 @@ static void ClearPaneSelection(struct Window *win)
     UpdateStatus(pn->listGad, pn->statusGad, win);
 }
 
+/* ===== Menu contestuale ===== */
+
+/* Hook WA_ContextMenuHook: Intuition lo chiama (dal task input.device)
+   quando l'utente preme il tasto destro nella finestra.  Restituisce il
+   menu per un file/cassetto o quello per lo spazio vuoto se il mouse e'
+   sopra una lista, altrimenti NULL (menu normale della finestra).
+   Qui non si tocca la selezione ne' si ridisegna nulla: lo fa il loop
+   principale quando arriva la scelta (PrepareMenuPick). */
+static uint32 ContextMenuHookFunc(struct Hook *hook, struct Window *win, struct ContextMenuMsg *msg)
+{
+    int p;
+
+    (void)hook;
+    if (!msg || msg->State != CM_QUERY) return 0;
+    msg->Menu = NULL;
+    msg->Context = NULL;
+    if (!win || gCtxMenuBlocked || gDragActive || gDragButtonDown) return 0;
+
+    for (p = 0; p < 2; p++)
+    {
+        struct Gadget *g = (struct Gadget *)gPanes[p].listGad;
+        struct FBGetIndexAt hi;
+        Object *menu;
+
+        if (!g || g->Width <= 0 || g->Height <= 0) continue;
+        if (win->MouseX < g->LeftEdge || win->MouseX >= g->LeftEdge + g->Width ||
+            win->MouseY < g->TopEdge  || win->MouseY >= g->TopEdge + g->Height)
+            continue;
+
+        memset(&hi, 0, sizeof(hi));
+        hi.MethodID = FILEBROWSER_GetIndexAt;
+        hi.fbgia_X = win->MouseX;
+        hi.fbgia_Y = win->MouseY;
+        hi.fbgia_FontY = (win->RPort && win->RPort->Font) ? win->RPort->Font->tf_YSize : 0;
+        hi.fbgia_Index = -1;
+        IIntuition->IDoMethodA((Object *)g, (Msg)&hi);
+
+        menu = (hi.fbgia_Index >= 0) ? gCtxMenuItem : gCtxMenuEmpty;
+        if (!menu) return 0;
+        gCtxInfo.pane = p;
+        gCtxInfo.pos  = hi.fbgia_Index;
+        gCtxInfo.menu = menu;
+        msg->Menu = menu;
+        msg->Context = &gCtxInfo;
+        return 0;
+    }
+    return 0;
+}
+
+/* Chiamata all'arrivo di WMHI_MENUPICK.  Per una scelta dal menu
+   contestuale: rende attivo il pannello cliccato e, se la voce sotto il
+   mouse non era selezionata, seleziona solo quella (se lo era, la
+   selezione multipla resta).  Restituisce il pannello su cui eseguire il
+   comando e in *root l'albero menu da cui leggere le voci scelte. */
+static int PrepareMenuPick(struct Window *win, Object **root)
+{
+    ULONG type = IMT_DEFAULT;
+    APTR ctx = NULL;
+    int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+
+    *root = gMenuRoot;
+    if (!gMainWinObj) return gp;
+    IIntuition->GetAttr(WINDOW_MenuType, gMainWinObj, &type);
+    if (type != IMT_CONTEXT_WINDOW) return gp;
+    IIntuition->GetAttr(WINDOW_MenuContext, gMainWinObj, (ULONG *)&ctx);
+    if (ctx != &gCtxInfo || !gCtxInfo.menu) return gp;
+
+    *root = gCtxInfo.menu;
+    if (gCtxInfo.pane < 0 || gCtxInfo.pane > 1 || !gPanes[gCtxInfo.pane].listGad)
+        return gp;
+    gp = gCtxInfo.pane;
+
+    if (gCtxInfo.pos >= 0 && win)
+    {
+        struct Node *n;
+        LONG pos = 0;
+
+        for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ && pos < gCtxInfo.pos; n = n->ln_Succ)
+            pos++;
+        if (n->ln_Succ)
+        {
+            ULONG sel = FALSE, index = MAX_ENTRIES;
+            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index, TAG_DONE);
+            if (!sel && index < (ULONG)gPanes[gp].entryCount)
+                SelectPaneIndex(gp, (LONG)index, win);
+        }
+    }
+    return gp;
+}
+
+/* Enter, Shift+Enter, Backspace e Del sulla lista attiva.  Ignorano
+   l'autorepeat: un tasto tenuto premuto non deve lanciare lo stesso
+   programma piu' volte o riaprire la richiesta di eliminazione.
+   Quando il campo percorso o il filtro sono attivi, Intuition passa i
+   tasti al gadget stringa e qui non arriva nulla.
+   Ritorna TRUE se il tasto e' stato gestito. */
+#define PANEKEY_ENTER     1
+#define PANEKEY_BACKSPACE 2
+#define PANEKEY_DEL       3
+
+static BOOL HandlePaneKey(int which, ULONG qual, struct Window *win)
+{
+    struct Pane *pn = &gPanes[gActivePane];
+
+    if (!pn->listGad || !win) return FALSE;
+    if (qual & IEQUALIFIER_REPEAT) return TRUE;
+
+    switch (which)
+    {
+        case PANEKEY_ENTER:
+            if (qual & (IEQUALIFIER_LSHIFT | IEQUALIFIER_RSHIFT))
+                /* come il pulsante Apri: cassetto in una nuova istanza */
+                TryOpenSelected(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList, TRUE);
+            else
+                OpenSelectedEntries(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+            break;
+
+        case PANEKEY_BACKSPACE:
+            GoUp(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+            break;
+
+        case PANEKEY_DEL:
+            if (CountSelectedEntries(&pn->fileList) > 0)
+                DoDeleteSelected(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+            break;
+
+        default:
+            return FALSE;
+    }
+    UpdateAllStatuses(win);
+    return TRUE;
+}
+
 static void HandleVanillaKey(ULONG key, struct Window *win)
 {
     ULONG qual = KeyQualifiers();
@@ -2502,6 +2551,11 @@ static void HandleVanillaKey(ULONG key, struct Window *win)
     if (qual & (IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND |
                 IEQUALIFIER_LALT | IEQUALIFIER_RALT))
         return;
+
+    /* con IDCMP_VANILLAKEY Return/Enter, Backspace e Del arrivano qui */
+    if (key == 13) { HandlePaneKey(PANEKEY_ENTER, qual, win); return; }
+    if (key == 8)  { HandlePaneKey(PANEKEY_BACKSPACE, qual, win); return; }
+    if (key == 127) { HandlePaneKey(PANEKEY_DEL, qual, win); return; }
 
     /* con IDCMP_VANILLAKEY, TAB ed ESC arrivano qui come caratteri */
     if (key == 9)
@@ -2530,6 +2584,16 @@ static void HandleRawKey(ULONG key, struct Window *win)
         return;
 
     if (key & IECODE_UP_PREFIX) return;   /* solo pressione, non rilascio */
+
+    /* di solito arrivano come VANILLAKEY; qui per sicurezza */
+    switch (key & ~IECODE_UP_PREFIX)
+    {
+        case RAWKEY_RETURN:
+        case RAWKEY_ENTER:     HandlePaneKey(PANEKEY_ENTER, qual, win); return;
+        case RAWKEY_BACKSPACE: HandlePaneKey(PANEKEY_BACKSPACE, qual, win); return;
+        case RAWKEY_DEL:       HandlePaneKey(PANEKEY_DEL, qual, win); return;
+        default: break;
+    }
     key &= ~IECODE_UP_PREFIX;
 
     switch (key)
@@ -2882,6 +2946,7 @@ int main(int argc, char **argv)
         CreatePaneUI(0);
         LoadBookmarks();
         BuildMenu();
+        BuildContextMenus();
 
         /* riga dei due pannelli */
         gPanesRow = IIntuition->NewObject(NULL, "layout.gadget",
@@ -2898,6 +2963,8 @@ int main(int argc, char **argv)
 
         memset(&gKeyIDCMPHook, 0, sizeof(gKeyIDCMPHook));
         gKeyIDCMPHook.h_Entry = (HOOKFUNC)KeyIDCMPHook;
+        memset(&gCtxMenuHook, 0, sizeof(gCtxMenuHook));
+        gCtxMenuHook.h_Entry = (HOOKFUNC)ContextMenuHookFunc;
 
         objects[OID_MAIN] = IIntuition->NewObject(NULL, "window.class",
             WA_Title, (ULONG)LS(MSG_APP_TITLE),
@@ -2911,6 +2978,7 @@ int main(int argc, char **argv)
                      IDCMP_VANILLAKEY | IDCMP_RAWKEY,
             WINDOW_GadgetHelp, TRUE,
             WINDOW_IDCMPHook, (ULONG)&gKeyIDCMPHook,
+            WA_ContextMenuHook, (ULONG)&gCtxMenuHook,
             WINDOW_IDCMPHookBits, IDCMP_RAWKEY | IDCMP_VANILLAKEY,
             gWinPosValid ? TAG_IGNORE : WINDOW_Position,
             gWinPosValid ? (ULONG)0 : (ULONG)WPOS_CENTERMOUSE,
@@ -2944,7 +3012,6 @@ int main(int argc, char **argv)
                 {
                     ULONG notifyBits = 0;
                     ULONG rexxSig = gRexxPort ? (1UL << gRexxPort->mp_SigBit) : 0;
-                    ULONG arexxSig = ARexxReplySignal();
                     ULONG dragSig = DragTimerSignal();
                     ULONG appDropSig = AppDropReplySignal();
                     ULONG wait;
@@ -2954,13 +3021,10 @@ int main(int argc, char **argv)
                             notifyBits |= 1UL << gPanes[p].notifyPort->mp_SigBit;
 
                     wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig |
-                                       arexxSig | dragSig | appDropSig |
+                                       dragSig | appDropSig |
                                        SIGBREAKF_CTRL_C);
                     if (wait & SIGBREAKF_CTRL_C) done = TRUE;
 
-                    /* risposte ai comandi inviati ad altre app (AmiDock) */
-                    if (arexxSig && (wait & arexxSig))
-                        ProcessARexxReplies();
                     /* risposte agli AppMessage dei drop verso altre app */
                     if (appDropSig && (wait & appDropSig))
                         ProcessAppDropReplies();
@@ -3234,7 +3298,8 @@ int main(int argc, char **argv)
                                     ULONG ids[16];
                                     int idCount = 0, miIndex;
                                     struct mpNextSelect ns;
-                                    int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+                                    Object *pickRoot = NULL;
+                                    int gp = PrepareMenuPick(windows[WID_MAIN], &pickRoot);
                                     Object *listGad   = gPanes[gp].listGad;
                                     Object *pathGad   = gPanes[gp].pathGad;
                                     Object *statusGad = gPanes[gp].statusGad;
@@ -3246,14 +3311,14 @@ int main(int argc, char **argv)
                                     /* menuclass: raccoglie tutti gli ID selezionati
                                        prima di eseguire i comandi (UpdateMenu puo'
                                        ricostruire l'albero) */
-                                    if (gMenuRoot)
+                                    if (pickRoot)
                                     {
                                         ns.MethodID = MM_NEXTSELECT;
                                         ns.mpns_Reserved = 0;
                                         ns.mpns_CurrentID = NO_MENU_ID;
                                         while (idCount < 16)
                                         {
-                                            ULONG id = IIntuition->IDoMethodA(gMenuRoot, (Msg)&ns);
+                                            ULONG id = IIntuition->IDoMethodA(pickRoot, (Msg)&ns);
                                             if (id == NO_MENU_ID) break;
                                             ids[idCount++] = id;
                                             ns.mpns_CurrentID = id;
@@ -3308,6 +3373,7 @@ int main(int argc, char **argv)
                                                 case MENU_SCRIPT_REFRESH: ScanPlugins(); UpdateMenu(); break;
                                                 case MENU_SCRIPT_OPENDIR: CreateDirUnlocked(PLUGIN_DIR); NavigateTo((CONST_STRPTR)PLUGIN_DIR,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
+                                                case MENU_CTX_OPEN: OpenSelectedEntries(listGad,pathGad,statusGad,windows[WID_MAIN],fl); needStatus=TRUE; break;
                                                 case MENU_REFRESH: LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_TOGGLE_VIEW: DoToggleView(listGad, toggleGad, windows[WID_MAIN]); LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
                                                 case MENU_ICON_SIZE_AUTO: ApplyPaneIconSize(0, listGad, windows[WID_MAIN]); UpdateMenu(); break;
@@ -3510,6 +3576,7 @@ int main(int argc, char **argv)
 
     if (objects[OID_MAIN]) { IIntuition->DisposeObject(objects[OID_MAIN]); windows[WID_MAIN]=NULL; }
     if (gMenuRoot) { IIntuition->DisposeObject(gMenuRoot); gMenuRoot = NULL; }
+    FreeContextMenus();
     FreeMenuImages();
     for (p = 0; p < 2; p++)
     {
@@ -3517,28 +3584,6 @@ int main(int argc, char **argv)
     }
     CleanupPluginDir();
     if (appPort) IExec->FreeSysObject(ASOT_PORT, appPort);
-
-    /* Attende per un breve periodo le risposte ARexx ancora in volo.
-       Se una destinazione non risponde, non blocca la chiusura. */
-    if (gARexxReplyPort)
-    {
-        int i2;
-        for (i2 = 0; i2 < 20 && gARexxPending > 0; i2++)
-        {
-            ProcessARexxReplies();
-            if (gARexxPending > 0) IDOS->Delay(1);
-        }
-        ProcessARexxReplies();
-        if (gARexxPending <= 0)
-        {
-            IExec->FreeSysObject(ASOT_PORT, gARexxReplyPort);
-            gARexxReplyPort = NULL;
-        }
-        else
-        {
-            DBG("ARexx: %ld risposte ancora in attesa alla chiusura", (long)gARexxPending);
-        }
-    }
 
     if (gRexxPort)
     {

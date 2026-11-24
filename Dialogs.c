@@ -273,82 +273,14 @@ LONG AskCopyError(CONST_STRPTR name, LONG err)
     return IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
 }
 
-BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize)
-{
-    Object *renWinObj = NULL, *strGad = NULL;
-    struct Window *renWin = NULL;
-    BOOL ok = FALSE, done = FALSE;
-    ULONG sig = 0; char title[300];
-
-    snprintf(title, sizeof(title), LS(MSG_RENAME_TITLE), oldName);
-    strncpy(newNameBuf, oldName, bufSize - 1); newNameBuf[bufSize - 1] = '\0';
-
-    strGad = IIntuition->NewObject(NULL, "string.gadget",
-        GA_ID, GID_RENAME_STR, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
-        STRINGA_MaxChars, bufSize - 1, STRINGA_TextVal, (ULONG)newNameBuf, STRINGA_Buffer, (ULONG)newNameBuf, TAG_DONE);
-
-    renWinObj = IIntuition->NewObject(NULL, "window.class",
-        WA_Title, (ULONG)title, WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 360, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERMOUSE,
-        WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
-            LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
-            LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
-            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
-                LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ, LAYOUT_EvenSize, TRUE,
-                LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_RENAME_OK, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_BTN_OK), TAG_DONE),
-                LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_RENAME_CANCEL, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_BTN_CANCEL), TAG_DONE),
-            TAG_DONE), CHILD_WeightedHeight, 0,
-        TAG_DONE), TAG_DONE);
-
-    if (renWinObj)
-    {
-        renWin = (struct Window *)IIntuition->IDoMethod(renWinObj, WM_OPEN);
-        if (renWin)
-        {
-            IIntuition->GetAttr(WINDOW_SigMask, renWinObj, &sig);
-            while (!done)
-            {
-                ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
-                if (wait & SIGBREAKF_CTRL_C) { done = TRUE; ok = FALSE; }
-                if (wait & sig)
-                {
-                    ULONG res; WORD code = 0;
-                    while ((res = IIntuition->IDoMethod(renWinObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
-                    {
-                        switch (res & WMHI_CLASSMASK)
-                        {
-                            case WMHI_CLOSEWINDOW: done = TRUE; ok = FALSE; renWin = NULL; break;
-                            case WMHI_GADGETUP:
-                                switch (res & WMHI_GADGETMASK)
-                                {
-                                    case GID_RENAME_OK: case GID_RENAME_STR:
-                                    { STRPTR txt = NULL; IIntuition->GetAttr(STRINGA_TextVal, strGad, (ULONG *)&txt);
-                                      if (txt) { strncpy(newNameBuf, txt, bufSize - 1); newNameBuf[bufSize - 1] = '\0'; }
-                                      ok = TRUE; done = TRUE; break; }
-                                    case GID_RENAME_CANCEL: ok = FALSE; done = TRUE; break;
-                                    default: break;
-                                }
-                                break;
-                            default: break;
-                        }
-                    }
-                }
-            }
-        }
-        IIntuition->DisposeObject(renWinObj);
-    }
-    return ok;
-}
-
-BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
+/* Richiesta di una riga di testo: 'buf' contiene il testo iniziale e, se
+   l'utente conferma, il testo inserito.  'width' e' la larghezza interna. */
+static BOOL PromptStringWidth(CONST_STRPTR title, STRPTR buf, ULONG bufSize, ULONG width)
 {
     Object *winObj = NULL, *strGad = NULL;
     struct Window *win = NULL;
     BOOL ok = FALSE, done = FALSE;
     ULONG sig = 0;
-
-    if (!buf || bufSize == 0) return FALSE;
-    buf[0] = '\0';
 
     strGad = IIntuition->NewObject(NULL, "string.gadget",
         GA_ID, GID_RENAME_STR, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
@@ -356,7 +288,7 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)title, WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 420, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERMOUSE,
+        WA_SizeGadget, FALSE, WA_InnerWidth, width, WA_InnerHeight, 60, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
@@ -405,6 +337,23 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
         IIntuition->DisposeObject(winObj);
     }
     return ok;
+}
+
+BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize)
+{
+    char title[300];
+
+    if (!oldName || !newNameBuf || bufSize == 0) return FALSE;
+    snprintf(title, sizeof(title), LS(MSG_RENAME_TITLE), oldName);
+    strncpy(newNameBuf, oldName, bufSize - 1); newNameBuf[bufSize - 1] = '\0';
+    return PromptStringWidth(title, newNameBuf, bufSize, 360);
+}
+
+BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
+{
+    if (!buf || bufSize == 0) return FALSE;
+    buf[0] = '\0';
+    return PromptStringWidth(title, buf, bufSize, 420);
 }
 
 /* Dialogo Reaction generico per gli addon (comando ARexx DIALOG).
@@ -793,6 +742,36 @@ void ProgressUpdate(void)
     if (gProgIndeterminate) gProgPhase++;
 }
 
+/* Gestisce gli eventi della finestra di avanzamento: chiusura/Annulla
+   interrompono, Pausa/Continua commuta gProgPause. */
+static void HandleProgressInput(void)
+{
+    ULONG res; WORD code = 0;
+    while ((res = IIntuition->IDoMethod(gProgWinObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
+    {
+        switch (res & WMHI_CLASSMASK)
+        {
+            case WMHI_CLOSEWINDOW:
+                gProgCancel = TRUE;
+                break;
+            case WMHI_GADGETUP:
+            {
+                ULONG id = res & WMHI_GADGETMASK;
+                if (id == GID_PROG_CANCEL) gProgCancel = TRUE;
+                else if (id == GID_PROG_PAUSE)
+                {
+                    gProgPause = !gProgPause;
+                    if (gProgPauseBtn)
+                        IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgPauseBtn, gProgWin, NULL,
+                            GA_Text, (ULONG)LS(gProgPause ? MSG_PROG_CONTINUE : MSG_PROG_PAUSE), TAG_DONE);
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+}
+
 void ProgressPoll(void)
 {
     ULONG sig = 0;
@@ -803,60 +782,14 @@ void ProgressPoll(void)
         if (pending & ~sig)
             IExec->SetSignal(pending & ~sig, ~0UL); /* non perdere gli altri segnali */
         if (pending & sig)
-        {
-            ULONG res; WORD code = 0;
-            while ((res = IIntuition->IDoMethod(gProgWinObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
-            {
-                switch (res & WMHI_CLASSMASK)
-                {
-                    case WMHI_CLOSEWINDOW:
-                        gProgCancel = TRUE;
-                        break;
-                    case WMHI_GADGETUP:
-                    {
-                        ULONG id = res & WMHI_GADGETMASK;
-                        if (id == GID_PROG_CANCEL) gProgCancel = TRUE;
-                        else if (id == GID_PROG_PAUSE)
-                        {
-                            gProgPause = TRUE;
-                            if (gProgPauseBtn) IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgPauseBtn, gProgWin, NULL, GA_Text, (ULONG)LS(MSG_PROG_CONTINUE), TAG_DONE);
-                        }
-                        break;
-                    }
-                    default: break;
-                }
-            }
-        }
+            HandleProgressInput();
     }
     while (gProgPause && !gProgCancel)
     {
         ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
         if (wait & SIGBREAKF_CTRL_C) { gProgCancel = TRUE; break; }
         if (wait & sig)
-        {
-            ULONG res; WORD code = 0;
-            while ((res = IIntuition->IDoMethod(gProgWinObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
-            {
-                switch (res & WMHI_CLASSMASK)
-                {
-                    case WMHI_CLOSEWINDOW:
-                        gProgCancel = TRUE;
-                        break;
-                    case WMHI_GADGETUP:
-                    {
-                        ULONG id = res & WMHI_GADGETMASK;
-                        if (id == GID_PROG_CANCEL) gProgCancel = TRUE;
-                        else if (id == GID_PROG_PAUSE)
-                        {
-                            gProgPause = FALSE;
-                            if (gProgPauseBtn) IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgPauseBtn, gProgWin, NULL, GA_Text, (ULONG)LS(MSG_PROG_PAUSE), TAG_DONE);
-                        }
-                        break;
-                    }
-                    default: break;
-                }
-            }
-        }
+            HandleProgressInput();
     }
 }
 
@@ -1360,11 +1293,31 @@ static void AddMenuSeparator(struct TagItem *tags, int *n)
     AddMenuTag(tags, n, NM_Item, (ULONG)ML_SEPARATOR);
 }
 
+/* Crea un albero menuclass (T_ROOT) dalla lista di tag mpNewMenu.
+   NULL se la costruzione fallisce. */
+static Object *NewMenuTree(struct TagItem *tags)
+{
+    struct mpNewMenu nm;
+    Object *root = IIntuition->NewObject(NULL, "menuclass", MA_Type, (ULONG)T_ROOT, TAG_DONE);
+
+    if (!root) return NULL;
+    nm.MethodID = MM_NEWMENU;
+    nm.mpnm_Reserved = 0;
+    nm.mpnm_AttrList = tags;
+    if (!IIntuition->IDoMethodA(root, (Msg)&nm))
+    {
+        ULONG err = 0;
+        IIntuition->GetAttr(MA_ErrorCode, root, &err);
+        DBG("menuclass MM_NEWMENU failed: %lu", (unsigned long)err);
+        IIntuition->DisposeObject(root);
+        return NULL;
+    }
+    return root;
+}
+
 void BuildMenu(void)
 {
     struct TagItem *tags;
-    struct mpNewMenu nm;
-    Object *root;
     int n = 0, j;
 
     tags = (struct TagItem *)IExec->AllocVecTags(4096 * sizeof(struct TagItem),
@@ -1380,7 +1333,7 @@ void BuildMenu(void)
 
     /* Edit */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
-    AddMenuItem(tags, &n, LS(MSG_BTN_OPEN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_NEWWIN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
@@ -1462,24 +1415,70 @@ void BuildMenu(void)
 
     AddMenuTag(tags, &n, TAG_DONE, 0);
 
-    root = IIntuition->NewObject(NULL, "menuclass", MA_Type, (ULONG)T_ROOT, TAG_DONE);
-    if (root)
-    {
-        nm.MethodID = MM_NEWMENU;
-        nm.mpnm_Reserved = 0;
-        nm.mpnm_AttrList = tags;
-        if (IIntuition->IDoMethodA(root, (Msg)&nm))
-            gMenuRoot = root;
-        else
-        {
-            ULONG err = 0;
-            IIntuition->GetAttr(MA_ErrorCode, root, &err);
-            DBG("menuclass MM_NEWMENU failed: %lu", (unsigned long)err);
-            IIntuition->DisposeObject(root);
-            gMenuRoot = NULL;
-        }
-    }
+    gMenuRoot = NewMenuTree(tags);
     IExec->FreeVec(tags);
+}
+
+/* ---- menu contestuali (tasto destro sulla lista) ----
+   Due menu fissi, costruiti una volta all'avvio: uno per un file o un
+   cassetto sotto il mouse, uno per lo spazio vuoto.  Usano gli stessi
+   MENU_* ID (e le stesse icone) del menu Modifica, quindi le azioni
+   passano dallo stesso switch del loop principale.  Apri usa
+   MENU_CTX_OPEN: si comporta come il doppio click / Enter, mentre la
+   voce Apri del menu Modifica apre il cassetto in una nuova istanza. */
+
+Object *gCtxMenuItem = NULL;
+Object *gCtxMenuEmpty = NULL;
+
+void BuildContextMenus(void)
+{
+    struct TagItem *tags;
+    int n;
+
+    tags = (struct TagItem *)IExec->AllocVecTags(256 * sizeof(struct TagItem),
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    if (!tags) return;
+
+    /* file o cassetto */
+    n = 0;
+    AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
+    AddMenuItem(tags, &n, LS(MSG_BTN_OPEN), MENU_CTX_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, &n);
+    AddMenuItem(tags, &n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_DUPLICATE), MENU_DUPLICATE, NULL, MIMG_DUPLICATE, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, &n);
+    AddMenuItem(tags, &n, LS(MSG_COPY), MENU_COPY, NULL, MIMG_COPY, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_CUT), MENU_CUT, NULL, MIMG_CUT, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, &n);
+    AddMenuItem(tags, &n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, &n, TAG_DONE, 0);
+    gCtxMenuItem = NewMenuTree(tags);
+
+    /* spazio vuoto */
+    memset(tags, 0, 256 * sizeof(struct TagItem));
+    n = 0;
+    AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
+    AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
+    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_TEXTFILE), MENU_NEW_TEXTFILE, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, &n, NM_SubItems, SI_END);
+    AddMenuItem(tags, &n, LS(MSG_PASTE), MENU_PASTE, NULL, MIMG_PASTE, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, &n);
+    AddMenuItem(tags, &n, LS(MSG_MENU_SHELL), MENU_SHELL, NULL, MIMG_SHELL, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, &n, TAG_DONE, 0);
+    gCtxMenuEmpty = NewMenuTree(tags);
+
+    IExec->FreeVec(tags);
+}
+
+void FreeContextMenus(void)
+{
+    if (gCtxMenuItem)  { IIntuition->DisposeObject(gCtxMenuItem);  gCtxMenuItem = NULL; }
+    if (gCtxMenuEmpty) { IIntuition->DisposeObject(gCtxMenuEmpty); gCtxMenuEmpty = NULL; }
 }
 
 /* ===== Gestione segnalibri (dialogo) ===== */

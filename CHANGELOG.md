@@ -3,6 +3,54 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 57 - 2026-11-24
+
+### Changed
+- The Edit menu's "Open" item is now called "Open in new window", since
+  it opens the drawer in a new VFM instance; "Open" in the context menu
+  behaves like a double click.  New catalog string
+  `MSG_MENU_OPEN_NEWWIN` (run `make catalogs` on the Amiga).
+
+## 1.0 build 56 - 2026-11-24
+
+### Added
+- Context menu on the file lists (right mouse button, both views, both
+  panes), with the same icons as the Edit menu:
+  - on a file or drawer: Open, Rename, Delete, Duplicate, Copy, Cut,
+    Info, Calculate size;
+  - on empty space: New > (Drawer, Text file), Paste, Shell, Refresh.
+  Right-clicking an item that is not selected selects only that item; an
+  item that is already selected keeps the current (multiple) selection.
+  Empty space does not change the selection.  The pane clicked becomes
+  the active one.  Elsewhere in the window the right button shows the
+  normal menu bar.  "Open" behaves like a double click / Return.
+  Uses Intuition's `WA_ContextMenuHook` (AmigaOS 4.1).
+
+## 1.0 build 55 - 2026-11-24
+
+### Added
+- Keyboard shortcuts on the active list (ignored while the path or filter
+  field is being edited, and on key repeat):
+  - Return / keypad Enter opens the selection like a double click.  With
+    several items selected it launches every selected file through the
+    Workbench (drawers are skipped); above 10 files it asks for
+    confirmation first.
+  - Shift+Return opens the selected drawer in a new instance, like the
+    Open button.
+  - Backspace goes to the parent drawer.
+  - Del deletes the selection, with the usual confirmation.
+- New catalog string `MSG_OPEN_MANY_CONFIRM` (run `make catalogs` on the
+  Amiga).
+
+### Fixed
+- German, French, Spanish and Polish catalogs: accented letters had been
+  replaced by "?"-like garbage in build 52 (the `.ct` files were saved as
+  UTF-8).  The original translations were restored from build 51, and the
+  `.ct` files are again Latin-1 (Polish: Latin-2, codeset 5).
+- Strings that had always been written without accents ("Groesse",
+  "deja", "tamano", "Blad", "gia", ...) now use the proper letters in all
+  catalogs, Italian included.
+
 ## 1.0 build 52 - 2026-11-23
 
 ### Changed

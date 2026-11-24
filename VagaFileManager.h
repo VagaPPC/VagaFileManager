@@ -182,7 +182,8 @@ enum
     MENU_NEW_TEXTFILE,
     MENU_SELECT_ALL,
     MENU_INVERT_SELECTION,
-    MENU_DESELECT_ALL
+    MENU_DESELECT_ALL,
+    MENU_CTX_OPEN          /* Apri del menu contestuale: come il doppio click */
 };
 #define MENU_BOOKMARK_BASE 1000
 #define MENU_SCRIPT_BASE   2000
@@ -399,6 +400,8 @@ extern char gDropPortName[64];
 extern struct Bookmark gBookmarks[MAX_BOOKMARKS];
 extern LONG gBookmarkCount;
 extern Object *gMenuRoot;
+extern Object *gCtxMenuItem;   /* menu contestuale: file o cassetto */
+extern Object *gCtxMenuEmpty;  /* menu contestuale: spazio vuoto */
 extern Object *gMenuImg[MIMG_COUNT];
 extern struct VFMWindowTag gWinTag;
 
@@ -461,6 +464,7 @@ void NavigateTo(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *sta
 void GoUp(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoForward(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newInstance);
+BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 LONG CountSelectedEntries(struct List *list);
 struct Node *GetFirstSelectedNode(struct List *list);
 void SelectAllEntries(struct List *list);
@@ -519,7 +523,8 @@ void ResetCopyConflict(void);
 
 /* ---- Conteggio e avanzamento ---- */
 ULONG CountFilesRecursive(CONST_STRPTR src);
-uint64 CountBytesRecursive(CONST_STRPTR src);
+BOOL PathIsInfo(CONST_STRPTR path);
+void CountTreeRecursive(CONST_STRPTR src, ULONG *files, uint64 *bytes);
 ULONG CountDeleteObjects(CONST_STRPTR src);
 void SetDeleteProgress(BOOL on);
 void ProgressUpdate(void);
@@ -550,12 +555,6 @@ BOOL LoadSharedClipboard(void);
 /* ---- Plugin e ARexx ---- */
 void ScanPlugins(void);
 void RunPlugin(CONST_STRPTR path);
-
-/* Invia un comando ARexx a una porta pubblica esterna senza bloccarsi in
-   attesa della risposta.  Usato, per esempio, per ADDOBJECT di AmiDock. */
-BOOL PostARexxCommandToPort(CONST_STRPTR portName, CONST_STRPTR command);
-ULONG ARexxReplySignal(void);
-void ProcessARexxReplies(void);
 
 /* ---- Drag & drop ---- */
 BOOL CollectSelectedFullPaths(struct List *list, char paths[][PATH_MAX_LEN], LONG maxPaths, LONG *count);
@@ -596,6 +595,8 @@ Object *MakeIconButton(ULONG id, Object *img, Object *imgSel, CONST_STRPTR hint)
 /* ---- Menu, segnalibri e preferenze ---- */
 void BuildMenu(void);
 void UpdateMenu(void);
+void BuildContextMenus(void);
+void FreeContextMenus(void);
 void ManageBookmarks(Object *mainWinObj);
 void AddBookmark(void);
 void LoadBookmarks(void);

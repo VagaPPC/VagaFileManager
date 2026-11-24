@@ -24,7 +24,7 @@ MSG_SORT_BY_DATE
 Datum
 ;
 MSG_SORT_BY_SIZE
-Grï¿½ï¿½e
+Größe
 ;
 MSG_TYPE_DIR_LINK
 Verz. (Link)
@@ -45,25 +45,25 @@ MSG_TYPE_OTHER
 Andere
 ;
 MSG_TYPE_DEVICE
-Gerï¿½t
+Gerät
 ;
 MSG_TYPE_VOLUME
-Datentrï¿½ger
+Datenträger
 ;
 MSG_TYPE_ASSIGN
 Zuweisung
 ;
 MSG_TYPE_LATE_ASSIGN
-Spï¿½te Zuweisung
+Späte Zuweisung
 ;
 MSG_TYPE_NONBINDING
 Nicht bindend
 ;
 MSG_ROOT_ASSIGNS
-(Gerï¿½te und Zuweisungen)
+(Geräte und Zuweisungen)
 ;
 MSG_STATUS_FORMAT
-Objekte: %ld  |  Ausgewï¿½hlt: %lu
+Objekte: %ld  |  Ausgewählt: %lu
 ;
 MSG_BTN_OK
 OK
@@ -81,40 +81,40 @@ MSG_RENAME
 Umbenennen
 ;
 MSG_RENAME_SELECT_ONE
-Wï¿½hlen Sie ein einzelnes Objekt zum Umbenennen aus.
+Wählen Sie ein einzelnes Objekt zum Umbenennen aus.
 ;
 MSG_RENAME_FAILED
-Umbenennen nicht mï¿½glich:\n%s
+Umbenennen nicht möglich:\n%s
 ;
 MSG_ERROR_TITLE
 Fehler
 ;
 MSG_DELETE
-Lï¿½schen
+Löschen
 ;
 MSG_DELETE_NONE
-Kein Objekt ausgewï¿½hlt.
+Kein Objekt ausgewählt.
 ;
 MSG_DELETE_CONFIRM_ONE
-Ausgewï¿½hltes Objekt lï¿½schen?
+Ausgewähltes Objekt löschen?
 ;
 MSG_DELETE_CONFIRM_MANY
-%ld ausgewï¿½hlte Objekte lï¿½schen?
+%ld ausgewählte Objekte löschen?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Lï¿½schen bestï¿½tigen
+Löschen bestätigen
 ;
 MSG_DELETE_FAILED
-Lï¿½schen nicht mï¿½glich:\n%s\n(Der Ordner ist mï¿½glicherweise nicht leer)
+Löschen nicht möglich:\n%s\n(Der Ordner ist möglicherweise nicht leer)
 ;
 MSG_DUPLICATE
 Duplizieren
 ;
 MSG_DUPLICATE_ROOT
-Vorgang in dieser Ansicht nicht verfï¿½gbar.
+Vorgang in dieser Ansicht nicht verfügbar.
 ;
 MSG_DUPLICATE_NONE
-Kein Objekt ausgewï¿½hlt.
+Kein Objekt ausgewählt.
 ;
 MSG_DUPLICATE_ERRORS
 Einige Objekte konnten nicht dupliziert werden.
@@ -126,19 +126,19 @@ MSG_COPY
 Kopieren
 ;
 MSG_COPY_NONE
-Kein Objekt ausgewï¿½hlt.
+Kein Objekt ausgewählt.
 ;
 MSG_PASTE
-Einfï¿½gen
+Einfügen
 ;
 MSG_PASTE_ROOT
-Einfï¿½gen in die Zuweisungsliste nicht mï¿½glich.
+Einfügen in die Zuweisungsliste nicht möglich.
 ;
 MSG_PASTE_EMPTY
 Zwischenablage ist leer.
 ;
 MSG_PASTE_ERRORS
-Einige Objekte konnten nicht eingefï¿½gt werden.
+Einige Objekte konnten nicht eingefügt werden.
 ;
 MSG_INFO
 Info
@@ -147,7 +147,7 @@ MSG_INFO_TITLE
 Informationen
 ;
 MSG_INFO_SELECT_ONE
-Wï¿½hlen Sie ein einzelnes Objekt aus.
+Wählen Sie ein einzelnes Objekt aus.
 ;
 MSG_DROP_COPY_FAILED
 Fehler beim Kopieren des abgelegten Objekts.
@@ -156,7 +156,7 @@ MSG_DRAGDROP_TITLE
 Ziehen und Ablegen
 ;
 MSG_DROP_ROOT
-Kopieren in die Zuweisungsliste nicht mï¿½glich.
+Kopieren in die Zuweisungsliste nicht möglich.
 ;
 MSG_DROP_COPY_ERROR_NAME
 Fehler beim Kopieren:\n%s
@@ -168,13 +168,13 @@ MSG_COL_TYPE
 Typ
 ;
 MSG_COL_SIZE
-Grï¿½ï¿½e
+Größe
 ;
 MSG_COL_DATE
 Datum
 ;
 MSG_STATUS_EMPTY
-Objekte: 0  |  Ausgewï¿½hlt: 0
+Objekte: 0  |  Ausgewählt: 0
 ;
 MSG_BTN_ICONS
 Symbole
@@ -186,7 +186,7 @@ MSG_BTN_UP
 Hoch
 ;
 MSG_BTN_OPEN
-ï¿½ffnen
+Öffnen
 ;
 MSG_BTN_REFRESH
 Aktualisieren
@@ -204,16 +204,16 @@ MSG_LABEL_PATH
 Pfad:
 ;
 MSG_DROP_NO_TARGET
-Kein gï¿½ltiges Ablageziel gefunden.
+Kein gültiges Ablageziel gefunden.
 ;
 MSG_COL_COMMENT
 Kommentar
 ;
 MSG_BTN_BACK
-Zurï¿½ck
+Zurück
 ;
 MSG_BTN_FORWARD
-Vorwï¿½rts
+Vorwärts
 ;
 MSG_MENU_PROGRAM
 Programm
@@ -237,10 +237,10 @@ MSG_MENU_BOOKMARKS
 Lesezeichen
 ;
 MSG_MENU_ADDBOOKMARK
-Zu Lesezeichen hinzufï¿½gen
+Zu Lesezeichen hinzufügen
 ;
 MSG_BOOKMARK_ADDED
-Zu Lesezeichen hinzugefï¿½gt.
+Zu Lesezeichen hinzugefügt.
 ;
 MSG_MENU_MANAGE
 Verwalten...
@@ -291,22 +291,22 @@ MSG_SCRIPT_REFRESH
 Liste aktualisieren
 ;
 MSG_SCRIPT_OPENDIR
-Plugin-Ordner oeffnen
+Plugin-Ordner öffnen
 ;
 MSG_CALC_SIZE
-Groesse berechnen
+Größe berechnen
 ;
 MSG_SIZE_TITLE
-Groesse
+Größe
 ;
 MSG_SIZE_SELECT_DIR
-Waehlen Sie eine Schublade oder ein Volume.
+Wählen Sie eine Schublade oder ein Volume.
 ;
 MSG_SIZE_RESULT
-Groesse: %s (%lld Bytes)   Dateien: %lld   Schubladen: %lld
+Größe: %s (%lld Bytes)   Dateien: %lld   Schubladen: %lld
 ;
 MSG_BTN_SPLIT_HINT
-Teilen / zweites Fenster schliessen
+Teilen / zweites Fenster schließen
 ;
 MSG_ABOUT_BY
 von
@@ -342,7 +342,7 @@ MSG_GREP_TITLE
 grep
 ;
 MSG_GREP_NONE
-Keine Treffer in den ausgewaehlten Dateien.
+Keine Treffer in den ausgewählten Dateien.
 ;
 MSG_GREP_RESULTS
 grep-Ergebnisse
@@ -366,7 +366,7 @@ MSG_MENU_NEW_TEXTFILE
 Textdatei
 ;
 MSG_MENU_SELECT_ALL
-Alles auswaehlen
+Alles auswählen
 ;
 MSG_MENU_INVERT_SELECTION
 Auswahl umkehren
@@ -393,13 +393,13 @@ MSG_CONFLICT_TITLE
 Datei existiert bereits
 ;
 MSG_CONFLICT_BODY
-Die Datei %s existiert bereits.\n\nWas mochten Sie tun?
+Die Datei %s existiert bereits.\n\nWas möchten Sie tun?
 ;
 MSG_CONFLICT_OVERWRITE
-Uberschreiben
+Überschreiben
 ;
 MSG_CONFLICT_OVERWRITE_ALL
-Alle uberschreiben
+Alle überschreiben
 ;
 MSG_CONFLICT_UPDATE
 Aktualisieren
@@ -411,11 +411,17 @@ MSG_CONFLICT_RENAME
 Umbenennen
 ;
 MSG_CONFLICT_SKIP
-Uberspringen
+Überspringen
 ;
 MSG_COPY_ERROR_BODY
 Fehler beim Kopieren von '%s':\n%s
 ;
 MSG_COPY_ERROR_BUTTONS
-Wiederholen|Uberspringen|Abbrechen
+Wiederholen|Überspringen|Abbrechen
+;
+MSG_OPEN_MANY_CONFIRM
+%ld Dateien öffnen?
+;
+MSG_MENU_OPEN_NEWWIN
+In neuem Fenster öffnen
 ;

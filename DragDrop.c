@@ -1290,13 +1290,10 @@ static void TransferToDrawer(struct Window *win, struct Screen *reqScreen,
     {
         BOOL move = (mode == 2);
         ULONG total = 0;
-        for (i = 0; i < count; i++) total += CountFilesRecursive(paths[i]);
+        uint64 bytes = 0;
+        for (i = 0; i < count; i++) CountTreeRecursive(paths[i], &total, &bytes);
         ProgressOpen(win, total);
-        {
-            uint64 b = 0;
-            for (i = 0; i < count; i++) b += CountBytesRecursive(paths[i]);
-            ProgressSetBytes(b);
-        }
+        ProgressSetBytes(bytes);
         ResetCopyConflict();
         for (i = 0; i < count && !gProgCancel; i++)
         {
@@ -1585,13 +1582,11 @@ static void HandleAppDropInner(struct AppMessage *appmsg, Object *listGad, Objec
         }
         move = (mode == 2);
 
-        for (i = 0; i < nPaths; i++) total += CountFilesRecursive(srcs[i]);
-
-        ProgressOpen(win, total);
         {
-            uint64 b = 0;
-            for (i = 0; i < nPaths; i++) b += CountBytesRecursive(srcs[i]);
-            ProgressSetBytes(b);
+            uint64 bytes = 0;
+            for (i = 0; i < nPaths; i++) CountTreeRecursive(srcs[i], &total, &bytes);
+            ProgressOpen(win, total);
+            ProgressSetBytes(bytes);
         }
 
         ResetCopyConflict();
@@ -1742,24 +1737,16 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
         }
         move = (mode == 2);
 
-        for (i = 0; i < drop->vfm_NumPaths; i++)
         {
-            if (q[0] == '\0') break;
-            total += CountFilesRecursive(q);
-            q += strlen(q) + 1;
-        }
-
-        ProgressOpen(win, total);
-        {
-            uint64 b = 0;
-            q = drop->vfm_Paths;
+            uint64 bytes = 0;
             for (i = 0; i < drop->vfm_NumPaths; i++)
             {
                 if (q[0] == '\0') break;
-                b += CountBytesRecursive(q);
+                CountTreeRecursive(q, &total, &bytes);
                 q += strlen(q) + 1;
             }
-            ProgressSetBytes(b);
+            ProgressOpen(win, total);
+            ProgressSetBytes(bytes);
         }
 
         ResetCopyConflict();

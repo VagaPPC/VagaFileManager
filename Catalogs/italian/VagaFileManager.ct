@@ -387,13 +387,13 @@ MSG_NEW_FILE_FAILED
 Impossibile creare il file.
 ;
 MSG_NEW_FILE_EXISTS
-Esiste gia un file con questo nome.
+Esiste già un file con questo nome.
 ;
 MSG_CONFLICT_TITLE
-File gia esistente
+File già esistente
 ;
 MSG_CONFLICT_BODY
-Il file %s esiste gia.\n\nCosa vuoi fare?
+Il file %s esiste già.\n\nCosa vuoi fare?
 ;
 MSG_CONFLICT_OVERWRITE
 Sovrascrivi
@@ -418,4 +418,10 @@ Errore durante la copia di '%s':\n%s
 ;
 MSG_COPY_ERROR_BUTTONS
 Riprova|Salta|Annulla
+;
+MSG_OPEN_MANY_CONFIRM
+Aprire %ld file?
+;
+MSG_MENU_OPEN_NEWWIN
+Apri in nuova finestra
 ;

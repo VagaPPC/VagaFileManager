@@ -15,7 +15,7 @@ MSG_SORT_BY_TYPE
 tipo
 ;
 MSG_SORT_ALPHABETICAL
-Alfabï¿½tico
+Alfabético
 ;
 MSG_SORT_BY_NAME
 nombre
@@ -24,7 +24,7 @@ MSG_SORT_BY_DATE
 fecha
 ;
 MSG_SORT_BY_SIZE
-tamaï¿½o
+tamaño
 ;
 MSG_TYPE_DIR_LINK
 Dir. (enlace)
@@ -33,7 +33,7 @@ MSG_TYPE_LINK
 Enlace
 ;
 MSG_TYPE_DRAWER
-Cajï¿½n
+Cajón
 ;
 MSG_TYPE_FILE
 Archivo
@@ -51,10 +51,10 @@ MSG_TYPE_VOLUME
 Volumen
 ;
 MSG_TYPE_ASSIGN
-Asignaciï¿½n
+Asignación
 ;
 MSG_TYPE_LATE_ASSIGN
-Asignaciï¿½n tardï¿½a
+Asignación tardía
 ;
 MSG_TYPE_NONBINDING
 No vinculante
@@ -93,28 +93,28 @@ MSG_DELETE
 Eliminar
 ;
 MSG_DELETE_NONE
-Ningï¿½n elemento seleccionado.
+Ningún elemento seleccionado.
 ;
 MSG_DELETE_CONFIRM_ONE
-ï¿½Eliminar el elemento seleccionado?
+¿Eliminar el elemento seleccionado?
 ;
 MSG_DELETE_CONFIRM_MANY
-ï¿½Eliminar %ld elementos seleccionados?
+¿Eliminar %ld elementos seleccionados?
 ;
 MSG_DELETE_CONFIRM_TITLE
-Confirmar eliminaciï¿½n
+Confirmar eliminación
 ;
 MSG_DELETE_FAILED
-No se puede eliminar:\n%s\n(La carpeta puede no estar vacï¿½a)
+No se puede eliminar:\n%s\n(La carpeta puede no estar vacía)
 ;
 MSG_DUPLICATE
 Duplicar
 ;
 MSG_DUPLICATE_ROOT
-Operaciï¿½n no disponible en esta vista.
+Operación no disponible en esta vista.
 ;
 MSG_DUPLICATE_NONE
-Ningï¿½n elemento seleccionado.
+Ningún elemento seleccionado.
 ;
 MSG_DUPLICATE_ERRORS
 Algunos elementos no se pudieron duplicar.
@@ -126,7 +126,7 @@ MSG_COPY
 Copiar
 ;
 MSG_COPY_NONE
-Ningï¿½n elemento seleccionado.
+Ningún elemento seleccionado.
 ;
 MSG_PASTE
 Pegar
@@ -135,16 +135,16 @@ MSG_PASTE_ROOT
 No se puede pegar en la lista de asignaciones.
 ;
 MSG_PASTE_EMPTY
-El portapapeles estï¿½ vacï¿½o.
+El portapapeles está vacío.
 ;
 MSG_PASTE_ERRORS
 Algunos elementos no se pudieron pegar.
 ;
 MSG_INFO
-Informaciï¿½n
+Información
 ;
 MSG_INFO_TITLE
-Informaciï¿½n
+Información
 ;
 MSG_INFO_SELECT_ONE
 Seleccione un solo elemento.
@@ -168,7 +168,7 @@ MSG_COL_TYPE
 Tipo
 ;
 MSG_COL_SIZE
-Tamaï¿½o
+Tamaño
 ;
 MSG_COL_DATE
 Fecha
@@ -204,13 +204,13 @@ MSG_LABEL_PATH
 Ruta:
 ;
 MSG_DROP_NO_TARGET
-No se encontrï¿½ un destino vï¿½lido para soltar.
+No se encontró un destino válido para soltar.
 ;
 MSG_COL_COMMENT
 Comentario
 ;
 MSG_BTN_BACK
-Atrï¿½s
+Atrás
 ;
 MSG_BTN_FORWARD
 Adelante
@@ -222,13 +222,13 @@ MSG_MENU_NEWWINDOW
 Nueva...
 ;
 MSG_MENU_INFO
-Informaciï¿½n...
+Información...
 ;
 MSG_MENU_QUIT
 Salir
 ;
 MSG_MENU_EDIT
-Ediciï¿½n
+Edición
 ;
 MSG_MENU_VIEW
 Ver
@@ -237,10 +237,10 @@ MSG_MENU_BOOKMARKS
 Marcadores
 ;
 MSG_MENU_ADDBOOKMARK
-Aï¿½adir a marcadores
+Añadir a marcadores
 ;
 MSG_BOOKMARK_ADDED
-Aï¿½adido a marcadores.
+Añadido a marcadores.
 ;
 MSG_MENU_MANAGE
 Gestionar...
@@ -255,7 +255,7 @@ MSG_SORT
 Ordenar por
 ;
 MSG_ABOUT_VERSION
-Versiï¿½n %s
+Versión %s
 ;
 MSG_ABOUT_AUTHOR
 VagaPPC (Benedetto Lorello)
@@ -270,7 +270,7 @@ MSG_MOVE
 Mover
 ;
 MSG_PROG_TITLE
-Operaciï¿½n de archivo
+Operación de archivo
 ;
 MSG_PROG_STATUS
 Copiando...
@@ -294,16 +294,16 @@ MSG_SCRIPT_OPENDIR
 Abrir carpeta de plugins
 ;
 MSG_CALC_SIZE
-Calcular tamano
+Calcular tamaño
 ;
 MSG_SIZE_TITLE
-Tamano
+Tamaño
 ;
 MSG_SIZE_SELECT_DIR
-Seleccione un cajon o un volumen.
+Seleccione un cajón o un volumen.
 ;
 MSG_SIZE_RESULT
-Tamano: %s (%lld bytes)   Archivos: %lld   Cajones: %lld
+Tamaño: %s (%lld bytes)   Archivos: %lld   Cajones: %lld
 ;
 MSG_BTN_SPLIT_HINT
 Dividir / cerrar el segundo panel
@@ -333,10 +333,10 @@ MSG_FIND_TITLE
 Buscar archivo
 ;
 MSG_FIND_NONE
-No se encontro ningun archivo.
+No se encontró ningún archivo.
 ;
 MSG_FIND_RESULTS
-Resultados de la busqueda
+Resultados de la búsqueda
 ;
 MSG_GREP_TITLE
 grep
@@ -351,7 +351,7 @@ MSG_MENU_SHOWINFO
 Mostrar info archivos
 ;
 MSG_BTN_SHELL_HINT
-Abrir shell aqui
+Abrir shell aquí
 ;
 MSG_MENU_SHELL
 Shell
@@ -369,10 +369,10 @@ MSG_MENU_SELECT_ALL
 Seleccionar todo
 ;
 MSG_MENU_INVERT_SELECTION
-Invertir seleccion
+Invertir selección
 ;
 MSG_MENU_DESELECT_ALL
-Anular seleccion
+Anular selección
 ;
 MSG_NEW_DRAWER_PROMPT
 Nombre de la nueva carpeta:
@@ -393,7 +393,7 @@ MSG_CONFLICT_TITLE
 El archivo ya existe
 ;
 MSG_CONFLICT_BODY
-El archivo %s ya existe.\n\nQue desea hacer?
+El archivo %s ya existe.\n\n¿Qué desea hacer?
 ;
 MSG_CONFLICT_OVERWRITE
 Sobrescribir
@@ -418,4 +418,10 @@ Error al copiar '%s':\n%s
 ;
 MSG_COPY_ERROR_BUTTONS
 Reintentar|Omitir|Cancelar
+;
+MSG_OPEN_MANY_CONFIRM
+¿Abrir %ld archivos?
+;
+MSG_MENU_OPEN_NEWWIN
+Abrir en una ventana nueva
 ;

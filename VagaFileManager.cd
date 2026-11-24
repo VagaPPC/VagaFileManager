@@ -436,3 +436,9 @@ Error while copying '%s':\n%s
 MSG_COPY_ERROR_BUTTONS (//)
 Retry|Skip|Cancel
 ;
+MSG_OPEN_MANY_CONFIRM (//)
+Open %ld files?
+;
+MSG_MENU_OPEN_NEWWIN (//)
+Open in new window
+;
