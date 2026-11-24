@@ -183,7 +183,8 @@ enum
     MENU_SELECT_ALL,
     MENU_INVERT_SELECTION,
     MENU_DESELECT_ALL,
-    MENU_CTX_OPEN          /* Apri del menu contestuale: come il doppio click */
+    MENU_CTX_OPEN,         /* Apri del menu contestuale: cassetti in nuove finestre */
+    MENU_OPEN_WITH         /* Apri con... (solo file) */
 };
 #define MENU_BOOKMARK_BASE 1000
 #define MENU_SCRIPT_BASE   2000
@@ -400,7 +401,8 @@ extern char gDropPortName[64];
 extern struct Bookmark gBookmarks[MAX_BOOKMARKS];
 extern LONG gBookmarkCount;
 extern Object *gMenuRoot;
-extern Object *gCtxMenuItem;   /* menu contestuale: file o cassetto */
+extern Object *gCtxMenuItem;   /* menu contestuale: cassetto */
+extern Object *gCtxMenuFile;   /* menu contestuale: file (con Apri con...) */
 extern Object *gCtxMenuEmpty;  /* menu contestuale: spazio vuoto */
 extern Object *gMenuImg[MIMG_COUNT];
 extern struct VFMWindowTag gWinTag;
@@ -464,7 +466,7 @@ void NavigateTo(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *sta
 void GoUp(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 void GoForward(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
 BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newInstance);
-BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
+BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newWindows);
 LONG CountSelectedEntries(struct List *list);
 struct Node *GetFirstSelectedNode(struct List *list);
 void SelectAllEntries(struct List *list);
@@ -596,6 +598,7 @@ Object *MakeIconButton(ULONG id, Object *img, Object *imgSel, CONST_STRPTR hint)
 void BuildMenu(void);
 void UpdateMenu(void);
 void BuildContextMenus(void);
+void DoOpenWith(struct Window *win, struct List *list);   /* OpenWith.c */
 void FreeContextMenus(void);
 void ManageBookmarks(Object *mainWinObj);
 void AddBookmark(void);

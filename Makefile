@@ -15,7 +15,7 @@ CFLAGS  = -O3 -fomit-frame-pointer -fno-strict-aliasing
 
 LANG = english italian french german polish spanish
 
-OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o DragVisual.o FileBrowser.o AppWinRegistry.o
+OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o DragVisual.o FileBrowser.o AppWinRegistry.o OpenWith.o
 WB2OBJS = WB2VagaFileManager.o
 
 .PHONY: all catalogs dist clean
@@ -36,6 +36,7 @@ DragDrop.o: DragDrop.c VagaFileManager.h FileBrowser.h VagaFileManager_strings.h
 DragVisual.o: DragVisual.c VagaFileManager.h
 FileBrowser.o: FileBrowser.c FileBrowser.h VagaFileManager_strings.h
 AppWinRegistry.o: AppWinRegistry.c VagaFileManager.h AppWindowRegistry.h
+OpenWith.o: OpenWith.c VagaFileManager.h VagaFileManager_strings.h
 WB2VagaFileManager.o: WB2VagaFileManager.c
 
 catalogs:

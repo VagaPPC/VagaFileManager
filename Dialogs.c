@@ -1334,6 +1334,7 @@ void BuildMenu(void)
     /* Edit */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
     AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_NEWWIN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_WITH), MENU_OPEN_WITH, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
@@ -1424,11 +1425,33 @@ void BuildMenu(void)
    cassetto sotto il mouse, uno per lo spazio vuoto.  Usano gli stessi
    MENU_* ID (e le stesse icone) del menu Modifica, quindi le azioni
    passano dallo stesso switch del loop principale.  Apri usa
-   MENU_CTX_OPEN: si comporta come il doppio click / Enter, mentre la
-   voce Apri del menu Modifica apre il cassetto in una nuova istanza. */
+   MENU_CTX_OPEN: lancia i file e apre ogni cassetto selezionato in una
+   nuova finestra (come il Workbench). */
 
 Object *gCtxMenuItem = NULL;
+Object *gCtxMenuFile = NULL;
 Object *gCtxMenuEmpty = NULL;
+
+/* Voci per un file o un cassetto; withOpenWith aggiunge "Apri con..."
+   (solo per i file). */
+static void AddCtxItemEntries(struct TagItem *tags, int *n, BOOL withOpenWith)
+{
+    AddMenuTag(tags, n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
+    AddMenuItem(tags, n, LS(MSG_BTN_OPEN), MENU_CTX_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    if (withOpenWith)
+        AddMenuItem(tags, n, LS(MSG_MENU_OPEN_WITH), MENU_OPEN_WITH, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, n);
+    AddMenuItem(tags, n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_DUPLICATE), MENU_DUPLICATE, NULL, MIMG_DUPLICATE, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, n);
+    AddMenuItem(tags, n, LS(MSG_COPY), MENU_COPY, NULL, MIMG_COPY, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_CUT), MENU_CUT, NULL, MIMG_CUT, FALSE, FALSE, FALSE);
+    AddMenuSeparator(tags, n);
+    AddMenuItem(tags, n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, n, TAG_DONE, 0);
+}
 
 void BuildContextMenus(void)
 {
@@ -1439,22 +1462,16 @@ void BuildContextMenus(void)
         AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
     if (!tags) return;
 
-    /* file o cassetto */
+    /* cassetto */
     n = 0;
-    AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
-    AddMenuItem(tags, &n, LS(MSG_BTN_OPEN), MENU_CTX_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
-    AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_DUPLICATE), MENU_DUPLICATE, NULL, MIMG_DUPLICATE, FALSE, FALSE, FALSE);
-    AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_COPY), MENU_COPY, NULL, MIMG_COPY, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_CUT), MENU_CUT, NULL, MIMG_CUT, FALSE, FALSE, FALSE);
-    AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
-    AddMenuTag(tags, &n, TAG_DONE, 0);
+    AddCtxItemEntries(tags, &n, FALSE);
     gCtxMenuItem = NewMenuTree(tags);
+
+    /* file */
+    memset(tags, 0, 256 * sizeof(struct TagItem));
+    n = 0;
+    AddCtxItemEntries(tags, &n, TRUE);
+    gCtxMenuFile = NewMenuTree(tags);
 
     /* spazio vuoto */
     memset(tags, 0, 256 * sizeof(struct TagItem));
@@ -1478,6 +1495,7 @@ void BuildContextMenus(void)
 void FreeContextMenus(void)
 {
     if (gCtxMenuItem)  { IIntuition->DisposeObject(gCtxMenuItem);  gCtxMenuItem = NULL; }
+    if (gCtxMenuFile)  { IIntuition->DisposeObject(gCtxMenuFile);  gCtxMenuFile = NULL; }
     if (gCtxMenuEmpty) { IIntuition->DisposeObject(gCtxMenuEmpty); gCtxMenuEmpty = NULL; }
 }
 

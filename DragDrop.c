@@ -169,30 +169,170 @@ BOOL IsVFMWindow(struct Window *w, struct MsgPort **outPort)
     return TRUE;
 }
 
-/* Chiede all'utente se copiare o spostare gli elementi trascinati.
+/* ---- riepilogo degli oggetti trascinati, per la richiesta copia/sposta ----
+   I nomi (solo la parte finale del percorso) si accodano separati da
+   ", " su due righe al massimo; quelli che non ci stanno diventano
+   " e altri N".  Il limite e' in caratteri: la finestra e' larga circa
+   480 pixel. */
+#define DRAGSUM_LINE 52
+
+struct DragSummary
+{
+    char  line[2][DRAGSUM_LINE + 24];  /* + spazio per " e altri N" */
+    int   cur;        /* riga in riempimento (0/1) */
+    LONG  shown;
+    LONG  hidden;
+};
+
+static void DragSummaryInit(struct DragSummary *ds)
+{
+    memset(ds, 0, sizeof(*ds));
+}
+
+static void DragSummaryAdd(struct DragSummary *ds, CONST_STRPTR path)
+{
+    CONST_STRPTR name;
+    char item[DRAGSUM_LINE + 8];
+    ULONG len, need;
+    /* sulla seconda riga resta posto per " e altri NNN" */
+    ULONG reserve;
+
+    if (!path || !path[0]) return;
+    if (ds->hidden > 0) { ds->hidden++; return; }
+
+    name = IDOS->FilePart(path);
+    if (!name || !name[0]) name = path;          /* volume, es. "DH0:" */
+    len = strlen(name);
+    if (len > DRAGSUM_LINE - 2)
+    {
+        snprintf(item, sizeof(item), "%.*s...", (int)(DRAGSUM_LINE - 5), name);
+        name = item;
+        len = strlen(item);
+    }
+
+    for (;;)
+    {
+        ULONG used = strlen(ds->line[ds->cur]);
+        reserve = (ds->cur == 1) ? 16 : 0;
+        need = used + (used ? 2 : 0) + len;
+        if (used == 0 && len + reserve > DRAGSUM_LINE)
+        {
+            /* riga vuota: il nome si accorcia per starci, invece di
+               finire subito tra gli "altri" */
+            ULONG keep = DRAGSUM_LINE - reserve - 3;
+            if (name != item)
+            {
+                snprintf(item, sizeof(item), "%.*s...", (int)keep, name);
+                name = item;
+            }
+            else
+                strcpy(item + keep, "...");
+            len = strlen(name);
+            need = len;
+        }
+        if (need + reserve <= DRAGSUM_LINE)
+        {
+            if (used) strcat(ds->line[ds->cur], ", ");
+            strncat(ds->line[ds->cur], name, DRAGSUM_LINE - strlen(ds->line[ds->cur]));
+            ds->shown++;
+            return;
+        }
+        if (ds->cur == 0) { ds->cur = 1; continue; }
+        ds->hidden = 1;                          /* non ci sta: da qui si contano */
+        return;
+    }
+}
+
+static void DragSummaryFinish(struct DragSummary *ds)
+{
+    if (ds->hidden > 0)
+    {
+        char more[48];
+        /* seconda riga vuota (il nome non ci stava): in coda alla prima */
+        int l = (ds->line[1][0] == '\0') ? 0 : 1;
+        more[0] = ' ';
+        snprintf(more + 1, sizeof(more) - 1, LS(MSG_DROP_ASK_MORE), (long)ds->hidden);
+        strncat(ds->line[l], more, sizeof(ds->line[l]) - strlen(ds->line[l]) - 1);
+    }
+}
+
+/* Destinazione per la richiesta: se e' troppo lunga si tiene la parte
+   finale (la cartella di destinazione), tagliando l'inizio su un '/'. */
+static void ShortenPathStart(CONST_STRPTR path, STRPTR out, ULONG outSize, ULONG maxChars)
+{
+    ULONG len;
+    CONST_STRPTR tail, slash;
+
+    if (!path) path = "";
+    len = strlen(path);
+    if (len <= maxChars)
+    {
+        snprintf(out, outSize, "%s", path);
+        return;
+    }
+    tail = path + len - (maxChars - 3);
+    slash = strchr(tail, '/');
+    if (slash && slash[1]) tail = slash;         /* ".../Cartella" */
+    snprintf(out, outSize, "...%s", tail);
+}
+
+/* Riga di testo per la richiesta: pulsante di sola lettura, senza bordo,
+   allineato a sinistra. */
+static Object *DragReqText(CONST_STRPTR text)
+{
+    return IIntuition->NewObject(NULL, "button.gadget",
+        GA_ReadOnly, TRUE, GA_Text, (ULONG)text,
+        GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE,
+        BUTTON_Transparent, TRUE, BUTTON_Justification, BCJ_LEFT,
+        TAG_DONE);
+}
+
+/* Chiede all'utente se copiare o spostare gli elementi trascinati:
+
+     Copiare o spostare:
+       a.txt, b.txt, Immagini e altri 12
+     In:
+       .../Lavori/2026/Foto
+     [Copia] [Sposta] [Annulla]
+
    La finestra e' un requester ReAction aperto con WPOS_CENTERMOUSE, cosi'
    appare sotto il puntatore invece che al centro dello schermo.
    Ritorna 1 = copia, 2 = sposta, 0 = annulla. */
-static LONG AskDragTransferMode(struct Screen *scr, CONST_STRPTR target)
+static LONG AskDragTransferMode(struct Screen *scr, struct DragSummary *items, CONST_STRPTR target)
 {
     enum { DRAGREQ_COPY = 1, DRAGREQ_MOVE, DRAGREQ_CANCEL };
     Object *winObj = NULL;
     Object *copyBtn = NULL, *moveBtn = NULL, *cancelBtn = NULL;
+    Object *textLayout;
     struct Window *rw = NULL;
     BOOL done = FALSE;
     LONG result = 0;
     ULONG sig = 0;
-    char prompt[96];
-    char pathText[80];
+    char line1[DRAGSUM_LINE + 16], line2[DRAGSUM_LINE + 16];
+    char pathText[DRAGSUM_LINE + 16];
+    char dest[DRAGSUM_LINE + 8];
 
-    snprintf(prompt, sizeof(prompt), "%s / %s",
-        LS(MSG_COPY), LS(MSG_MOVE));
+    ShortenPathStart(target, dest, sizeof(dest), DRAGSUM_LINE);
+    snprintf(pathText, sizeof(pathText), "  %s", dest);
+    line1[0] = line2[0] = '\0';
+    if (items)
+    {
+        snprintf(line1, sizeof(line1), "  %s", items->line[0]);
+        if (items->line[1][0])
+            snprintf(line2, sizeof(line2), "  %s", items->line[1]);
+    }
 
-    if (!target) target = "";
-    if (strlen(target) > 56)
-        snprintf(pathText, sizeof(pathText), "%.53s...", target);
-    else
-        snprintf(pathText, sizeof(pathText), "%s", target);
+    textLayout = IIntuition->NewObject(NULL, "layout.gadget",
+        LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
+        LAYOUT_SpaceInner, FALSE,
+        LAYOUT_AddChild, (ULONG)DragReqText(LS(MSG_DROP_ASK_ITEMS)), CHILD_WeightedHeight, 0,
+        line1[0] ? LAYOUT_AddChild : TAG_IGNORE, line1[0] ? (ULONG)DragReqText(line1) : 0,
+        line1[0] ? CHILD_WeightedHeight : TAG_IGNORE, 0,
+        line2[0] ? LAYOUT_AddChild : TAG_IGNORE, line2[0] ? (ULONG)DragReqText(line2) : 0,
+        line2[0] ? CHILD_WeightedHeight : TAG_IGNORE, 0,
+        LAYOUT_AddChild, (ULONG)DragReqText(LS(MSG_DROP_ASK_TO)), CHILD_WeightedHeight, 0,
+        LAYOUT_AddChild, (ULONG)DragReqText(pathText), CHILD_WeightedHeight, 0,
+        TAG_DONE);
 
     copyBtn = IIntuition->NewObject(NULL, "button.gadget",
         GA_ID, DRAGREQ_COPY, GA_RelVerify, TRUE,
@@ -208,20 +348,13 @@ static LONG AskDragTransferMode(struct Screen *scr, CONST_STRPTR target)
         WA_Title, (ULONG)LS(MSG_DRAGDROP_TITLE),
         WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
         WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
-        WA_InnerWidth, 480, WA_InnerHeight, 100,
+        WA_InnerWidth, 480,
         scr ? WA_PubScreen : TAG_IGNORE, scr ? (ULONG)scr : 0,
         WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT,
-            LAYOUT_SpaceOuter, TRUE, LAYOUT_EvenSize, TRUE,
-            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget",
-                GA_ReadOnly, TRUE, GA_Text, (ULONG)prompt,
-                GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE,
-                BUTTON_Transparent, TRUE, TAG_DONE), CHILD_WeightedHeight, 0,
-            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget",
-                GA_ReadOnly, TRUE, GA_Text, (ULONG)pathText,
-                GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE,
-                BUTTON_Transparent, TRUE, TAG_DONE), CHILD_WeightedHeight, 0,
+            LAYOUT_SpaceOuter, TRUE,
+            LAYOUT_AddChild, (ULONG)textLayout, CHILD_WeightedHeight, 0,
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
                 LAYOUT_EvenSize, TRUE,
@@ -1283,8 +1416,14 @@ static void TransferToDrawer(struct Window *win, struct Screen *reqScreen,
     LONG mode, i;
     BOOL anyErr = FALSE;
 
-    mode = AskDragTransferMode(reqScreen ? reqScreen : (win ? win->WScreen : NULL),
-                               drawer);
+    {
+        struct DragSummary ds;
+        DragSummaryInit(&ds);
+        for (i = 0; i < count; i++) DragSummaryAdd(&ds, paths[i]);
+        DragSummaryFinish(&ds);
+        mode = AskDragTransferMode(reqScreen ? reqScreen : (win ? win->WScreen : NULL),
+                                   &ds, drawer);
+    }
     if (mode == 0) return;
 
     {
@@ -1573,7 +1712,13 @@ static void HandleAppDropInner(struct AppMessage *appmsg, Object *listGad, Objec
         appmsg = NULL;
         *replied = TRUE;
 
-        mode = AskDragTransferMode(win ? win->WScreen : NULL, targetDir);
+        {
+            struct DragSummary ds;
+            DragSummaryInit(&ds);
+            for (i = 0; i < nPaths; i++) DragSummaryAdd(&ds, srcs[i]);
+            DragSummaryFinish(&ds);
+            mode = AskDragTransferMode(win ? win->WScreen : NULL, &ds, targetDir);
+        }
 
         if (mode == 0)
         {
@@ -1729,7 +1874,18 @@ void HandleVFMDrop(struct VFMDropMessage *drop, Object *listGad, Object *pathGad
             targetDir[sizeof(targetDir) - 1] = '\0';
         }
 
-        mode = AskDragTransferMode(win ? win->WScreen : NULL, targetDir);
+        {
+            struct DragSummary ds;
+            char *p = drop->vfm_Paths;
+            DragSummaryInit(&ds);
+            for (i = 0; i < drop->vfm_NumPaths && p[0] != '\0'; i++)
+            {
+                DragSummaryAdd(&ds, p);
+                p += strlen(p) + 1;
+            }
+            DragSummaryFinish(&ds);
+            mode = AskDragTransferMode(win ? win->WScreen : NULL, &ds, targetDir);
+        }
         if (mode == 0)
         {
             IExec->FreeVec(drop);

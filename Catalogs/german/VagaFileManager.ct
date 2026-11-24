@@ -425,3 +425,27 @@ MSG_OPEN_MANY_CONFIRM
 MSG_MENU_OPEN_NEWWIN
 In neuem Fenster öffnen
 ;
+MSG_DROP_ASK_ITEMS
+Kopieren oder verschieben:
+;
+MSG_DROP_ASK_TO
+Nach:
+;
+MSG_DROP_ASK_MORE
+und %ld weitere
+;
+MSG_MENU_OPEN_WITH
+Öffnen mit...
+;
+MSG_OPENWITH_PROMPT
+Öffnen mit:
+;
+MSG_OPENWITH_CHOOSE
+Auswählen...
+;
+MSG_OPENWITH_ASL_TITLE
+Programm auswählen
+;
+MSG_OPENWITH_FAILED
+%s kann nicht gestartet werden.
+;

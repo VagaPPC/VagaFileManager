@@ -1577,82 +1577,83 @@ void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct
 
     if (!list) return;
 
-    /* Controlla subito se c'e' almeno una directory selezionata. */
+    /* Primo giro, senza accessi al disco: i file selezionati si sommano
+       subito (la dimensione e' gia' nota dalla lettura della directory),
+       e si controlla se c'e' almeno un cassetto da esplorare. */
     for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES;
 
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-        if (!sel) continue;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index, TAG_DONE);
-        if (index < (ULONG)gEntryCount && gIsDir[index])
-        {
+        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index, TAG_DONE);
+        if (!sel || index >= (ULONG)gEntryCount) continue;
+        any = TRUE;
+        if (gIsDir[index])
             foundDir = TRUE;
-            break;
-        }
-    }
-
-    if (!foundDir)
-    {
-        ShowMessage(title, LS(MSG_SIZE_SELECT_DIR));
-        return;
-    }
-
-    /* Un solo passaggio: niente conteggio preliminare.  La barra e'
-       indeterminata (blocco scorrevole + contatori), cosi' si vede subito
-       che il programma sta lavorando. */
-    ProgressOpen(win, 1);
-    ProgressSetIndeterminate(TRUE);
-    gSizeProgress = TRUE;
-    gSizeStep = 0;
-
-    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
-    {
-        ULONG sel = FALSE, index = MAX_ENTRIES;
-        STRPTR name = NULL;
-        char full[PATH_MAX_LEN];
-
-        if (gProgCancel) { canceled = TRUE; break; }
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-        if (!sel) continue;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
-            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!name || index >= (ULONG)gEntryCount) continue;
-        if (!gIsDir[index]) continue;
-
-        if (IsRootPath(gPathBuffer))
+        else
         {
-            strncpy(full, name, sizeof(full) - 1);
-            full[sizeof(full) - 1] = '\0';
+            files++;
+            if (gFileSize[index] > 0) total += gFileSize[index];
         }
-        else if (!BuildChildPath(gPathBuffer, name, full, sizeof(full)))
-            continue;
-
-        {
-            int64 b = 0, f = 0, d = 0;
-            if (CalculatePathSize(full, &b, &f, &d))
-            {
-                total += b; files += f; dirs += d;
-                any = TRUE;
-            }
-        }
-        if (gProgCancel) canceled = TRUE;
     }
 
-    gSizeProgress = FALSE;
-    if (!canceled)
-    {
-        ProgressUpdate();
-        ProgressPoll();
-        if (gProgCancel) canceled = TRUE;
-    }
-    ProgressClose();
-
-    if (canceled) return;
     if (!any)
     {
-        ShowMessage(title, LS(MSG_SIZE_SELECT_DIR));
+        ShowMessage(title, LS(MSG_COPY_NONE));
         return;
+    }
+
+    if (foundDir)
+    {
+        /* Un solo passaggio: niente conteggio preliminare.  La barra e'
+           indeterminata (blocco scorrevole + contatori), cosi' si vede
+           subito che il programma sta lavorando. */
+        ProgressOpen(win, 1);
+        ProgressSetIndeterminate(TRUE);
+        gSizeProgress = TRUE;
+        gSizeStep = 0;
+
+        for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+        {
+            ULONG sel = FALSE, index = MAX_ENTRIES;
+            STRPTR name = NULL;
+            char full[PATH_MAX_LEN];
+
+            if (gProgCancel) { canceled = TRUE; break; }
+            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
+            if (!sel) continue;
+            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
+                LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
+            if (!name || index >= (ULONG)gEntryCount) continue;
+            if (!gIsDir[index]) continue;
+
+            if (IsRootPath(gPathBuffer))
+            {
+                strncpy(full, name, sizeof(full) - 1);
+                full[sizeof(full) - 1] = '\0';
+            }
+            else if (!BuildChildPath(gPathBuffer, name, full, sizeof(full)))
+                continue;
+
+            {
+                int64 b = 0, f = 0, d = 0;
+                if (CalculatePathSize(full, &b, &f, &d))
+                {
+                    total += b; files += f; dirs += d;
+                }
+            }
+            if (gProgCancel) canceled = TRUE;
+        }
+
+        gSizeProgress = FALSE;
+        if (!canceled)
+        {
+            ProgressUpdate();
+            ProgressPoll();
+            if (gProgCancel) canceled = TRUE;
+        }
+        ProgressClose();
+
+        if (canceled) return;
     }
 
     FormatSizeStr(total, sizeStr, sizeof(sizeStr));

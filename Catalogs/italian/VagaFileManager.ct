@@ -425,3 +425,27 @@ Aprire %ld file?
 MSG_MENU_OPEN_NEWWIN
 Apri in nuova finestra
 ;
+MSG_DROP_ASK_ITEMS
+Copiare o spostare:
+;
+MSG_DROP_ASK_TO
+In:
+;
+MSG_DROP_ASK_MORE
+e altri %ld
+;
+MSG_MENU_OPEN_WITH
+Apri con...
+;
+MSG_OPENWITH_PROMPT
+Aprire con:
+;
+MSG_OPENWITH_CHOOSE
+Scegli...
+;
+MSG_OPENWITH_ASL_TITLE
+Scegli il programma
+;
+MSG_OPENWITH_FAILED
+Impossibile avviare %s.
+;

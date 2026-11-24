@@ -442,3 +442,27 @@ Open %ld files?
 MSG_MENU_OPEN_NEWWIN (//)
 Open in new window
 ;
+MSG_DROP_ASK_ITEMS (//)
+Copy or move:
+;
+MSG_DROP_ASK_TO (//)
+To:
+;
+MSG_DROP_ASK_MORE (//)
+and %ld more
+;
+MSG_MENU_OPEN_WITH (//)
+Open with...
+;
+MSG_OPENWITH_PROMPT (//)
+Open with:
+;
+MSG_OPENWITH_CHOOSE (//)
+Choose...
+;
+MSG_OPENWITH_ASL_TITLE (//)
+Choose the program
+;
+MSG_OPENWITH_FAILED (//)
+Cannot start %s.
+;

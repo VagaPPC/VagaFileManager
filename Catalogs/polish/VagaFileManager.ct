@@ -425,3 +425,27 @@ Otworzyæ %ld plików?
 MSG_MENU_OPEN_NEWWIN
 Otwórz w nowym oknie
 ;
+MSG_DROP_ASK_ITEMS
+Kopiowaæ czy przenie¶æ:
+;
+MSG_DROP_ASK_TO
+Do:
+;
+MSG_DROP_ASK_MORE
+i %ld innych
+;
+MSG_MENU_OPEN_WITH
+Otwórz za pomoc±...
+;
+MSG_OPENWITH_PROMPT
+Otwórz za pomoc±:
+;
+MSG_OPENWITH_CHOOSE
+Wybierz...
+;
+MSG_OPENWITH_ASL_TITLE
+Wybierz program
+;
+MSG_OPENWITH_FAILED
+Nie mo¿na uruchomiæ %s.
+;

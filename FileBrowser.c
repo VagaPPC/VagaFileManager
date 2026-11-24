@@ -1587,6 +1587,7 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
 
    hi->fbgia_Box.Left = hi->fbgia_Box.Top = 0;
    hi->fbgia_Box.Width = hi->fbgia_Box.Height = 0;
+   hi->fbgia_Node = NULL;
    if(d->mode == FBVM_ICONS)
    {
     /* Without a render/layout the geometry is not valid yet. */
@@ -1647,6 +1648,7 @@ static uint32 Dispatch(Class *cl, Object *o, Msg msg)
      }
     }
    }
+   if(hi->fbgia_Index >= 0) hi->fbgia_Node = NodeAt(d->labels, hi->fbgia_Index);
    return 0;
   }
 

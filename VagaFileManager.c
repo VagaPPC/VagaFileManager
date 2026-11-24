@@ -2448,7 +2448,21 @@ static uint32 ContextMenuHookFunc(struct Hook *hook, struct Window *win, struct 
         hi.fbgia_Index = -1;
         IIntuition->IDoMethodA((Object *)g, (Msg)&hi);
 
-        menu = (hi.fbgia_Index >= 0) ? gCtxMenuItem : gCtxMenuEmpty;
+        if (hi.fbgia_Index < 0)
+            menu = gCtxMenuEmpty;
+        else
+        {
+            /* file o cassetto?  Il nodo e' quello mostrato dal gadget in
+               questo momento; l'indice in isDir[] viene da LBNA_UserData. */
+            ULONG index = MAX_ENTRIES;
+            BOOL isDir = TRUE;
+            if (hi.fbgia_Node)
+            {
+                IListBrowser->GetListBrowserNodeAttrs(hi.fbgia_Node, LBNA_UserData, &index, TAG_DONE);
+                if (index < MAX_ENTRIES) isDir = gPanes[p].isDir[index];
+            }
+            menu = (!isDir && gCtxMenuFile) ? gCtxMenuFile : gCtxMenuItem;
+        }
         if (!menu) return 0;
         gCtxInfo.pane = p;
         gCtxInfo.pos  = hi.fbgia_Index;
@@ -2525,7 +2539,7 @@ static BOOL HandlePaneKey(int which, ULONG qual, struct Window *win)
                 /* come il pulsante Apri: cassetto in una nuova istanza */
                 TryOpenSelected(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList, TRUE);
             else
-                OpenSelectedEntries(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+                OpenSelectedEntries(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList, FALSE);
             break;
 
         case PANEKEY_BACKSPACE:
@@ -3373,7 +3387,8 @@ int main(int argc, char **argv)
                                                 case MENU_SCRIPT_REFRESH: ScanPlugins(); UpdateMenu(); break;
                                                 case MENU_SCRIPT_OPENDIR: CreateDirUnlocked(PLUGIN_DIR); NavigateTo((CONST_STRPTR)PLUGIN_DIR,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
-                                                case MENU_CTX_OPEN: OpenSelectedEntries(listGad,pathGad,statusGad,windows[WID_MAIN],fl); needStatus=TRUE; break;
+                                                case MENU_OPEN_WITH: DoOpenWith(windows[WID_MAIN], fl); break;
+                                                case MENU_CTX_OPEN: OpenSelectedEntries(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); needStatus=TRUE; break;
                                                 case MENU_REFRESH: LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_TOGGLE_VIEW: DoToggleView(listGad, toggleGad, windows[WID_MAIN]); LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
                                                 case MENU_ICON_SIZE_AUTO: ApplyPaneIconSize(0, listGad, windows[WID_MAIN]); UpdateMenu(); break;

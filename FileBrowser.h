@@ -73,7 +73,8 @@
 /* (method) Icon mode: index of the cell under a window-relative point.
    The view must have been laid out (rendered) at least once.
    Returns -1 outside a cell or in details mode.  Used by VFM to find the
-   drawer under the mouse during drag & drop. */
+   drawer under the mouse during drag & drop, and by the context menu hook
+   (fbgia_Node: the node shown at that position, NULL if none). */
 #define FILEBROWSER_GetIndexAt  (FILEBROWSER_Dummy + 8)
 struct FBGetIndexAt
 {
@@ -83,6 +84,7 @@ struct FBGetIndexAt
  int32  fbgia_Index;
  struct IBox fbgia_Box; /* out: cell (icons) or row (details) in window
                            coordinates, clipped to the visible area */
+ struct Node *fbgia_Node; /* out: node at fbgia_Index, or NULL */
 };
 
 /* (BOOL, ISG) Details mode: draw a FILLPEN frame over the list border, to

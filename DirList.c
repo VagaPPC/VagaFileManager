@@ -775,23 +775,12 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
         struct Pane *pn = &gPanes[pane];
         BOOL hasSel = (numSel > 0);
         BOOL hasClip;
-        BOOL hasDir = FALSE;
-        struct Node *n;
 
         /* Il clipboard condiviso e' gia' in memoria: il file viene riletto
            dal loop principale (attivazione finestra e ogni ~1 s) e da
            DoPaste.  Evitiamo I/O DOS a ogni aggiornamento della barra di
            stato (era la chiamata piu' frequente e piu' costosa). */
         hasClip = (gClipboardCount > 0 && gClipboardMode != CLIP_NONE);
-
-        for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
-        {
-            ULONG sel = FALSE, idx = MAX_ENTRIES;
-            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-            if (!sel) continue;
-            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &idx, TAG_DONE);
-            if (idx < (ULONG)pn->entryCount && pn->isDir[idx]) { hasDir = TRUE; break; }
-        }
 
         UpdateGadgetDisabled(pn->btnRename,    win, !hasSel);
         UpdateGadgetDisabled(pn->btnDelete,    win, !hasSel);
@@ -800,7 +789,7 @@ void UpdateStatus(Object *listGad, Object *statusGad, struct Window *win)
         UpdateGadgetDisabled(pn->btnCut,       win, !hasSel);
         UpdateGadgetDisabled(pn->btnInfo,      win, !hasSel);
         UpdateGadgetDisabled(pn->btnPaste,     win, !hasClip);
-        UpdateGadgetDisabled(pn->sizeGad,      win, !hasDir);
+        UpdateGadgetDisabled(pn->sizeGad,      win, !hasSel);   /* file e cassetti */
     }
 }
 
@@ -940,44 +929,41 @@ BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct
 /* Oltre questo numero di file, Enter chiede conferma prima di lanciarli. */
 #define OPEN_MANY_CONFIRM_LIMIT 10
 
-/* Enter sulla lista: con una sola voce selezionata si comporta come il
-   doppio click.  Con piu' voci lancia tutti i file selezionati via
-   Workbench (i cassetti vengono ignorati: si entra in un cassetto solo
-   se e' l'unica voce selezionata).  Oltre OPEN_MANY_CONFIRM_LIMIT file
-   chiede conferma. */
-BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)
+/* Apre la selezione.
+   newWindows FALSE (Enter): con una sola voce si comporta come il doppio
+   click; con piu' voci lancia tutti i file selezionati via Workbench e
+   ignora i cassetti.
+   newWindows TRUE (Apri del menu contestuale): ogni cassetto selezionato
+   si apre in una nuova finestra (istanza) e i file vengono lanciati.
+   Oltre OPEN_MANY_CONFIRM_LIMIT oggetti da aprire chiede conferma. */
+BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list, BOOL newWindows)
 {
     struct Node *n;
-    LONG selCount, fileCount = 0;
+    LONG selCount, openCount = 0;
     char newPath[PATH_MAX_LEN];
 
     selCount = CountSelectedEntries(list);
     if (selCount <= 0) return FALSE;
     if (selCount == 1)
-        return TryOpenSelected(listGad, pathGad, statusGad, win, list, FALSE);
+        return TryOpenSelected(listGad, pathGad, statusGad, win, list, newWindows);
 
-    /* prima passata: conta i file (non i cassetti) */
+    /* prima passata: conta cio' che verra' aperto */
     for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES;
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index, TAG_DONE);
-        if (sel && index < (ULONG)gEntryCount && !gIsDir[index]) fileCount++;
+        if (sel && index < (ULONG)gEntryCount && (newWindows || !gIsDir[index])) openCount++;
     }
-    if (fileCount == 0) return FALSE;
-    if (!WorkbenchBase || !IWorkbench)
-    {
-        DBG("cannot launch files: workbench.library not available");
-        return FALSE;
-    }
+    if (openCount == 0) return FALSE;
 
-    if (fileCount > OPEN_MANY_CONFIRM_LIMIT)
+    if (openCount > OPEN_MANY_CONFIRM_LIMIT)
     {
         char msg[128];
-        snprintf(msg, sizeof(msg), LS(MSG_OPEN_MANY_CONFIRM), (long)fileCount);
+        snprintf(msg, sizeof(msg), LS(MSG_OPEN_MANY_CONFIRM), (long)openCount);
         if (!ConfirmRequest(LS(MSG_BTN_OPEN), msg)) return FALSE;
     }
 
-    /* seconda passata: lancia i file */
+    /* seconda passata: apre */
     for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES;
@@ -985,10 +971,28 @@ BOOL OpenSelectedEntries(Object *listGad, Object *pathGad, Object *statusGad, st
 
         IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, LBNA_UserData, &index,
                                               LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!sel || !name || index >= (ULONG)gEntryCount || gIsDir[index]) continue;
-        if (!BuildChildPath(gPathBuffer, name, newPath, sizeof(newPath))) continue;
-        DBG("launch '%s' via Workbench", newPath);
-        IWorkbench->OpenWorkbenchObjectA(newPath, NULL);
+        if (!sel || !name || index >= (ULONG)gEntryCount) continue;
+        if (gIsDir[index] && !newWindows) continue;
+
+        if (gPathBuffer[0] == '\0')
+        {
+            /* vista radice: i nomi sono volumi/assign come SYS: */
+            strncpy(newPath, name, sizeof(newPath) - 1);
+            newPath[sizeof(newPath) - 1] = '\0';
+        }
+        else if (!BuildChildPath(gPathBuffer, name, newPath, sizeof(newPath)))
+            continue;
+
+        if (gIsDir[index])
+        {
+            DBG("open drawer '%s' in a new instance", newPath);
+            LaunchInstance(newPath, TRUE);
+        }
+        else if (WorkbenchBase && IWorkbench)
+        {
+            DBG("launch '%s' via Workbench", newPath);
+            IWorkbench->OpenWorkbenchObjectA(newPath, NULL);
+        }
     }
     return TRUE;
 }

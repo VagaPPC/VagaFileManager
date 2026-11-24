@@ -425,3 +425,27 @@ MSG_OPEN_MANY_CONFIRM
 MSG_MENU_OPEN_NEWWIN
 Abrir en una ventana nueva
 ;
+MSG_DROP_ASK_ITEMS
+Copiar o mover:
+;
+MSG_DROP_ASK_TO
+A:
+;
+MSG_DROP_ASK_MORE
+y %ld más
+;
+MSG_MENU_OPEN_WITH
+Abrir con...
+;
+MSG_OPENWITH_PROMPT
+Abrir con:
+;
+MSG_OPENWITH_CHOOSE
+Elegir...
+;
+MSG_OPENWITH_ASL_TITLE
+Elegir el programa
+;
+MSG_OPENWITH_FAILED
+No se puede iniciar %s.
+;

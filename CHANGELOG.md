@@ -3,6 +3,22 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 60 - 2026-11-24
+
+- New "Open with..." in the context menu of files: opens the selected
+  files with a program of your choice.  The last five programs used are
+  listed with their icons for a quick pick; "Choose..." picks a new one.
+
+## 1.0 build 59 - 2026-11-24
+
+- Calculate size now works on files too, and on a mix of files and
+  drawers.  The Size button is active whenever something is selected.
+- "Open" in the context menu opens drawers in a new window, like the
+  Workbench; files are launched.
+- The copy/move question after a drag & drop now shows what is being
+  copied (up to two lines of names) and where to; long destinations are
+  shortened at the start so the target drawer stays visible.
+
 ## 1.0 build 57 - 2026-11-24
 
 ### Changed
