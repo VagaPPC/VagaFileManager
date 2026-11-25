@@ -13,7 +13,7 @@ DIST    = VFM
 #  -fno-strict-aliasing i cast BOOPSI/ReAction violano lo strict aliasing
 CFLAGS  = -O3 -fomit-frame-pointer -fno-strict-aliasing
 
-LANG = english italian french german polish spanish
+LANG = english italian french german polish spanish greek
 
 OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o DragVisual.o FileBrowser.o AppWinRegistry.o OpenWith.o
 WB2OBJS = WB2VFM.o
@@ -47,6 +47,7 @@ catalogs:
 	$(CATCOMP) VagaFileManager.cd Catalogs/german/VagaFileManager.ct CATALOG Catalogs/german/VagaFileManager.catalog
 	$(CATCOMP) VagaFileManager.cd Catalogs/polish/VagaFileManager.ct CATALOG Catalogs/polish/VagaFileManager.catalog
 	$(CATCOMP) VagaFileManager.cd Catalogs/spanish/VagaFileManager.ct CATALOG Catalogs/spanish/VagaFileManager.catalog
+	$(CATCOMP) VagaFileManager.cd Catalogs/greek/VagaFileManager.ct CATALOG Catalogs/greek/VagaFileManager.catalog
 
 # Crea la cartella di distribuzione VFM con i soli file per l'esecuzione:
 # eseguibili + icone, immagini della toolbar/menu, cataloghi, plugin.
@@ -63,6 +64,7 @@ dist: catalogs $(PROG) $(WB2)
 	-MakeDir $(DIST)/Catalogs/german >NIL:
 	-MakeDir $(DIST)/Catalogs/polish >NIL:
 	-MakeDir $(DIST)/Catalogs/spanish >NIL:
+	-MakeDir $(DIST)/Catalogs/greek >NIL:
 	-MakeDir $(DIST)/Plugins >NIL:
 	Copy $(PROG) $(DIST)
 	Copy $(PROG).info $(DIST)
@@ -75,6 +77,7 @@ dist: catalogs $(PROG) $(WB2)
 	Copy Catalogs/german/VagaFileManager.catalog $(DIST)/Catalogs/german
 	Copy Catalogs/polish/VagaFileManager.catalog $(DIST)/Catalogs/polish
 	Copy Catalogs/spanish/VagaFileManager.catalog $(DIST)/Catalogs/spanish
+	Copy Catalogs/greek/VagaFileManager.catalog $(DIST)/Catalogs/greek
 	Copy Plugins/#?.py $(DIST)/Plugins
 	-Copy Plugins/#?.rexx $(DIST)/Plugins
 	Copy LICENSE $(DIST)
@@ -83,5 +86,5 @@ dist: catalogs $(PROG) $(WB2)
 	Copy CHANGELOG.md $(DIST)
 
 clean:
-	Delete $(PROG) $(WB2) $(OBJS) $(WB2OBJS) Catalogs/english/VagaFileManager.catalog Catalogs/italian/VagaFileManager.catalog Catalogs/french/VagaFileManager.catalog Catalogs/german/VagaFileManager.catalog Catalogs/polish/VagaFileManager.catalog Catalogs/spanish/VagaFileManager.catalog quiet
+	-Delete $(PROG) $(WB2) $(OBJS) $(WB2OBJS) Catalogs/english/VagaFileManager.catalog Catalogs/italian/VagaFileManager.catalog Catalogs/french/VagaFileManager.catalog Catalogs/german/VagaFileManager.catalog Catalogs/polish/VagaFileManager.catalog Catalogs/spanish/VagaFileManager.catalog Catalogs/greek/VagaFileManager.catalog quiet
 	-Delete $(DIST) ALL quiet

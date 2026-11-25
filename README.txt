@@ -223,10 +223,10 @@ Localization:
 - Built-in language: english (fallback)
 - Uses the system language by default via locale.library catalogs
 - Catalog name: VagaFileManager.catalog
-- Languages provided (.ct): english, italian, french, german, polish, spanish
+- Languages provided (.ct): english, italian, french, german, polish, spanish, greek
 - OS4 uses ENGLISH language names for catalog directories:
     Catalogs/english, Catalogs/italian, Catalogs/french,
-    Catalogs/german, Catalogs/polish, Catalogs/spanish
+    Catalogs/german, Catalogs/polish, Catalogs/spanish, Catalogs/greek
 - Install the generated .catalog files as:
     PROGDIR:Catalogs/<language>/VagaFileManager.catalog
     or

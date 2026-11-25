@@ -1,0 +1,496 @@
+## version $VER: VagaFileManager.catalog 1.0 (25.11.2026)
+## codeset 10
+## language greek
+;
+MSG_APP_TITLE
+VagaFileManager
+;
+MSG_VIEW_ICONS_ONLY
+κατά εικονίδια
+;
+MSG_VIEW_ALL_FILES
+όλα τα αρχεία
+;
+MSG_SORT_BY_TYPE
+τύπο
+;
+MSG_SORT_ALPHABETICAL
+Αλφαβητικά
+;
+MSG_SORT_BY_NAME
+όνομα
+;
+MSG_SORT_BY_DATE
+ημερομηνία
+;
+MSG_SORT_BY_SIZE
+μέγεθος
+;
+MSG_TYPE_DIR_LINK
+Φάκ. (σύνδ.)
+;
+MSG_TYPE_LINK
+Σύνδεσμος
+;
+MSG_TYPE_DRAWER
+Φάκελος
+;
+MSG_TYPE_FILE
+Αρχείο
+;
+MSG_TYPE_SOFTLINK
+Μαλακός σύνδ.
+;
+MSG_TYPE_OTHER
+Άλλο
+;
+MSG_TYPE_DEVICE
+Συσκευή
+;
+MSG_TYPE_VOLUME
+Τόμος
+;
+MSG_TYPE_ASSIGN
+Assign
+;
+MSG_TYPE_LATE_ASSIGN
+Late assign
+;
+MSG_TYPE_NONBINDING
+Non-binding
+;
+MSG_ROOT_ASSIGNS
+(Συσκευές και assign)
+;
+MSG_STATUS_FORMAT
+Στοιχεία: %ld  |  Επιλεγμένα: %lu
+;
+MSG_BTN_OK
+OK
+;
+MSG_BTN_CANCEL
+Άκυρο
+;
+MSG_BTN_OK_CANCEL
+OK|Άκυρο
+;
+MSG_RENAME_TITLE
+Μετονομασία: %s
+;
+MSG_RENAME
+Μετονομασία
+;
+MSG_RENAME_SELECT_ONE
+Επιλέξτε ένα μόνο στοιχείο για μετονομασία.
+;
+MSG_RENAME_FAILED
+Αδύνατη η μετονομασία:\n%s
+;
+MSG_ERROR_TITLE
+Σφάλμα
+;
+MSG_DELETE
+Διαγραφή
+;
+MSG_DELETE_NONE
+Δεν επιλέχθηκε κανένα στοιχείο.
+;
+MSG_DELETE_CONFIRM_ONE
+Διαγραφή του επιλεγμένου στοιχείου;
+;
+MSG_DELETE_CONFIRM_MANY
+Διαγραφή %ld επιλεγμένων στοιχείων;
+;
+MSG_DELETE_CONFIRM_TITLE
+Επιβεβαίωση διαγραφής
+;
+MSG_DELETE_FAILED
+Αδύνατη η διαγραφή:\n%s\n(Ο φάκελος ίσως δεν είναι άδειος)
+;
+MSG_DUPLICATE
+Αντίγραφο
+;
+MSG_DUPLICATE_ROOT
+Η λειτουργία δεν είναι διαθέσιμη σε αυτή την προβολή.
+;
+MSG_DUPLICATE_NONE
+Δεν επιλέχθηκε κανένα στοιχείο.
+;
+MSG_DUPLICATE_ERRORS
+Ορισμένα στοιχεία δεν ήταν δυνατό να αντιγραφούν.
+;
+MSG_COPY_PREFIX
+Copy_%ld_%s
+;
+MSG_COPY
+Αντιγραφή
+;
+MSG_COPY_NONE
+Δεν επιλέχθηκε κανένα στοιχείο.
+;
+MSG_PASTE
+Επικόλληση
+;
+MSG_PASTE_ROOT
+Δεν είναι δυνατή η επικόλληση στη λίστα των assign.
+;
+MSG_PASTE_EMPTY
+Το πρόχειρο είναι άδειο.
+;
+MSG_PASTE_ERRORS
+Ορισμένα στοιχεία δεν ήταν δυνατό να επικολληθούν.
+;
+MSG_INFO
+Πληροφορίες
+;
+MSG_INFO_TITLE
+Πληροφορίες
+;
+MSG_INFO_SELECT_ONE
+Επιλέξτε ένα μόνο στοιχείο.
+;
+MSG_DROP_COPY_FAILED
+Σφάλμα κατά την αντιγραφή του στοιχείου που αφέθηκε.
+;
+MSG_DRAGDROP_TITLE
+Μεταφορά & Απόθεση
+;
+MSG_DROP_ROOT
+Δεν είναι δυνατή η αντιγραφή στη λίστα των assign.
+;
+MSG_DROP_COPY_ERROR_NAME
+Σφάλμα αντιγραφής:\n%s
+;
+MSG_COL_NAME
+Όνομα
+;
+MSG_COL_TYPE
+Τύπος
+;
+MSG_COL_SIZE
+Μέγ.
+;
+MSG_COL_DATE
+Ημ/νία
+;
+MSG_STATUS_EMPTY
+Στοιχεία: 0  |  Επιλεγμένα: 0
+;
+MSG_BTN_ICONS
+Εικονίδια
+;
+MSG_BTN_DETAILS
+Λεπτομέρειες
+;
+MSG_BTN_UP
+Πάνω
+;
+MSG_BTN_OPEN
+Άνοιγμα
+;
+MSG_BTN_REFRESH
+Ανανέωση
+;
+MSG_BTN_HOME
+Αρχική
+;
+MSG_LABEL_VIEW
+Προβολή:
+;
+MSG_LABEL_LIST
+Λίστα:
+;
+MSG_LABEL_PATH
+Διαδρομή:
+;
+MSG_DROP_NO_TARGET
+Δεν βρέθηκε έγκυρος προορισμός απόθεσης.
+;
+MSG_COL_COMMENT
+Σχόλιο
+;
+MSG_BTN_BACK
+Πίσω
+;
+MSG_BTN_FORWARD
+Μπροστά
+;
+MSG_MENU_PROGRAM
+Πρόγραμμα
+;
+MSG_MENU_NEWWINDOW
+Νέο...
+;
+MSG_MENU_INFO
+Πληροφορίες...
+;
+MSG_MENU_QUIT
+Έξοδος
+;
+MSG_MENU_EDIT
+Επεξεργασία
+;
+MSG_MENU_VIEW
+Προβολή
+;
+MSG_MENU_BOOKMARKS
+Σελιδοδείκτες
+;
+MSG_MENU_ADDBOOKMARK
+Προσθήκη στα αγαπημένα
+;
+MSG_BOOKMARK_ADDED
+Προστέθηκε στα αγαπημένα.
+;
+MSG_MENU_MANAGE
+Διαχείριση...
+;
+MSG_CUT
+Αποκοπή
+;
+MSG_FILTER
+Φίλτρο
+;
+MSG_SORT
+Ταξινόμηση κατά
+;
+MSG_ABOUT_VERSION
+Έκδοση %s
+;
+MSG_ABOUT_AUTHOR
+VagaPPC (Benedetto Lorello)
+;
+MSG_ABOUT_EMAIL
+mail: vagappc@yahoo.it
+;
+MSG_ABOUT_LICENSE
+Ελεύθερο λογισμικό: GNU General Public License v3 ή νεότερη
+;
+MSG_MOVE
+Μετακίνηση
+;
+MSG_PROG_TITLE
+Λειτουργία αρχείων
+;
+MSG_PROG_STATUS
+Αντιγραφή...
+;
+MSG_PROG_PAUSE
+Παύση
+;
+MSG_PROG_CONTINUE
+Συνέχεια
+;
+MSG_MENU_SHOW
+Εμφάνιση
+;
+MSG_MENU_SCRIPT
+Σενάρια
+;
+MSG_SCRIPT_REFRESH
+Ανανέωση λίστας
+;
+MSG_SCRIPT_OPENDIR
+Άνοιγμα φακέλου πρόσθετων
+;
+MSG_CALC_SIZE
+Υπολογισμός μεγέθους
+;
+MSG_SIZE_TITLE
+Μέγεθος
+;
+MSG_SIZE_SELECT_DIR
+Επιλέξτε έναν φάκελο ή έναν τόμο.
+;
+MSG_SIZE_RESULT
+Μέγεθος: %s (%lld bytes)   Αρχεία: %lld   Φάκελοι: %lld
+;
+MSG_BTN_SPLIT_HINT
+Διαίρεση / κλείσιμο δεύτερου πλαισίου
+;
+MSG_ABOUT_BY
+από
+;
+MSG_ABOUT_AUTHOR_NAME
+VagaPPC
+;
+MSG_ABOUT_AUTHOR_SUFFIX
+(Benedetto Lorello)
+;
+MSG_ABOUT_MAIL
+Mail: vagappc@yahoo.it
+;
+MSG_ABOUT_THANKS
+Ιδιαίτερες ευχαριστίες: ldg72, Flash, Kaffeine, ACube και AlfredONE
+;
+MSG_MENU_WBREPLACE
+Αντικατάσταση Workbench
+;
+MSG_MENU_WBRESTORE
+Επαναφορά Workbench
+;
+MSG_FIND_TITLE
+Εύρεση αρχείου
+;
+MSG_FIND_NONE
+Δεν βρέθηκε κανένα αρχείο.
+;
+MSG_FIND_RESULTS
+Αποτελέσματα αναζήτησης
+;
+MSG_GREP_TITLE
+grep
+;
+MSG_GREP_NONE
+Καμία αντιστοιχία στα επιλεγμένα αρχεία.
+;
+MSG_GREP_RESULTS
+Αποτελέσματα grep
+;
+MSG_MENU_SHOWINFO
+Εμφάνιση αρχείων info
+;
+MSG_BTN_SHELL_HINT
+Άνοιγμα shell εδώ
+;
+MSG_MENU_SHELL
+Shell
+;
+MSG_MENU_NEW
+Νέο
+;
+MSG_MENU_NEW_DRAWER
+Φάκελος
+;
+MSG_MENU_NEW_TEXTFILE
+Αρχείο κειμένου
+;
+MSG_MENU_SELECT_ALL
+Επιλογή όλων
+;
+MSG_MENU_INVERT_SELECTION
+Αντιστροφή επιλογής
+;
+MSG_MENU_DESELECT_ALL
+Αποεπιλογή όλων
+;
+MSG_NEW_DRAWER_PROMPT
+Όνομα του νέου φακέλου:
+;
+MSG_NEW_FILE_PROMPT
+Όνομα του νέου αρχείου κειμένου:
+;
+MSG_NEW_DRAWER_FAILED
+Δεν είναι δυνατή η δημιουργία του φακέλου.
+;
+MSG_NEW_FILE_FAILED
+Δεν είναι δυνατή η δημιουργία του αρχείου.
+;
+MSG_NEW_FILE_EXISTS
+Υπάρχει ήδη αρχείο με αυτό το όνομα.
+;
+MSG_CONFLICT_TITLE
+Το αρχείο υπάρχει ήδη
+;
+MSG_CONFLICT_BODY
+Το αρχείο %s υπάρχει ήδη.\n\nΤι θέλετε να κάνετε;
+;
+MSG_CONFLICT_OVERWRITE
+Αντικατάσταση
+;
+MSG_CONFLICT_OVERWRITE_ALL
+Αντικατάσταση όλων
+;
+MSG_CONFLICT_UPDATE
+Ενημέρωση
+;
+MSG_CONFLICT_UPDATE_ALL
+Ενημέρωση όλων
+;
+MSG_CONFLICT_RENAME
+Μετονομασία
+;
+MSG_CONFLICT_SKIP
+Παράλειψη
+;
+MSG_COPY_ERROR_BODY
+Σφάλμα κατά την αντιγραφή του '%s':\n%s
+;
+MSG_COPY_ERROR_BUTTONS
+Επανάληψη|Παράλειψη|Άκυρο
+;
+MSG_OPEN_MANY_CONFIRM
+Άνοιγμα %ld αρχείων;
+;
+MSG_MENU_OPEN_NEWWIN
+Άνοιγμα σε νέο παράθυρο
+;
+MSG_DROP_ASK_ITEMS
+Αντιγραφή ή μετακίνηση:
+;
+MSG_DROP_ASK_TO
+Προς:
+;
+MSG_DROP_ASK_MORE
+και %ld ακόμη
+;
+MSG_MENU_OPEN_WITH
+Άνοιγμα με...
+;
+MSG_OPENWITH_PROMPT
+Άνοιγμα με:
+;
+MSG_OPENWITH_CHOOSE
+Επιλογή...
+;
+MSG_OPENWITH_ASL_TITLE
+Επιλέξτε το πρόγραμμα
+;
+MSG_OPENWITH_FAILED
+Δεν είναι δυνατή η εκκίνηση του %s.
+;
+MSG_OPENWITH_MAKEDEFAULT
+Ορισμός ως προεπιλογή
+;
+MSG_OPENWITH_DEFTYPE_BODY
+Το αρχείο %s δεν έχει δικό του εικονίδιο.\n\nΧρήση του %s για όλα τα αρχεία τύπου '%s';
+;
+MSG_OPENWITH_NOTYPE_BODY
+Το αρχείο %s δεν έχει δικό του εικονίδιο και ο τύπος του είναι άγνωστος.\n\nΔημιουργία εικονιδίου που το ανοίγει με το %s;
+;
+MSG_OPENWITH_ALL_OF_TYPE
+Όλα τα αρχεία αυτού του τύπου
+;
+MSG_OPENWITH_ONLY_FILE
+Μόνο αυτό το αρχείο
+;
+MSG_OPENWITH_SAVE_FAILED
+Δεν είναι δυνατή η αποθήκευση του εικονιδίου του %s.
+;
+MSG_MENU_ICONSIZE
+Μέγεθος
+;
+MSG_MENU_BARS
+Γραμμές
+;
+MSG_BAR_PATH
+Εμφάνιση γραμμής διαδρομής
+;
+MSG_BAR_TOOLS
+Εμφάνιση γραμμής κουμπιών
+;
+MSG_BAR_FILTER
+Εμφάνιση γραμμής φίλτρου
+;
+MSG_BAR_STATUS
+Εμφάνιση γραμμής κατάστασης
+;
+MSG_MENU_SPLIT
+Διαίρεση
+;
+MSG_BTN_CLEAR_FILTER
+Καθαρισμός φίλτρου
+;
+MSG_ABOUT_DONATE
+Δωρεά:
+;
