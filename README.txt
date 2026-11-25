@@ -16,7 +16,7 @@ Features
 - Context-Sensitive Buttons: Dynamic file management buttons tailored to your current selection.
 - "Split" Mode: Dual-pane workflow inspired by DOpus.
 - Update Copy Mode: Copy only newer or modified files (currently under testing).
-- Workbench Replacement: Commodity patch to seamlessly intercept and replace standard Workbench windows.
+- Workbench Replacement: the WB2VFM commodity seamlessly intercepts and replaces standard Workbench windows; a double-click on the empty desktop background opens a VFM window on RAM:, or on the path given by the DESKTOPPATH ToolType of the WB2VFM icon (for example DESKTOPPATH=Work:).
 - Scripting & Extensibility:
 - Built-in ARexx port.
 - Python plugin support (Work In Progress).
@@ -67,7 +67,7 @@ Distribution folder (VFM/):
   After a successful build, make recreates VFM/ containing ONLY the files
   needed to run the program:
     VagaFileManager, VagaFileManager.info
-    WB2VagaFileManager, WB2VagaFileManager.info
+    WB2VFM, WB2VFM.info
     icons/            (toolbar and menu PNGs)
     Catalogs/<lang>/VagaFileManager.catalog
     Plugins/          (example ARexx/Python plugins)

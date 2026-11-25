@@ -16,21 +16,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/* WB2VagaFileManager - sostituisce le finestre dei cassetti del Workbench
+/* WB2VFM - sostituisce le finestre dei cassetti del Workbench
+ * (fino alla build 70 si chiamava WB2VagaFileManager)
  *
- * Utility Commodities (gestibile da Exchange) che patcha
- * Intuition->OpenWindowTagList via SetMethod(): quando il Workbench apre
- * un cassetto o un volume, lancia VagaFileManager su quel percorso e
- * impedisce al Workbench di aprire la propria finestra.
+ * Utility Commodities (gestibile da Exchange) che:
+ *  - patcha Intuition->OpenWindowTagList via SetMethod(): quando il
+ *    Workbench apre un cassetto o un volume, lancia VagaFileManager su
+ *    quel percorso e impedisce al Workbench di aprire la propria finestra;
+ *  - con un doppio click sullo sfondo del desktop (finestra radice del
+ *    Workbench, non su un'icona) apre un'istanza di VagaFileManager su
+ *    RAM:, o sul percorso del ToolType DESKTOPPATH dell'icona di WB2VFM
+ *    (es. DESKTOPPATH=Work:).
  *
  * Uso:
- *   WB2VagaFileManager [percorso/VagaFileManager]
+ *   WB2VFM [percorso/VagaFileManager]
  *
  * Senza argomento usa l'eseguibile VagaFileManager nella stessa
- * directory di WB2VagaFileManager (percorso assoluto).
+ * directory di WB2VFM (percorso assoluto).
  *
- * Appare in Exchange come "WB2VagaFileManager"; da li' si puo'
- * abilitare/disabilitare o terminare (Kill).
+ * Appare in Exchange come "WB2VFM"; da li' si puo' abilitare/disabilitare
+ * (entrambe le funzioni) o terminare (Kill).
  */
 
 #include <stddef.h>
@@ -45,6 +50,10 @@
 #include <intuition/intuition.h>
 #include <intuition/classes.h>
 #include <workbench/workbench.h>
+#include <workbench/startup.h>
+#include <devices/inputevent.h>
+#include <intuition/intuitionbase.h>
+#include <graphics/layers.h>
 #include <libraries/commodities.h>
 #include <interfaces/commodities.h>
 
@@ -53,16 +62,18 @@
 #include <proto/intuition.h>
 #include <proto/utility.h>
 #include <proto/wb.h>
+#include <proto/layers.h>
+#include <proto/icon.h>
 
 #include "VagaFileManager_version.h"
 
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
 /* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   52
+#define WB2_BUILD   72
 
 static const char wb2_version_tag[] __attribute__((used)) =
-    "\0$VER: WB2VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
+    "\0$VER: WB2VFM " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
 
 static BOOL gActive = FALSE;
 static char gExePath[PATH_MAX_LEN];
@@ -72,6 +83,18 @@ static struct CommoditiesIFace *gICx = NULL;
 static struct MsgPort *gCxPort = NULL;
 static struct MsgPort *gClosePort = NULL;
 static CxObj *gBroker = NULL;
+
+/* Doppio click sullo sfondo del desktop -> VFM su questo percorso
+   (ToolType DESKTOPPATH, default RAM:). */
+#define DESKTOP_PATH     "RAM:"
+static char gDesktopPath[PATH_MAX_LEN] = DESKTOP_PATH;
+#define CLICK_SENDER_ID  1
+#define CLICK_MAX_MOVE   4      /* pixel di tolleranza fra i due click */
+
+/* ultimo click sinistro (per riconoscere il doppio click) */
+static BOOL  gLastClickValid = FALSE;
+static ULONG gLastClickSecs = 0, gLastClickMicros = 0;
+static WORD  gLastClickX = 0, gLastClickY = 0;
 
 struct CloseMsg
 {
@@ -96,9 +119,9 @@ static void Log(CONST_STRPTR fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    fh = IDOS->Open("T:WB2VagaFileManager.log", MODE_READWRITE);
+    fh = IDOS->Open("T:WB2VFM.log", MODE_READWRITE);
     if (!fh)
-        fh = IDOS->Open("T:WB2VagaFileManager.log", MODE_NEWFILE);
+        fh = IDOS->Open("T:WB2VFM.log", MODE_NEWFILE);
     if (fh)
     {
         IDOS->ChangeFilePosition(fh, 0, OFFSET_END);
@@ -220,6 +243,144 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
         gOrigOpenWindowTagList(Self, newWindow, tagList) : NULL;
 }
 
+/* ===== Doppio click sullo sfondo del desktop ===== */
+
+/* TRUE se il punto (mx,my) dello schermo Workbench cade sulla finestra
+   radice del Workbench (backdrop, del task Workbench) e non su un'icona,
+   e lo schermo Workbench e' quello in primo piano. */
+static BOOL IsDesktopBackground(struct Screen *scr, WORD mx, WORD my)
+{
+    struct Layer *layer;
+    struct Window *win = NULL;
+    BOOL ok = FALSE;
+    ULONG ilock;
+
+    if (mx < 0 || my < 0 || mx >= scr->Width || my >= scr->Height) return FALSE;
+
+    /* un altro schermo davanti al Workbench: il click non e' sul desktop */
+    ilock = IIntuition->LockIBase(0);
+    ok = (((struct IntuitionBase *)IntuitionBase)->FirstScreen == scr) ? TRUE : FALSE;
+    IIntuition->UnlockIBase(ilock);
+    if (!ok) return FALSE;
+    ok = FALSE;
+
+    /* finestra in primo piano sotto il puntatore (ordine dei layer) */
+    ILayers->LockLayerInfo(&scr->LayerInfo);
+    layer = ILayers->WhichLayer(&scr->LayerInfo, mx, my);
+    if (layer) win = layer->Window;
+    if (win && (win->Flags & WFLG_BACKDROP) && win->UserPort &&
+        win->UserPort->mp_SigTask)
+    {
+        CONST_STRPTR tname = ((struct Task *)win->UserPort->mp_SigTask)->tc_Node.ln_Name;
+        if (tname && (IUtility->Stricmp(tname, "Workbench") == 0 ||
+                      IUtility->Stricmp(tname, "wb") == 0))
+            ok = TRUE;
+    }
+    ILayers->UnlockLayerInfo(&scr->LayerInfo);
+
+    /* sopra un'icona il doppio click la apre: non e' lo sfondo */
+    if (ok && IWorkbench &&
+        IWorkbench->WhichWorkbenchObjectA(win, mx - win->LeftEdge,
+                                          my - win->TopEdge, NULL) == WBO_ICON)
+        ok = FALSE;
+
+    return ok;
+}
+
+/* Un click sinistro (copia dell'evento inviata dal filtro commodity). */
+static void HandleLeftClick(const struct InputEvent *ie)
+{
+    struct Screen *scr;
+    WORD mx, my;
+    ULONG secs, micros;
+    BOOL dbl = FALSE;
+
+    if (!ie) return;
+    secs = ie->ie_TimeStamp.Seconds;
+    micros = ie->ie_TimeStamp.Microseconds;
+
+    scr = IIntuition->LockPubScreen("Workbench");
+    if (!scr) return;
+    mx = scr->MouseX;
+    my = scr->MouseY;
+
+    if (gLastClickValid &&
+        IIntuition->DoubleClick(gLastClickSecs, gLastClickMicros, secs, micros) &&
+        mx - gLastClickX <= CLICK_MAX_MOVE && gLastClickX - mx <= CLICK_MAX_MOVE &&
+        my - gLastClickY <= CLICK_MAX_MOVE && gLastClickY - my <= CLICK_MAX_MOVE)
+        dbl = TRUE;
+
+    if (dbl)
+    {
+        /* un terzo click non deve contare come un altro doppio click */
+        gLastClickValid = FALSE;
+        if (IsDesktopBackground(scr, mx, my))
+        {
+            IIntuition->UnlockPubScreen(NULL, scr);
+            /* percorso non raggiungibile (disco tolto, assign
+               mancante): si apre RAM: invece di una finestra vuota */
+            CONST_STRPTR path = gDesktopPath;
+            BPTR l = IDOS->Lock(path, SHARED_LOCK);
+            if (l) IDOS->UnLock(l);
+            else
+            {
+                Log("DESKTOPPATH '%s' not found, using %s", path, DESKTOP_PATH);
+                path = DESKTOP_PATH;
+            }
+            Log("desktop double-click at %ld,%ld -> %s",
+                (long)mx, (long)my, path);
+            LaunchVFM(path);
+            return;
+        }
+    }
+    else
+    {
+        gLastClickValid = TRUE;
+        gLastClickSecs = secs;
+        gLastClickMicros = micros;
+        gLastClickX = mx;
+        gLastClickY = my;
+    }
+    IIntuition->UnlockPubScreen(NULL, scr);
+}
+
+/* Filtro commodity: ogni pressione del tasto sinistro (non il rilascio,
+   qualunque qualificatore) arriva come copia sulla porta del broker.
+   L'evento prosegue normalmente verso il Workbench. */
+static BOOL InstallClickFilter(void)
+{
+    CxObj *filter, *sender;
+    IX ix;
+
+    filter = gICx->CreateCxObj(CX_FILTER, 0, 0);
+    if (!filter) return FALSE;
+
+    memset(&ix, 0, sizeof(ix));
+    ix.ix_Version  = IX_VERSION;
+    ix.ix_Class    = IECLASS_RAWMOUSE;
+    ix.ix_Code     = IECODE_LBUTTON;
+    ix.ix_CodeMask = 0xFFFF;          /* esattamente LBUTTON (giu') */
+    ix.ix_Qualifier = 0;
+    ix.ix_QualMask = 0;               /* qualificatori indifferenti */
+    gICx->SetFilterIX(filter, &ix);
+
+    sender = gICx->CreateCxObj(CX_SEND, (int32)gCxPort, CLICK_SENDER_ID);
+    if (!sender)
+    {
+        gICx->DeleteCxObj(filter);
+        return FALSE;
+    }
+    gICx->AttachCxObj(filter, sender);
+    gICx->AttachCxObj(gBroker, filter);
+
+    if (gICx->CxObjError(filter))
+    {
+        Log("click filter error %ld", (long)gICx->CxObjError(filter));
+        return FALSE;
+    }
+    return TRUE;
+}
+
 /* ===== Patch di OpenWindowTagList ===== */
 
 static BOOL InstallPatch(void)
@@ -273,6 +434,50 @@ static void Shutdown(void)
     if (gCxBase) { IExec->CloseLibrary(gCxBase); gCxBase = NULL; }
 }
 
+/* ===== ToolType ===== */
+
+/* Legge i ToolType dall'icona del programma, sia da Workbench (argc == 0,
+   argv e' il WBStartup) sia da Shell (icona accanto all'eseguibile). */
+static void ReadToolTypes(int argc, char **argv)
+{
+    struct DiskObject *dob = NULL;
+    BPTR old;
+
+    if (!IIcon) return;
+
+    if (argc == 0 && argv)
+    {
+        struct WBStartup *wbs = (struct WBStartup *)argv;
+        if (wbs->sm_NumArgs > 0 && wbs->sm_ArgList)
+        {
+            old = IDOS->SetCurrentDir(wbs->sm_ArgList[0].wa_Lock);
+            dob = IIcon->GetDiskObject(wbs->sm_ArgList[0].wa_Name);
+            IDOS->SetCurrentDir(old);
+        }
+    }
+    else
+    {
+        char name[256];
+        if (IDOS->GetCliProgramName(name, sizeof(name)) && IDOS->GetProgramDir())
+        {
+            old = IDOS->SetCurrentDir(IDOS->GetProgramDir());
+            dob = IIcon->GetDiskObject(IDOS->FilePart(name));
+            IDOS->SetCurrentDir(old);
+        }
+    }
+    if (!dob) return;
+
+    {
+        STRPTR v = IIcon->FindToolType((STRPTR *)dob->do_ToolTypes, "DESKTOPPATH");
+        if (v && v[0])
+        {
+            strncpy(gDesktopPath, v, sizeof(gDesktopPath) - 1);
+            gDesktopPath[sizeof(gDesktopPath) - 1] = '\0';
+        }
+    }
+    IIcon->FreeDiskObject(dob);
+}
+
 /* ===== Punto di ingresso ===== */
 
 int main(int argc, char **argv)
@@ -316,18 +521,20 @@ int main(int argc, char **argv)
         BPTR l = IDOS->Lock(gExePath, SHARED_LOCK);
         if (!l)
         {
-            IDOS->Printf("WB2VagaFileManager: eseguibile non trovato: '%s'\n", gExePath);
+            IDOS->Printf("WB2VFM: eseguibile non trovato: '%s'\n", gExePath);
             return RETURN_FAIL;
         }
         IDOS->UnLock(l);
     }
+
+    ReadToolTypes(argc, argv);
 
     gCxBase = IExec->OpenLibrary("commodities.library", 0);
     if (gCxBase)
         gICx = (struct CommoditiesIFace *)IExec->GetInterface(gCxBase, "main", 1, NULL);
     if (!gICx)
     {
-        IDOS->Printf("WB2VagaFileManager: commodities.library non disponibile.\n");
+        IDOS->Printf("WB2VFM: commodities.library non disponibile.\n");
         Shutdown();
         return RETURN_FAIL;
     }
@@ -335,24 +542,24 @@ int main(int argc, char **argv)
     gCxPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
     if (!gCxPort)
     {
-        IDOS->Printf("WB2VagaFileManager: impossibile creare la porta.\n");
+        IDOS->Printf("WB2VFM: impossibile creare la porta.\n");
         Shutdown();
         return RETURN_FAIL;
     }
     gClosePort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
     if (!gClosePort)
     {
-        IDOS->Printf("WB2VagaFileManager: impossibile creare la porta di chiusura.\n");
+        IDOS->Printf("WB2VFM: impossibile creare la porta di chiusura.\n");
         Shutdown();
         return RETURN_FAIL;
     }
 
     memset(&nb, 0, sizeof(nb));
     nb.nb_Version  = NB_VERSION;
-    nb.nb_Name     = "WB2VagaFileManager";
-    Log("WB2 build %s", VFM_STR(WB2_BUILD));
-    nb.nb_Title    = "WB2 VagaFileManager " WB2_VERSION " build " VFM_STR(WB2_BUILD);
-    nb.nb_Descr    = "WB2 VagaFileManager drawer patch " WB2_VERSION " build " VFM_STR(WB2_BUILD);
+    nb.nb_Name     = "WB2VFM";
+    Log("WB2VFM build %s", VFM_STR(WB2_BUILD));
+    nb.nb_Title    = "WB2VFM " WB2_VERSION " build " VFM_STR(WB2_BUILD);
+    nb.nb_Descr    = "VFM drawer windows, desktop double-click opens RAM:";
     nb.nb_Unique   = NBU_UNIQUE | NBU_NOTIFY;
     nb.nb_Flags    = COF_ENABLE;
     nb.nb_Pri      = 0;
@@ -362,20 +569,24 @@ int main(int argc, char **argv)
     gBroker = gICx->CxBroker(&nb, &cxerr);
     if (!gBroker)
     {
-        IDOS->Printf("WB2VagaFileManager: CxBroker fallita (errore %ld).\n", (long)cxerr);
+        IDOS->Printf("WB2VFM: CxBroker fallita (errore %ld).\n", (long)cxerr);
         Shutdown();
         return RETURN_FAIL;
     }
+    /* senza filtro la commodity funziona comunque (solo i cassetti) */
+    if (!InstallClickFilter())
+        Log("desktop double-click not available");
     gICx->ActivateCxObj(gBroker, TRUE);
 
     if (!InstallPatch())
     {
-        IDOS->Printf("WB2VagaFileManager: impossibile installare la patch (exe '%s').\n", gExePath);
+        IDOS->Printf("WB2VFM: impossibile installare la patch (exe '%s').\n", gExePath);
         Shutdown();
         return RETURN_FAIL;
     }
 
-    Log("commodity avviata, broker='%s' exe='%s'", "WB2VagaFileManager", gExePath);
+    Log("commodity avviata, broker='%s' exe='%s' desktop='%s'",
+        "WB2VFM", gExePath, gDesktopPath);
 
     while (!done)
     {
@@ -406,7 +617,15 @@ int main(int argc, char **argv)
 
         while ((cxm = (CxMsg *)IExec->GetMsg(gCxPort)) != NULL)
         {
-            if (gICx->CxMsgType(cxm) == CXM_COMMAND)
+            /* click sinistro: ignorato se la commodity e' disabilitata
+               da Exchange (DISABLE toglie la patch e azzera gActive) */
+            if (gICx->CxMsgType(cxm) == CXM_IEVENT &&
+                gICx->CxMsgID(cxm) == CLICK_SENDER_ID)
+            {
+                if (gActive)
+                    HandleLeftClick((const struct InputEvent *)gICx->CxMsgData(cxm));
+            }
+            else if (gICx->CxMsgType(cxm) == CXM_COMMAND)
             {
                 LONG id = gICx->CxMsgID(cxm);
                 switch (id)

@@ -2,7 +2,7 @@
 CC      = gcc
 CATCOMP = CatComp
 PROG    = VagaFileManager
-WB2     = WB2VagaFileManager
+WB2     = WB2VFM
 
 # Cartella che raccoglie SOLO i file necessari all'esecuzione (distribuzione)
 DIST    = VFM
@@ -16,7 +16,7 @@ CFLAGS  = -O3 -fomit-frame-pointer -fno-strict-aliasing
 LANG = english italian french german polish spanish
 
 OBJS = VagaFileManager.o DirList.o FileOps.o Dialogs.o DragDrop.o DragVisual.o FileBrowser.o AppWinRegistry.o OpenWith.o
-WB2OBJS = WB2VagaFileManager.o
+WB2OBJS = WB2VFM.o
 
 .PHONY: all catalogs dist clean
 
@@ -37,7 +37,7 @@ DragVisual.o: DragVisual.c VagaFileManager.h
 FileBrowser.o: FileBrowser.c FileBrowser.h VagaFileManager_strings.h
 AppWinRegistry.o: AppWinRegistry.c VagaFileManager.h AppWindowRegistry.h
 OpenWith.o: OpenWith.c VagaFileManager.h VagaFileManager_strings.h
-WB2VagaFileManager.o: WB2VagaFileManager.c
+WB2VFM.o: WB2VFM.c
 
 catalogs:
 	$(CATCOMP) VagaFileManager.cd CFILE VagaFileManager_strings.h

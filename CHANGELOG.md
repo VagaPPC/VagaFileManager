@@ -3,6 +3,15 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 73 - 2026-11-25
+
+- WB2VagaFileManager is now called WB2VFM.  If you start it from
+  WBStartup, replace the old program with the new one.
+- WB2VFM: a double-click on the empty desktop background opens a VFM
+  window on RAM:.  Double-clicking icons works as before.  Another
+  drawer can be set with the DESKTOPPATH tooltype of the WB2VFM icon
+  (for example DESKTOPPATH=Work:); if it is not available, RAM: opens.
+
 ## 1.0 build 70 - 2026-11-25
 
 - The file lists now always show the final state of a drawer after a
