@@ -5,6 +5,10 @@ User-visible changes are recorded here for every build.  The version in
 
 ## 1.0 build 73 - 2026-11-25
 
+- Sizes are now shown in a readable form, such as 512, 1,5K, 19M or
+  190M (base 1024, decimal separator from your locale settings).  The
+  list view, the progress window and Calculate size all use the same
+  format; sorting by size still uses the exact byte count.
 - WB2VagaFileManager is now called WB2VFM.  If you start it from
   WBStartup, replace the old program with the new one.
 - WB2VFM: a double-click on the empty desktop background opens a VFM

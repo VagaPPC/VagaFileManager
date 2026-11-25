@@ -3057,6 +3057,17 @@ int main(int argc, char **argv)
         gLoc.li_Catalog = gLocale->OpenCatalog(NULL, "VagaFileManager.catalog",
                                               OC_BuiltInLanguage, "english",
                                               TAG_DONE);
+
+        /* separatore decimale delle dimensioni (1.9M / 1,9M) */
+        {
+            struct Locale *loc = gLocale->OpenLocale(NULL);
+            if (loc)
+            {
+                if (loc->loc_DecimalPoint && loc->loc_DecimalPoint[0])
+                    gSizeDecimalPoint = (char)loc->loc_DecimalPoint[0];
+                gLocale->CloseLocale(loc);
+            }
+        }
     }
 
     startPath[0] = '\0';

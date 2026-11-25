@@ -1539,26 +1539,7 @@ BOOL CalculatePathSize(CONST_STRPTR path, int64 *totalBytes, int64 *fileCount, i
 
 static void FormatSizeStr(int64 bytes, STRPTR out, ULONG outSize)
 {
-    if (bytes >= (int64)1024 * 1024 * 1024)
-    {
-        int64 v = bytes / ((int64)1024 * 1024 * 1024);
-        int64 r = (bytes % ((int64)1024 * 1024 * 1024)) * 100 / ((int64)1024 * 1024 * 1024);
-        snprintf(out, outSize, "%lld.%02lld GB", (long long)v, (long long)r);
-    }
-    else if (bytes >= (int64)1024 * 1024)
-    {
-        int64 v = bytes / ((int64)1024 * 1024);
-        int64 r = (bytes % ((int64)1024 * 1024)) * 100 / ((int64)1024 * 1024);
-        snprintf(out, outSize, "%lld.%02lld MB", (long long)v, (long long)r);
-    }
-    else if (bytes >= (int64)1024)
-    {
-        int64 v = bytes / (int64)1024;
-        int64 r = (bytes % (int64)1024) * 10 / (int64)1024;
-        snprintf(out, outSize, "%lld.%lld KB", (long long)v, (long long)r);
-    }
-    else
-        snprintf(out, outSize, "%lld byte", (long long)bytes);
+    FormatHumanSize(bytes > 0 ? (uint64)bytes : 0, out, outSize);
 }
 
 void DoCalculateSize(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list)

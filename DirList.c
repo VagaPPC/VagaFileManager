@@ -76,10 +76,59 @@ uint32 TypeRankEx(struct ExamineData *ed)
     return 3;
 }
 
+/* Separatore decimale delle dimensioni (dalle impostazioni locali). */
+char gSizeDecimalPoint = '.';
+
+/* Dimensione in formato leggibile, in base 1024, come "ls -h": sotto 1K
+   i byte senza suffisso (512), poi un decimale sotto 10 (1.9M) e nessuno
+   da 10 in su (19M, 190M).  Arrotondato al valore piu' vicino: 1023.6K
+   diventa 1.0M.  Usata dalla colonna Dimensione, dalla finestra di
+   avanzamento e da Calcola dimensione. */
+void FormatHumanSize(uint64 n, STRPTR buf, ULONG bufSize)
+{
+    static const char units[] = "KMGTPE";
+    uint64 unit = 1;
+    int u;
+
+    if (!buf || bufSize == 0) return;
+    if (n < 1024)
+    {
+        snprintf(buf, bufSize, "%lu", (unsigned long)n);
+        return;
+    }
+
+    for (u = 0; u < 6; u++)
+    {
+        uint64 whole, rem, tenths, ints;
+
+        unit *= 1024;
+        whole = n / unit;
+        rem = n % unit;
+
+        /* un decimale, se il valore arrotondato resta sotto 10 */
+        tenths = whole * 10 + (rem * 10 + unit / 2) / unit;
+        if (tenths < 100)
+        {
+            snprintf(buf, bufSize, "%lu%c%lu%c",
+                     (unsigned long)(tenths / 10), gSizeDecimalPoint,
+                     (unsigned long)(tenths % 10), units[u]);
+            return;
+        }
+
+        /* intero, se arrotondato resta sotto 1024 (altrimenti unita' dopo) */
+        ints = whole + ((rem >= unit - rem) ? 1 : 0);
+        if (ints < 1024 || u == 5)
+        {
+            snprintf(buf, bufSize, "%lu%c", (unsigned long)ints, units[u]);
+            return;
+        }
+    }
+}
+
 void SizeStringEx(struct ExamineData *ed, STRPTR buf, ULONG bufSize)
 {
     if (EXD_IS_FILE(ed) && !EXD_IS_DIRECTORY(ed))
-        sprintf(buf, "%lld", (long long)ed->FileSize);
+        FormatHumanSize((uint64)ed->FileSize, buf, bufSize);
     else
     {
         strncpy(buf, "-", bufSize - 1);

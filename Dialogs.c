@@ -522,14 +522,7 @@ void ProgressSetCancelable(BOOL on)
 
 static void FormatBytes(uint64 n, STRPTR buf, ULONG size)
 {
-    if (n >= (uint64)1024 * 1024 * 1024)
-        snprintf(buf, size, "%lu GB", (unsigned long)(n / ((uint64)1024 * 1024 * 1024)));
-    else if (n >= (uint64)1024 * 1024)
-        snprintf(buf, size, "%lu MB", (unsigned long)(n / ((uint64)1024 * 1024)));
-    else if (n >= 1024)
-        snprintf(buf, size, "%lu KB", (unsigned long)(n / 1024));
-    else
-        snprintf(buf, size, "%lu B", (unsigned long)n);
+    FormatHumanSize(n, buf, size);
 }
 
 /* Compone la riga informativa mostrata sotto la progress bar. */

@@ -434,6 +434,8 @@ uint32 IconHookFunc(struct Hook *hook, APTR gadget, APTR node);
 CONST_STRPTR TypeStringEx(struct ExamineData *ed);
 uint32 TypeRankEx(struct ExamineData *ed);
 void SizeStringEx(struct ExamineData *ed, STRPTR buf, ULONG bufSize);
+void FormatHumanSize(uint64 n, STRPTR buf, ULONG bufSize);
+extern char gSizeDecimalPoint;
 void DateStringEx(struct ExamineData *ed, STRPTR buf, ULONG bufSize);
 int CompareDateStamp(const struct DateStamp *a, const struct DateStamp *b);
 int CompareEntries(const void *a, const void *b);
