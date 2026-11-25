@@ -449,3 +449,21 @@ Wybierz program
 MSG_OPENWITH_FAILED
 Nie mo¿na uruchomiæ %s.
 ;
+MSG_OPENWITH_MAKEDEFAULT
+Ustaw jako domy¶lny
+;
+MSG_OPENWITH_DEFTYPE_BODY
+Plik %s nie ma w³asnej ikony.\n\nU¿ywaæ %s dla wszystkich plików typu '%s'?
+;
+MSG_OPENWITH_NOTYPE_BODY
+Plik %s nie ma w³asnej ikony, a jego typ jest nieznany.\n\nUtworzyæ ikonê, która otworzy go w %s?
+;
+MSG_OPENWITH_ALL_OF_TYPE
+Wszystkie pliki tego typu
+;
+MSG_OPENWITH_ONLY_FILE
+Tylko ten plik
+;
+MSG_OPENWITH_SAVE_FAILED
+Nie mo¿na zapisaæ ikony %s.
+;

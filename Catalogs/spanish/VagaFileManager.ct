@@ -449,3 +449,21 @@ Elegir el programa
 MSG_OPENWITH_FAILED
 No se puede iniciar %s.
 ;
+MSG_OPENWITH_MAKEDEFAULT
+Hacer predeterminado
+;
+MSG_OPENWITH_DEFTYPE_BODY
+El archivo %s no tiene icono propio.\n\n¿Usar %s para todos los archivos de tipo '%s'?
+;
+MSG_OPENWITH_NOTYPE_BODY
+El archivo %s no tiene icono propio y su tipo es desconocido.\n\n¿Crear un icono que lo abra con %s?
+;
+MSG_OPENWITH_ALL_OF_TYPE
+Todos los archivos de este tipo
+;
+MSG_OPENWITH_ONLY_FILE
+Solo este archivo
+;
+MSG_OPENWITH_SAVE_FAILED
+No se puede guardar el icono de %s.
+;

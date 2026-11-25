@@ -11,8 +11,11 @@
 /* ===== Apri con... =====
    Apre i file selezionati con un programma scelto dall'utente.  Una
    finestra mostra gli ultimi programmi usati (al massimo OPENWITH_MAX,
-   con la loro icona): un click lancia subito.  [Scegli...] apre il file
-   requester; se la lista e' vuota si apre direttamente quello.
+   con la loro icona), preceduti dal programma predefinito del primo
+   file (Default Tool della sua icona o dell'icona di default del tipo):
+   un click lancia subito.  [Scegli...] apre il file requester.  Con
+   "Rendi preferito" spuntato il programma scelto diventa il Default Tool
+   dei file (vedi MakeDefault()).
 
    Il programma parte come dal Workbench, una sola volta, con tutti i
    file come argomenti (WBArg), quindi rispetta tooltype e stack.
@@ -23,6 +26,10 @@
 
 #include "VagaFileManager.h"
 #include <proto/asl.h>
+#include <proto/checkbox.h>
+#include <proto/bevel.h>
+#include <gadgets/checkbox.h>
+#include <images/bevel.h>
 #include <libraries/asl.h>
 #include <images/label.h>
 #include <libraries/keymap.h>
@@ -223,8 +230,16 @@ static BOOL ChooseProgram(struct Window *win, CONST_STRPTR initial, STRPTR out, 
 }
 
 /* ---- finestra "Aprire con:" ----
-   Ritorna l'indice del programma scelto (0..n-1), n per [Scegli...],
-   -1 per annulla. */
+   In cima il programma predefinito del file (dall'icona), poi un
+   separatore e i recenti.  Ritorna l'indice del recente scelto
+   (0..n-1), OWR_DEFAULT per il programma predefinito, OWR_CHOOSE per
+   [Scegli...], -1 per annulla.  *makeDef riceve lo stato della casella
+   "Rendi preferito". */
+
+#define OWR_DEFAULT     1000
+#define OWR_CHOOSE      1001
+#define OW_ID_DEFAULT   60      /* GA_ID della riga del predefinito */
+#define OWREQ_MAKEDEF   102
 
 static Object *OwText(CONST_STRPTR text)
 {
@@ -235,19 +250,57 @@ static Object *OwText(CONST_STRPTR text)
         TAG_DONE);
 }
 
-static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title,
-                        char rec[][PATH_MAX_LEN], int n)
+/* Una riga [icona] [nome] che lancia il programma 'path' (GA_ID 'id').
+   L'icona e l'immagine create finiscono in *dobj / *img, liberate dal
+   chiamante dopo la finestra. */
+static Object *OwProgRow(Class *imgClass, CONST_STRPTR path, ULONG id,
+                         struct DiskObject **dobj, Object **img)
+{
+    Object *iconBtn = NULL, *nameBtn;
+    CONST_STRPTR name = IDOS->FilePart(path);
+
+    if (!name || !name[0]) name = path;
+
+    /* senza .info: l'icona predefinita per il tipo (programma) */
+    *dobj = IIcon->GetIconTags(path, ICONGETA_FailIfUnavailable, FALSE, TAG_DONE);
+    if (imgClass && *dobj)
+        *img = IIntuition->NewObject(imgClass, NULL, ICONIMG_DiskObject, (ULONG)*dobj, TAG_DONE);
+    if (*img)
+        iconBtn = IIntuition->NewObject(NULL, "button.gadget",
+            GA_ID, id, GA_RelVerify, TRUE,
+            BUTTON_RenderImage, (ULONG)*img,
+            BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
+            TAG_DONE);
+    nameBtn = IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, id, GA_RelVerify, TRUE,
+        GA_Text, (ULONG)name, GA_Underscore, 0,
+        BUTTON_Justification, BCJ_LEFT,
+        TAG_DONE);
+
+    return IIntuition->NewObject(NULL, "layout.gadget",
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_VertAlignment, LALIGN_CENTER,
+        iconBtn ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)iconBtn,
+        iconBtn ? CHILD_WeightedWidth : TAG_IGNORE, 0,
+        LAYOUT_AddChild, (ULONG)nameBtn,
+        CHILD_WeightedHeight, 0,
+        TAG_DONE);
+}
+
+static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title, CONST_STRPTR defTool,
+                        char rec[][PATH_MAX_LEN], int n, BOOL *makeDef)
 {
     Class *imgClass;
-    struct DiskObject *dobj[OPENWITH_MAX];
-    Object *img[OPENWITH_MAX];
-    Object *list, *winObj;
+    struct DiskObject *dobj[OPENWITH_MAX + 1];
+    Object *img[OPENWITH_MAX + 1];
+    Object *list, *winObj, *check;
     struct Window *rw;
     ULONG sig = 0;
     LONG result = -1;
     BOOL done = FALSE;
     int i;
 
+    *makeDef = FALSE;
     memset(dobj, 0, sizeof(dobj));
     memset(img, 0, sizeof(img));
 
@@ -259,40 +312,31 @@ static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title,
         LAYOUT_SpaceInner, TRUE,
         TAG_DONE);
 
+    if (list && defTool && defTool[0])
+    {
+        Object *row = OwProgRow(imgClass, defTool, OW_ID_DEFAULT, &dobj[OPENWITH_MAX], &img[OPENWITH_MAX]);
+        if (row)
+            IIntuition->SetAttrs(list, LAYOUT_AddChild, (ULONG)row, CHILD_WeightedHeight, 0, TAG_DONE);
+        if (n > 0)
+            IIntuition->SetAttrs(list,
+                LAYOUT_AddImage, (ULONG)IIntuition->NewObject(IBevel->BEVEL_GetClass(), NULL,
+                    BEVEL_Style, BVS_SBAR_VERT, TAG_DONE),
+                CHILD_WeightedHeight, 0,
+                TAG_DONE);
+    }
+
     for (i = 0; i < n && list; i++)
     {
-        Object *row, *iconBtn = NULL, *nameBtn;
-        CONST_STRPTR name = IDOS->FilePart(rec[i]);
-
-        if (!name || !name[0]) name = rec[i];
-
-        /* senza .info: l'icona predefinita per il tipo (programma) */
-        dobj[i] = IIcon->GetIconTags(rec[i], ICONGETA_FailIfUnavailable, FALSE, TAG_DONE);
-        if (imgClass && dobj[i])
-            img[i] = IIntuition->NewObject(imgClass, NULL, ICONIMG_DiskObject, (ULONG)dobj[i], TAG_DONE);
-        if (img[i])
-            iconBtn = IIntuition->NewObject(NULL, "button.gadget",
-                GA_ID, i + 1, GA_RelVerify, TRUE,
-                BUTTON_RenderImage, (ULONG)img[i],
-                BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
-                TAG_DONE);
-        nameBtn = IIntuition->NewObject(NULL, "button.gadget",
-            GA_ID, i + 1, GA_RelVerify, TRUE,
-            GA_Text, (ULONG)name, GA_Underscore, 0,
-            BUTTON_Justification, BCJ_LEFT,
-            TAG_DONE);
-
-        row = IIntuition->NewObject(NULL, "layout.gadget",
-            LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-            LAYOUT_VertAlignment, LALIGN_CENTER,
-            iconBtn ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)iconBtn,
-            iconBtn ? CHILD_WeightedWidth : TAG_IGNORE, 0,
-            LAYOUT_AddChild, (ULONG)nameBtn,
-            CHILD_WeightedHeight, 0,
-            TAG_DONE);
+        Object *row = OwProgRow(imgClass, rec[i], i + 1, &dobj[i], &img[i]);
         if (row)
             IIntuition->SetAttrs(list, LAYOUT_AddChild, (ULONG)row, CHILD_WeightedHeight, 0, TAG_DONE);
     }
+
+    check = IIntuition->NewObject(ICheckBox->CHECKBOX_GetClass(), NULL,
+        GA_ID, OWREQ_MAKEDEF, GA_RelVerify, TRUE,
+        GA_Text, (ULONG)LS(MSG_OPENWITH_MAKEDEFAULT),
+        CHECKBOX_Checked, FALSE,
+        TAG_DONE);
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)title,
@@ -310,7 +354,9 @@ static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title,
             list ? CHILD_WeightedHeight : TAG_IGNORE, 0,
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-                LAYOUT_EvenSize, TRUE,
+                LAYOUT_VertAlignment, LALIGN_CENTER,
+                check ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)check,
+                check ? CHILD_WeightedWidth : TAG_IGNORE, 100,
                 LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget",
                     GA_ID, OWREQ_CHOOSE, GA_RelVerify, TRUE,
                     GA_Text, (ULONG)LS(MSG_OPENWITH_CHOOSE), GA_Underscore, 0, TAG_DONE),
@@ -347,8 +393,10 @@ static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title,
                         case WMHI_GADGETUP:
                         {
                             ULONG id = res & WMHI_GADGETMASK;
+                            if (id == OWREQ_MAKEDEF) break;     /* solo la spunta */
                             if (id >= 1 && id <= (ULONG)n) result = (LONG)id - 1;
-                            else if (id == OWREQ_CHOOSE) result = n;
+                            else if (id == OW_ID_DEFAULT) result = OWR_DEFAULT;
+                            else if (id == OWREQ_CHOOSE) result = OWR_CHOOSE;
                             else result = -1;
                             done = TRUE;
                             break;
@@ -359,18 +407,256 @@ static LONG AskOpenWith(struct Screen *scr, CONST_STRPTR title,
                 }
             }
         }
+        if (check && result >= 0)
+        {
+            ULONG on = FALSE;
+            IIntuition->GetAttr(CHECKBOX_Checked, check, &on);
+            *makeDef = on ? TRUE : FALSE;
+        }
     }
 
     /* i pulsanti non liberano le immagini: prima la finestra, poi il resto */
     if (winObj) IIntuition->DisposeObject(winObj);
-    else if (list) IIntuition->DisposeObject(list);
-    for (i = 0; i < OPENWITH_MAX; i++)
+    else
+    {
+        if (list) IIntuition->DisposeObject(list);
+        if (check) IIntuition->DisposeObject(check);
+    }
+    for (i = 0; i <= OPENWITH_MAX; i++)
     {
         if (img[i]) IIntuition->DisposeObject(img[i]);
         if (dobj[i]) IIcon->FreeDiskObject(dobj[i]);
     }
     if (imgClass) IIntuition->FreeClass(imgClass);
     return result;
+}
+
+/* ---- programma predefinito dall'icona ---- */
+
+/* Cassetti in cui cercare un Default Tool senza percorso ("MultiView"):
+   il Workbench usa il proprio path, che da qui non si legge. */
+static CONST_STRPTR gToolDirs[] =
+{
+    "SYS:Utilities", "SYS:Tools", "SYS:System", "SYS:Prefs", "C:", NULL
+};
+
+/* Risolve 'tool' (Default Tool di un'icona di un file in 'dir') in un
+   percorso completo in 'out'.  Se non lo trova lascia il nome com'e'. */
+static void ResolveTool(CONST_STRPTR tool, CONST_STRPTR dir, STRPTR out, ULONG outSize)
+{
+    BPTR l = 0;
+    int i;
+
+    strncpy(out, tool, outSize - 1);
+    out[outSize - 1] = '\0';
+    if (strchr(tool, ':'))
+        return;                                 /* gia' assoluto */
+
+    /* relativo al cassetto del file, poi i cassetti di sistema */
+    {
+        char tmp[PATH_MAX_LEN];
+        strncpy(tmp, dir, sizeof(tmp) - 1);
+        tmp[sizeof(tmp) - 1] = '\0';
+        if (IDOS->AddPart(tmp, tool, sizeof(tmp)) && (l = IDOS->Lock(tmp, SHARED_LOCK)) != 0)
+        {
+            IDOS->UnLock(l);
+            strncpy(out, tmp, outSize - 1);
+            out[outSize - 1] = '\0';
+            return;
+        }
+    }
+    for (i = 0; gToolDirs[i]; i++)
+    {
+        char tmp[PATH_MAX_LEN];
+        strncpy(tmp, gToolDirs[i], sizeof(tmp) - 1);
+        tmp[sizeof(tmp) - 1] = '\0';
+        if (!IDOS->AddPart(tmp, tool, sizeof(tmp))) continue;
+        if ((l = IDOS->Lock(tmp, SHARED_LOCK)) != 0)
+        {
+            IDOS->UnLock(l);
+            strncpy(out, tmp, outSize - 1);
+            out[outSize - 1] = '\0';
+            return;
+        }
+    }
+}
+
+/* Default Tool del file 'name' in 'dir': dalla sua icona o, se non ne
+   ha una, dall'icona di default del suo tipo.  FALSE se non c'e'. */
+static BOOL GetDefaultTool(CONST_STRPTR dir, CONST_STRPTR name, STRPTR out, ULONG outSize)
+{
+    char path[PATH_MAX_LEN];
+    struct DiskObject *d;
+    BOOL ok = FALSE;
+
+    strncpy(path, dir, sizeof(path) - 1);
+    path[sizeof(path) - 1] = '\0';
+    if (!IDOS->AddPart(path, name, sizeof(path))) return FALSE;
+
+    d = IIcon->GetIconTags(path, ICONGETA_FailIfUnavailable, FALSE, TAG_DONE);
+    if (!d) return FALSE;
+    if (d->do_Type == WBPROJECT && d->do_DefaultTool && d->do_DefaultTool[0])
+    {
+        ResolveTool(d->do_DefaultTool, dir, out, outSize);
+        ok = TRUE;
+    }
+    IIcon->FreeDiskObject(d);
+    return ok;
+}
+
+/* ---- "Rendi preferito" ---- */
+
+/* Scrive 'd' in 'path' (.info aggiunto da icon.library) con 'tool' come
+   Default Tool, nello stesso formato in cui era (PNG, glow...). */
+static BOOL PutIconWithTool(CONST_STRPTR path, struct DiskObject *d, CONST_STRPTR tool)
+{
+    STRPTR oldTool = d->do_DefaultTool;
+    BOOL ok;
+
+    d->do_DefaultTool = (STRPTR)tool;
+    ok = IIcon->PutIconTags(path, d, ICONPUTA_NotifyWorkbench, TRUE, TAG_DONE) ? TRUE : FALSE;
+    d->do_DefaultTool = oldTool;
+    return ok;
+}
+
+static void IconSaveFailed(CONST_STRPTR path)
+{
+    char msg[PATH_MAX_LEN + 64];
+    snprintf(msg, sizeof(msg), LS(MSG_OPENWITH_SAVE_FAILED), path);
+    ShowMessage(LS(MSG_ERROR_TITLE), msg);
+}
+
+/* Cambia l'icona di default del tipo 'type': ENV: (vale subito) e
+   ENVARC: (resta dopo il riavvio). */
+static BOOL SetTypeDefaultTool(CONST_STRPTR type, CONST_STRPTR tool)
+{
+    static CONST_STRPTR where[] = { "ENVARC:Sys/def_", "ENV:Sys/def_" };
+    struct DiskObject *d;
+    BOOL ok = TRUE;
+    int i;
+
+    d = IIcon->GetIconTags(NULL, ICONGETA_GetDefaultName, (ULONG)type, TAG_DONE);
+    if (!d) return FALSE;
+    for (i = 0; i < 2; i++)
+    {
+        char path[128];
+        snprintf(path, sizeof(path), "%s%s", where[i], type);
+        if (!PutIconWithTool(path, d, tool))
+        {
+            IconSaveFailed(path);
+            ok = FALSE;
+        }
+    }
+    IIcon->FreeDiskObject(d);
+    return ok;
+}
+
+/* Scelta gia' fatta per un tipo (per non chiedere una volta per file). */
+#define OW_MAX_TYPES 16
+struct OwTypeChoice { char type[256]; LONG choice; };
+
+/* Avviso per un file senza icona propria.  1 = tutti i file del tipo,
+   2 = solo questo file, 0 = annulla.  Con tipo sconosciuto si offre
+   solo "Solo questo file" (ritorna 2 o 0). */
+static LONG AskTypeDefault(CONST_STRPTR file, CONST_STRPTR type, CONST_STRPTR tool)
+{
+    struct EasyStruct es;
+    APTR args[1];
+    char body[PATH_MAX_LEN + 400];
+    char buttons[200];
+    CONST_STRPTR prog = IDOS->FilePart(tool);
+    LONG r;
+
+    if (type[0])
+    {
+        snprintf(body, sizeof(body), LS(MSG_OPENWITH_DEFTYPE_BODY), file, prog, type);
+        snprintf(buttons, sizeof(buttons), "%s|%s|%s",
+                 LS(MSG_OPENWITH_ALL_OF_TYPE), LS(MSG_OPENWITH_ONLY_FILE), LS(MSG_BTN_CANCEL));
+    }
+    else
+    {
+        snprintf(body, sizeof(body), LS(MSG_OPENWITH_NOTYPE_BODY), file, prog);
+        snprintf(buttons, sizeof(buttons), "%s|%s",
+                 LS(MSG_OPENWITH_ONLY_FILE), LS(MSG_BTN_CANCEL));
+    }
+    InitEasyAtMouse(&es);
+    es.es_Title = (STRPTR)LS(MSG_MENU_OPEN_WITH);
+    es.es_TextFormat = (STRPTR)"%s";
+    es.es_GadgetFormat = buttons;
+    args[0] = (APTR)body;
+    r = IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
+    if (!type[0] && r == 1) r = 2;
+    return r;
+}
+
+/* Rende 'tool' il programma predefinito dei file selezionati: nella loro
+   icona, o (file senza icona) nell'icona di default del tipo o in una
+   nuova icona del solo file, secondo la risposta all'avviso. */
+static void MakeDefault(CONST_STRPTR dir, char (*names)[NAME_MAX_LEN], LONG count, CONST_STRPTR tool)
+{
+    struct OwTypeChoice *types;
+    int ntypes = 0;
+    LONG i;
+
+    types = (struct OwTypeChoice *)IExec->AllocVecTags(OW_MAX_TYPES * sizeof(struct OwTypeChoice),
+        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    if (!types) return;
+
+    for (i = 0; i < count; i++)
+    {
+        char path[PATH_MAX_LEN];
+        char type[256];
+        struct DiskObject *d;
+        LONG isDef = FALSE, choice = -1;
+        int t;
+
+        strncpy(path, dir, sizeof(path) - 1);
+        path[sizeof(path) - 1] = '\0';
+        if (!IDOS->AddPart(path, names[i], sizeof(path))) continue;
+
+        type[0] = '\0';
+        d = IIcon->GetIconTags(path,
+            ICONGETA_FailIfUnavailable, FALSE,
+            ICONGETA_IsDefaultIcon, (ULONG)&isDef,
+            ICONGETA_IdentifyBuffer, (ULONG)type,
+            TAG_DONE);
+        if (!d) continue;
+        if (d->do_Type != WBPROJECT)           /* un programma: non ha senso */
+        {
+            IIcon->FreeDiskObject(d);
+            continue;
+        }
+
+        if (!isDef)
+        {
+            if (!PutIconWithTool(path, d, tool)) IconSaveFailed(names[i]);
+            IIcon->FreeDiskObject(d);
+            continue;
+        }
+
+        /* senza icona propria: una domanda per tipo */
+        for (t = 0; t < ntypes; t++)
+            if (!IUtility->Stricmp(types[t].type, type)) { choice = types[t].choice; break; }
+        if (choice < 0)
+        {
+            choice = AskTypeDefault(names[i], type, tool);
+            if (ntypes < OW_MAX_TYPES)
+            {
+                strncpy(types[ntypes].type, type, sizeof(types[ntypes].type) - 1);
+                types[ntypes].choice = choice;
+                ntypes++;
+            }
+            if (choice == 1)
+                SetTypeDefaultTool(type, tool);
+        }
+        if (choice == 2)
+        {
+            /* nuova icona per il solo file, copiata da quella di default */
+            if (!PutIconWithTool(path, d, tool)) IconSaveFailed(names[i]);
+        }
+        IIcon->FreeDiskObject(d);
+    }
+    IExec->FreeVec(types);
 }
 
 /* ---- lancio ---- */
@@ -415,11 +701,12 @@ void DoOpenWith(struct Window *win, struct List *list)
     char (*names)[NAME_MAX_LEN] = NULL;
     char (*rec)[PATH_MAX_LEN] = NULL;
     char prog[PATH_MAX_LEN];
+    char defTool[PATH_MAX_LEN];
     char title[NAME_MAX_LEN + 8];
     struct Node *nd;
-    LONG count = 0, k = 0;
-    int nrec = 0;
-    BOOL choose = TRUE, ok;
+    LONG count = 0, k = 0, r;
+    int nrec = 0, i, out;
+    BOOL ok, makeDef = FALSE, fromDefault = FALSE;
 
     if (!list || gPathBuffer[0] == '\0') return;
 
@@ -453,30 +740,50 @@ void DoOpenWith(struct Window *win, struct List *list)
     /* titolo: il file (o il primo, seguito da ", ...") */
     snprintf(title, sizeof(title), "%s%s", names[0], count > 1 ? ", ..." : "");
 
+    /* in cima: il programma dell'icona del primo file */
+    if (!GetDefaultTool(gPathBuffer, names[0], defTool, sizeof(defTool)))
+        defTool[0] = '\0';
+
     nrec = LoadRecent(rec);
     if (PruneRecent(rec, &nrec)) SaveRecent(rec, nrec);
 
-    if (nrec > 0)
+    /* i recenti non ripetono il programma predefinito */
+    for (i = 0, out = 0; i < nrec; i++)
     {
-        LONG r = AskOpenWith(win ? win->WScreen : NULL, title, rec, nrec);
-        if (r < 0) goto out;
-        if (r < nrec)
-        {
-            strncpy(prog, rec[r], sizeof(prog) - 1);
-            prog[sizeof(prog) - 1] = '\0';
-            choose = FALSE;
-        }
+        if (defTool[0] && !IUtility->Stricmp(rec[i], defTool)) continue;
+        if (out != i) memcpy(rec[out], rec[i], PATH_MAX_LEN);
+        out++;
     }
-    if (choose && !ChooseProgram(win, nrec > 0 ? rec[0] : NULL, prog, sizeof(prog)))
-        goto out;
+    nrec = out;
+
+    r = AskOpenWith(win ? win->WScreen : NULL, title, defTool, rec, nrec, &makeDef);
+    if (r < 0) goto out;
+    if (r == OWR_DEFAULT)
+    {
+        strncpy(prog, defTool, sizeof(prog) - 1);
+        fromDefault = TRUE;
+    }
+    else if (r == OWR_CHOOSE)
+    {
+        if (!ChooseProgram(win, nrec > 0 ? rec[0] : (defTool[0] ? defTool : NULL), prog, sizeof(prog)))
+            goto out;
+    }
+    else
+        strncpy(prog, rec[r], sizeof(prog) - 1);
+    prog[sizeof(prog) - 1] = '\0';
 
     ok = LaunchWith(prog, gPathBuffer, names, count);
     if (ok)
     {
-        /* rilegge: un'altra istanza puo' averla cambiata nel frattempo */
-        nrec = LoadRecent(rec);
-        PushRecent(rec, &nrec, prog);
-        SaveRecent(rec, nrec);
+        if (!fromDefault)
+        {
+            /* rilegge: un'altra istanza puo' averla cambiata nel frattempo */
+            nrec = LoadRecent(rec);
+            PushRecent(rec, &nrec, prog);
+            SaveRecent(rec, nrec);
+        }
+        if (makeDef)
+            MakeDefault(gPathBuffer, names, count, prog);
     }
     else
     {

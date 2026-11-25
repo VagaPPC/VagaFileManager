@@ -449,3 +449,21 @@ Programm auswählen
 MSG_OPENWITH_FAILED
 %s kann nicht gestartet werden.
 ;
+MSG_OPENWITH_MAKEDEFAULT
+Als Standard
+;
+MSG_OPENWITH_DEFTYPE_BODY
+Die Datei %s hat kein eigenes Piktogramm.\n\n%s für alle Dateien vom Typ '%s' verwenden?
+;
+MSG_OPENWITH_NOTYPE_BODY
+Die Datei %s hat kein eigenes Piktogramm und ihr Typ ist unbekannt.\n\nEin Piktogramm erstellen, das sie mit %s öffnet?
+;
+MSG_OPENWITH_ALL_OF_TYPE
+Alle Dateien dieses Typs
+;
+MSG_OPENWITH_ONLY_FILE
+Nur diese Datei
+;
+MSG_OPENWITH_SAVE_FAILED
+Das Piktogramm von %s kann nicht gespeichert werden.
+;

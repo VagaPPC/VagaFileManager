@@ -466,3 +466,21 @@ Choose the program
 MSG_OPENWITH_FAILED (//)
 Cannot start %s.
 ;
+MSG_OPENWITH_MAKEDEFAULT (//)
+Make default
+;
+MSG_OPENWITH_DEFTYPE_BODY (//)
+The file %s has no icon of its own.\n\nUse %s for all files of type '%s'?
+;
+MSG_OPENWITH_NOTYPE_BODY (//)
+The file %s has no icon of its own and its type is unknown.\n\nCreate an icon for it that opens with %s?
+;
+MSG_OPENWITH_ALL_OF_TYPE (//)
+All files of this type
+;
+MSG_OPENWITH_ONLY_FILE (//)
+Only this file
+;
+MSG_OPENWITH_SAVE_FAILED (//)
+Cannot save the icon of %s.
+;

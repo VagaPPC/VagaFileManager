@@ -449,3 +449,21 @@ Scegli il programma
 MSG_OPENWITH_FAILED
 Impossibile avviare %s.
 ;
+MSG_OPENWITH_MAKEDEFAULT
+Rendi preferito
+;
+MSG_OPENWITH_DEFTYPE_BODY
+Il file %s non ha un'icona propria.\n\nUsare %s per tutti i file di tipo '%s'?
+;
+MSG_OPENWITH_NOTYPE_BODY
+Il file %s non ha un'icona propria e il suo tipo è sconosciuto.\n\nCreare un'icona che lo apra con %s?
+;
+MSG_OPENWITH_ALL_OF_TYPE
+Tutti i file di questo tipo
+;
+MSG_OPENWITH_ONLY_FILE
+Solo questo file
+;
+MSG_OPENWITH_SAVE_FAILED
+Impossibile salvare l'icona di %s.
+;

@@ -190,7 +190,7 @@ static struct TagItem gReqAtMouse[] =
     { TAG_DONE, 0 }
 };
 
-static void InitEasyAtMouse(struct EasyStruct *es)
+void InitEasyAtMouse(struct EasyStruct *es)
 {
     memset(es, 0, sizeof(*es));
     es->es_StructSize = sizeof(*es);

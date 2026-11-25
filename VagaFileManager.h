@@ -473,6 +473,7 @@ void InvertSelectionEntries(struct List *list);
 
 /* ---- Dialoghi e ricerca ---- */
 void ShowMessage(CONST_STRPTR title, CONST_STRPTR body);
+void InitEasyAtMouse(struct EasyStruct *es);
 BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
