@@ -104,7 +104,7 @@ MSG_DELETE_CONFIRM_TITLE (//)
 Confirm deletion
 ;
 MSG_DELETE_FAILED (//)
-Unable to delete:\n%s\n(The drawer may not be empty)
+Unable to delete:\n%s\n%s
 ;
 MSG_DUPLICATE (//)
 Duplicate
@@ -510,4 +510,13 @@ Clear filter
 ;
 MSG_ABOUT_DONATE (//)
 Donate:
+;
+MSG_MENU_WBEMULATION (//)
+Workbench emulation
+;
+MSG_DELETE_ERROR_BODY (//)
+Error while deleting '%s':\n%s
+;
+MSG_DELETE_ERROR_BUTTONS (//)
+Retry|Skip|Skip all|Cancel
 ;

@@ -189,7 +189,8 @@ enum
     MENU_BAR_TOOLS,        /* barra dei pulsanti */
     MENU_BAR_FILTER,       /* barra del filtro */
     MENU_BAR_STATUS,       /* barra di stato */
-    MENU_SPLIT             /* Vista > Dividi (anche senza barra pulsanti) */
+    MENU_SPLIT,            /* Vista > Dividi (anche senza barra pulsanti) */
+    MENU_WB_EMULATION      /* Vista > Emulazione WB */
 };
 #define MENU_BOOKMARK_BASE 1000
 #define MENU_SCRIPT_BASE   2000
@@ -243,6 +244,8 @@ struct VFMPrefs
     LONG  width, height;
     ULONG split;
     ULONG hiddenBars;     /* BAR_* nascoste; 0 = tutte visibili (default) */
+    ULONG wbEmulation;    /* Emulazione WB: niente barre, niente menu
+                             contestuali, cassetti in nuove finestre */
 };
 
 /* Barre di ogni pannello che si possono nascondere (Vista > Vista barra).
@@ -251,7 +254,11 @@ struct VFMPrefs
 #define BAR_TOOLS   (1UL << 1)
 #define BAR_FILTER  (1UL << 2)
 #define BAR_STATUS  (1UL << 3)
-#define BarVisible(b) ((gPrefs.hiddenBars & (b)) == 0)
+/* BarChecked: scelta dell'utente in Vista barra (spunte del menu).
+   BarVisible: barra davvero mostrata; in Emulazione WB nessuna, ma la
+   scelta resta salvata e torna disattivando l'emulazione. */
+#define BarChecked(b) ((gPrefs.hiddenBars & (b)) == 0)
+#define BarVisible(b) (!gPrefs.wbEmulation && BarChecked(b))
 
 /* ---- stato globale ---- */
 extern struct VFMPrefs gPrefs;
@@ -443,7 +450,9 @@ extern Object *gMainWinObj;
 /* ---- funzioni ---- */
 
 /* ---- Log e utilita ---- */
-void DBG(CONST_STRPTR fmt, ...);
+void DBG(CONST_STRPTR fmt, ...);      /* solo con il ToolType DEBUG */
+void LOGERR(CONST_STRPTR fmt, ...);   /* errori: scritti sempre */
+extern BOOL gDebugLog;
 
 /* ---- Directory, voci e percorsi ---- */
 uint32 IconHookFunc(struct Hook *hook, APTR gadget, APTR node);
@@ -594,6 +603,7 @@ BOOL  IsDragOverlayWindow(struct Window *w);
 ULONG DragTimerSignal(void);
 ULONG AppDropReplySignal(void);
 LONG  AskCopyError(CONST_STRPTR name, LONG err);
+LONG  AskDeleteError(CONST_STRPTR name, LONG err);
 void  AppRegistryEnsure(void);
 void  AppRegistryRemove(void);
 void  ProcessAppDropReplies(void);

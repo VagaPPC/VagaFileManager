@@ -205,6 +205,9 @@
 #define MSG_MENU_SPLIT 161
 #define MSG_BTN_CLEAR_FILTER 162
 #define MSG_ABOUT_DONATE 163
+#define MSG_MENU_WBEMULATION 164
+#define MSG_DELETE_ERROR_BODY 165
+#define MSG_DELETE_ERROR_BUTTONS 166
 
 #endif /* CATCOMP_NUMBERS */
 
@@ -248,7 +251,7 @@
 #define MSG_DELETE_CONFIRM_ONE_STR "Delete the selected item?"
 #define MSG_DELETE_CONFIRM_MANY_STR "Delete %ld selected items?"
 #define MSG_DELETE_CONFIRM_TITLE_STR "Confirm deletion"
-#define MSG_DELETE_FAILED_STR "Unable to delete:\n%s\n(The drawer may not be empty)"
+#define MSG_DELETE_FAILED_STR "Unable to delete:\n%s\n%s"
 #define MSG_DUPLICATE_STR "Duplicate"
 #define MSG_DUPLICATE_ROOT_STR "Operation not available in this view."
 #define MSG_DUPLICATE_NONE_STR "No item selected."
@@ -378,6 +381,9 @@
 #define MSG_MENU_SPLIT_STR "Split"
 #define MSG_BTN_CLEAR_FILTER_STR "Clear filter"
 #define MSG_ABOUT_DONATE_STR "Donate:"
+#define MSG_MENU_WBEMULATION_STR "Workbench emulation"
+#define MSG_DELETE_ERROR_BODY_STR "Error while deleting '%s':\n%s"
+#define MSG_DELETE_ERROR_BUTTONS_STR "Retry|Skip|Skip all|Cancel"
 
 #endif /* CATCOMP_STRINGS */
 
@@ -559,6 +565,9 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_MENU_SPLIT,(CONST_STRPTR)MSG_MENU_SPLIT_STR},
     {MSG_BTN_CLEAR_FILTER,(CONST_STRPTR)MSG_BTN_CLEAR_FILTER_STR},
     {MSG_ABOUT_DONATE,(CONST_STRPTR)MSG_ABOUT_DONATE_STR},
+    {MSG_MENU_WBEMULATION,(CONST_STRPTR)MSG_MENU_WBEMULATION_STR},
+    {MSG_DELETE_ERROR_BODY,(CONST_STRPTR)MSG_DELETE_ERROR_BODY_STR},
+    {MSG_DELETE_ERROR_BUTTONS,(CONST_STRPTR)MSG_DELETE_ERROR_BUTTONS_STR},
 };
 
 #endif /* CATCOMP_ARRAY */
@@ -639,8 +648,8 @@ STATIC CONST UBYTE CatCompBlock[] =
     MSG_DELETE_CONFIRM_MANY_STR "\x00\x00"
     "\x00\x00\x00\x21\x00\x12"
     MSG_DELETE_CONFIRM_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x22\x00\x34"
-    MSG_DELETE_FAILED_STR "\x00\x00"
+    "\x00\x00\x00\x22\x00\x18"
+    MSG_DELETE_FAILED_STR "\x00"
     "\x00\x00\x00\x23\x00\x0A"
     MSG_DUPLICATE_STR "\x00"
     "\x00\x00\x00\x24\x00\x26"
@@ -899,6 +908,12 @@ STATIC CONST UBYTE CatCompBlock[] =
     MSG_BTN_CLEAR_FILTER_STR "\x00\x00"
     "\x00\x00\x00\xA3\x00\x08"
     MSG_ABOUT_DONATE_STR "\x00"
+    "\x00\x00\x00\xA4\x00\x14"
+    MSG_MENU_WBEMULATION_STR "\x00"
+    "\x00\x00\x00\xA5\x00\x1E"
+    MSG_DELETE_ERROR_BODY_STR "\x00"
+    "\x00\x00\x00\xA6\x00\x1C"
+    MSG_DELETE_ERROR_BUTTONS_STR "\x00\x00"
 };
 
 #endif /* CATCOMP_BLOCK */

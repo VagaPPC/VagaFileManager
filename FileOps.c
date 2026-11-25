@@ -240,7 +240,7 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
                 if (IDOS->Write(outF, buf, n) != n)
                 {
                     gCopyLastErr = IDOS->IoErr();
-                    DBG("copy: write '%s' failed (IoErr=%ld)", dst, (long)gCopyLastErr);
+                    LOGERR("copy: write '%s' failed (IoErr=%ld)", dst, (long)gCopyLastErr);
                     ok = FALSE;
                     break;
                 }
@@ -259,7 +259,7 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
             if (n < 0)
             {
                 gCopyLastErr = IDOS->IoErr();
-                DBG("copy: read '%s' failed (IoErr=%ld)", src, (long)gCopyLastErr);
+                LOGERR("copy: read '%s' failed (IoErr=%ld)", src, (long)gCopyLastErr);
                 ok = FALSE;
             }
             IDOS->Close(outF);
@@ -269,14 +269,14 @@ BOOL CopySingleFile(CONST_STRPTR src, CONST_STRPTR dst)
         else
         {
             gCopyLastErr = IDOS->IoErr();
-            DBG("copy: cannot create '%s' (IoErr=%ld)", dst, (long)gCopyLastErr);
+            LOGERR("copy: cannot create '%s' (IoErr=%ld)", dst, (long)gCopyLastErr);
         }
         IDOS->Close(inF);
     }
     else
     {
         gCopyLastErr = IDOS->IoErr();
-        DBG("copy: cannot open '%s' (IoErr=%ld)", src, (long)gCopyLastErr);
+        LOGERR("copy: cannot open '%s' (IoErr=%ld)", src, (long)gCopyLastErr);
     }
     if (gProgCancel) gCopyLastErr = 0;   /* annullata: nessun errore da mostrare */
     return ok;
@@ -345,7 +345,7 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
         LONG err = IDOS->IoErr();
         BPTR l = IDOS->Lock(dst, SHARED_LOCK);
         if (l) { IDOS->UnLock(l); break; }   /* esiste gia': si unisce */
-        DBG("copy: cannot create drawer '%s' (IoErr=%ld)", dst, (long)err);
+        LOGERR("copy: cannot create drawer '%s' (IoErr=%ld)", dst, (long)err);
         /* come il Workbench: Riprova / Salta / Annulla */
         switch (AskCopyError(FilePart(src), err))
         {
@@ -394,7 +394,7 @@ BOOL CopyDirectoryRecursive(CONST_STRPTR src, CONST_STRPTR dst)
             ok = FALSE;
         else if (readErr != ERROR_NO_MORE_ENTRIES && readErr != 0)
         {
-            DBG("copy: read error %ld in directory '%s'", (long)readErr, src);
+            LOGERR("copy: read error %ld in directory '%s'", (long)readErr, src);
             ok = FALSE;
         }
     }
@@ -658,7 +658,7 @@ done:
     gCopyDepth--;
     IExec->FreeVec(b);
     if (!ok)
-        DBG("copy: failed '%s' -> '%s'", src, dst);
+        LOGERR("copy: failed '%s' -> '%s'", src, dst);
     return ok;
 }
 
@@ -682,7 +682,9 @@ static BOOL PathExists(CONST_STRPTR path)
     if (!path || !path[0]) return FALSE;
     l = IDOS->Lock(path, SHARED_LOCK);
     if (l) { IDOS->UnLock(l); return TRUE; }
-    return FALSE;
+    /* un oggetto aperto in modo esclusivo (es. da un editor) non si puo'
+       bloccare ma esiste: non va considerato sparito */
+    return (IDOS->IoErr() == ERROR_OBJECT_IN_USE) ? TRUE : FALSE;
 }
 
 /* ExamineObjectTags con EX_StringNameInput risolve i link; usiamo
@@ -733,9 +735,23 @@ static void MakeParentWritable(CONST_STRPTR path);
 /* Cancella un singolo oggetto. Come fa DOpus4 (delfile), su qualunque errore
    azzera la protezione e riprova; su ERROR_DIRECTORY_NOT_EMPTY esce subito,
    perche' il cassetto va svuotato prima dal chiamante. */
+/* Errore DOS della cancellazione fallita, per il messaggio all'utente
+   (testo di sistema via Fault).  Si tiene il primo errore diverso da
+   "cassetto non vuoto": se un file dentro un cassetto e' in uso, la
+   causa da mostrare e' quella, non il cassetto rimasto pieno. */
+static LONG gDeleteLastErr = 0;
+
+static void NoteDeleteError(LONG err)
+{
+    if (!err) return;
+    if (gDeleteLastErr == 0 || gDeleteLastErr == ERROR_DIRECTORY_NOT_EMPTY)
+        gDeleteLastErr = err;
+}
+
 static BOOL DeleteEntry(CONST_STRPTR path)
 {
     BOOL removed = FALSE;
+    LONG lastErr = 0;
     int attempt;
 
     for (attempt = 0; attempt < 12 && !removed; attempt++)
@@ -745,10 +761,14 @@ static BOOL DeleteEntry(CONST_STRPTR path)
         else
         {
             LONG err = IDOS->IoErr();
+            lastErr = err;
             if (!PathExists(path))
                 removed = TRUE;              /* gia' sparito */
             else if (err == ERROR_DIRECTORY_NOT_EMPTY)
                 break;                       /* non vuoto: serve svuotarlo */
+            else if (err == ERROR_OBJECT_IN_USE)
+                break;                       /* in uso: riprovare non serve,
+                                                decide l'utente (Riprova) */
             else
             {
                 DBG("delete: '%s' errore %ld, azzero protezione e riprovo (%d)",
@@ -756,14 +776,19 @@ static BOOL DeleteEntry(CONST_STRPTR path)
                 IDOS->SetProtection(path, 0);  /* unprotect, come DOpus4 */
                 if (IDOS->Delete(path))
                     removed = TRUE;
-                else if (!PathExists(path))
-                    removed = TRUE;
                 else
-                    IDOS->Delay(2);
+                {
+                    lastErr = IDOS->IoErr();
+                    if (!PathExists(path))
+                        removed = TRUE;
+                    else
+                        IDOS->Delay(2);
+                }
             }
         }
     }
     if (removed) DeleteProgressStep();
+    else NoteDeleteError(lastErr);
     return removed;
 }
 
@@ -948,10 +973,10 @@ BOOL MoveEntry(CONST_STRPTR src, CONST_STRPTR dst)
             MoveInfoFile(src, finalDst);
             return TRUE;
         }
-        DBG("move: copied but cannot delete source '%s'", src);
+        LOGERR("move: copied but cannot delete source '%s'", src);
         return FALSE;   /* copia riuscita ma sorgente non rimosso */
     }
-    DBG("move: copy failed '%s' -> '%s'", src, dst);
+    LOGERR("move: copy failed '%s' -> '%s'", src, dst);
     return FALSE;
 }
 
@@ -1082,6 +1107,7 @@ void DoDeleteSelected(Object *listGad, Object *pathGad, Object *statusGad, struc
     char msg[128];
     ULONG total = 0;
     BOOL useProgress = FALSE;
+    BOOL skipAll = FALSE, cancelled = FALSE;
 
     if (selCount <= 0) { ShowMessage(LS(MSG_DELETE), LS(MSG_DELETE_NONE)); return; }
     if (IsRootPath(gPathBuffer)) return;  /* non cancellare volumi/assign dalla vista radice */
@@ -1119,7 +1145,7 @@ void DoDeleteSelected(Object *listGad, Object *pathGad, Object *statusGad, struc
         }
     }
 
-    for (n = list->lh_Head; n->ln_Succ; n = n->ln_Succ)
+    for (n = list->lh_Head; n->ln_Succ && !cancelled; n = n->ln_Succ)
     {
         ULONG sel = FALSE, index = MAX_ENTRIES; STRPTR name = NULL; char fullPath[PATH_MAX_LEN];
         BOOL ok;
@@ -1138,18 +1164,39 @@ void DoDeleteSelected(Object *listGad, Object *pathGad, Object *statusGad, struc
             gIcons[index] = NULL;
         }
 
-        ok = DeleteEntryRecursive(fullPath, 0);
-        if (!ok && !PathExists(fullPath))
-            ok = TRUE;  /* era gia' sparito: nessun errore da mostrare */
-        if (ok)
-            DeleteSiblingInfo(fullPath);
-        else if (!(useProgress && gProgCancel))
+        for (;;)
         {
-            char em[300];
-            DBG("delete: '%s' ancora presente dopo i tentativi (errore %ld)",
-                fullPath, (long)IDOS->IoErr());
-            snprintf(em, sizeof(em), LS(MSG_DELETE_FAILED), name);
-            ShowMessage(LS(MSG_ERROR_TITLE), em);
+            LONG choice;
+            ULONG done;
+
+            gDeleteLastErr = 0;
+            ok = DeleteEntryRecursive(fullPath, 0);
+            if (!ok && !PathExists(fullPath))
+                ok = TRUE;  /* era gia' sparito: nessun errore da mostrare */
+            if (ok)
+            {
+                DeleteSiblingInfo(fullPath);
+                break;
+            }
+            if (useProgress && gProgCancel) break;
+
+            LOGERR("delete: '%s' not deleted (error %ld)",
+                   fullPath, (long)gDeleteLastErr);
+            if (skipAll) break;
+
+            /* Errore come per la copia, con il testo di sistema: la finestra
+               di avanzamento si chiude e la richiesta resta da sola. */
+            done = gProgDone;
+            if (useProgress) ProgressClose();
+            choice = AskDeleteError(name, gDeleteLastErr);
+            if (choice == 0) { cancelled = TRUE; useProgress = FALSE; break; }
+            if (choice == 3) skipAll = TRUE;
+            /* oggetti rimasti: si riapre la finestra allo stesso punto */
+            ProgressOpen(win, total > 1 ? total : 1);
+            ProgressSetCounts(done, total > 1 ? total : 1);
+            useProgress = TRUE;
+            if (choice != 1) break;      /* Salta / Salta tutti */
+            /* Riprova: stesso oggetto */
         }
     }
 
@@ -1454,7 +1501,7 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
         {
             if (!MoveEntry(src, dst))
             {
-                DBG("transfer: move failed '%s' -> '%s'", src, dst);
+                LOGERR("transfer: move failed '%s' -> '%s'", src, dst);
                 anyErr = TRUE;
             }
         }
@@ -1462,7 +1509,7 @@ void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR ds
         {
             if (!CopyEntryRecursive(src, dst))
             {
-                DBG("transfer: copy failed '%s' -> '%s'", src, dst);
+                LOGERR("transfer: copy failed '%s' -> '%s'", src, dst);
                 anyErr = TRUE;
             }
         }

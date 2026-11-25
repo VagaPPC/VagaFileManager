@@ -1,6 +1,6 @@
 VagaFileManager (AmigaOS 4.1, Reaction)
 
-Version 1.0 build 44 (23.11.2026)
+Version 1.1 build 84 (25.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -17,6 +17,8 @@ Features
 - "Split" Mode: Dual-pane workflow inspired by DOpus.
 - Update Copy Mode: Copy only newer or modified files (currently under testing).
 - Workbench Replacement: the WB2VFM commodity seamlessly intercepts and replaces standard Workbench windows; a double-click on the empty desktop background opens a VFM window on RAM:, or on the path given by the DESKTOPPATH ToolType of the WB2VFM icon (for example DESKTOPPATH=Work:).
+- Workbench Emulation (View > Workbench emulation): hides every bar, turns off the context menus (the right mouse button shows the menu bar) and opens drawers in new windows on double-click or Return, like the Workbench.  The setting is saved; turning it off brings back the bars chosen in View > Bars.
+- Logs: VFM (T:VagaFileManager.log), WB2VFM (T:WB2VFM.log) and the bundled plugins (T:<plugin>.log) write only errors.  Set the DEBUG ToolType of the VagaFileManager icon (or of the WB2VFM icon) to TRUE to log every step; it ships as DEBUG=FALSE.
 - Scripting & Extensibility:
 - Built-in ARexx port.
 - Python plugin support (Work In Progress).

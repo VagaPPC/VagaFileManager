@@ -1,4 +1,4 @@
-## version $VER: VagaFileManager.catalog 1.0 (21.11.2026)
+## version $VER: VagaFileManager.catalog 1.1 (25.11.2026)
 ## codeset 4
 ## language german
 ;
@@ -105,7 +105,7 @@ MSG_DELETE_CONFIRM_TITLE
 Löschen bestätigen
 ;
 MSG_DELETE_FAILED
-Löschen nicht möglich:\n%s\n(Der Ordner ist möglicherweise nicht leer)
+Löschen nicht möglich:\n%s\n%s
 ;
 MSG_DUPLICATE
 Duplizieren
@@ -493,4 +493,13 @@ Filter leeren
 ;
 MSG_ABOUT_DONATE
 Spenden:
+;
+MSG_MENU_WBEMULATION
+WB-Emulation
+;
+MSG_DELETE_ERROR_BODY
+Fehler beim Löschen von '%s':\n%s
+;
+MSG_DELETE_ERROR_BUTTONS
+Wiederholen|Überspringen|Alle überspringen|Abbrechen
 ;

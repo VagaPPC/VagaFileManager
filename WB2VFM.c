@@ -68,7 +68,8 @@
 #include "VagaFileManager_version.h"
 
 #define PATH_MAX_LEN 1024
-#define WB2_VERSION "1.0"
+/* Stessa versione di VFM. */
+#define WB2_VERSION VFM_VERSION
 /* La commodity ha lo stesso numero di build di VFM. */
 #define WB2_BUILD   VFM_BUILD
 
@@ -109,15 +110,16 @@ static OpenWindowTagListFunc gOrigOpenWindowTagList = NULL;
 
 /* ===== Log ===== */
 
-static void Log(CONST_STRPTR fmt, ...)
+/* T:WB2VFM.log riceve sempre gli errori (LogErr); il resto (Log) solo
+   con il ToolType DEBUG nell'icona di WB2VFM (DEBUG=FALSE lo spegne). */
+static BOOL gDebug = FALSE;
+
+static void LogWrite(CONST_STRPTR prefix, CONST_STRPTR fmt, va_list ap)
 {
     BPTR fh;
-    va_list ap;
     char buf[1024];
 
-    va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
 
     fh = IDOS->Open("T:WB2VFM.log", MODE_READWRITE);
     if (!fh)
@@ -125,9 +127,26 @@ static void Log(CONST_STRPTR fmt, ...)
     if (fh)
     {
         IDOS->ChangeFilePosition(fh, 0, OFFSET_END);
-        IDOS->FPrintf(fh, "%s\n", buf);
+        IDOS->FPrintf(fh, "%s%s\n", prefix, buf);
         IDOS->Close(fh);
     }
+}
+
+static void Log(CONST_STRPTR fmt, ...)
+{
+    va_list ap;
+    if (!gDebug) return;
+    va_start(ap, fmt);
+    LogWrite("", fmt, ap);
+    va_end(ap);
+}
+
+static void LogErr(CONST_STRPTR fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    LogWrite("ERROR: ", fmt, ap);
+    va_end(ap);
 }
 
 /* ===== Avvio di VFM ===== */
@@ -140,7 +159,10 @@ static void LaunchVFM(CONST_STRPTR path)
     snprintf(cmd, sizeof(cmd), "\"%s\" \"%s\"", gExePath, path);
     err = IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
                            SYS_StackSize, 262144, TAG_DONE);
-    Log("launch cmd='%s' rc=%ld", cmd, (long)err);
+    if (err == -1)
+        LogErr("cannot launch '%s'", cmd);
+    else
+        Log("launch cmd='%s' rc=%ld", cmd, (long)err);
 }
 
 /* Richiesta pendente del doppio click sul desktop (vedi HandleLeftClick):
@@ -375,7 +397,7 @@ static void HandleLeftClick(const struct InputEvent *ie)
             if (l) IDOS->UnLock(l);
             else
             {
-                Log("DESKTOPPATH '%s' not found, using %s", path, DESKTOP_PATH);
+                LogErr("DESKTOPPATH '%s' not found, using %s", path, DESKTOP_PATH);
                 path = DESKTOP_PATH;
             }
             Log("desktop double-click at %ld,%ld -> %s",
@@ -392,7 +414,7 @@ static void HandleLeftClick(const struct InputEvent *ie)
             if (!IWorkbench || !IWorkbench->OpenWorkbenchObjectA(gDesktopLaunch, NULL))
             {
                 gDesktopPending = FALSE;
-                Log("OpenWorkbenchObject failed, launching directly");
+                LogErr("OpenWorkbenchObject failed, launching directly");
                 LaunchVFM(path);
             }
             else
@@ -464,7 +486,7 @@ static BOOL InstallClickFilter(void)
 
     if (gICx->CxObjError(filter))
     {
-        Log("click filter error %ld", (long)gICx->CxObjError(filter));
+        LogErr("click filter error %ld", (long)gICx->CxObjError(filter));
         return FALSE;
     }
     return TRUE;
@@ -563,6 +585,11 @@ static void ReadToolTypes(int argc, char **argv)
             strncpy(gDesktopPath, v, sizeof(gDesktopPath) - 1);
             gDesktopPath[sizeof(gDesktopPath) - 1] = '\0';
         }
+        v = IIcon->FindToolType((STRPTR *)dob->do_ToolTypes, "DEBUG");
+        if (v)
+            gDebug = (IIcon->MatchToolValue(v, "FALSE") || IIcon->MatchToolValue(v, "NO") ||
+                      IIcon->MatchToolValue(v, "OFF") || IIcon->MatchToolValue(v, "0"))
+                     ? FALSE : TRUE;
     }
     IIcon->FreeDiskObject(dob);
 }
@@ -664,7 +691,7 @@ int main(int argc, char **argv)
     }
     /* senza filtro la commodity funziona comunque (solo i cassetti) */
     if (!InstallClickFilter())
-        Log("desktop double-click not available");
+        LogErr("desktop double-click not available");
     gICx->ActivateCxObj(gBroker, TRUE);
 
     if (!InstallPatch())

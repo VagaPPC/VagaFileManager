@@ -115,6 +115,10 @@ static ULONG gSessionSeq = 0;
 /* Incrementato a ogni apertura del pannello 1: se il pannello viene
    chiuso e riaperto, le sessioni legate a quello vecchio non valgono piu'. */
 static ULONG gPane1Gen = 0;
+/* Emulazione WB: vista del pannello prima di attivarla (-1 = nessuna),
+   ripristinata quando la si disattiva. */
+static LONG gPreEmuView = -1;
+
 /* Cartella della sessione che sta eseguendo un comando (o NULL). */
 static CONST_STRPTR gCurSessionDir = NULL;
 
@@ -168,17 +172,19 @@ static Object *gTopBar = NULL;
 static Object *gTopCopyBtn = NULL, *gTopMoveBtn = NULL, *gTopDeleteBtn = NULL;
 static struct Screen *gPubScreen = NULL;
 
-/* ===== Log di debug ===== */
+/* ===== Log =====
+   T:VagaFileManager.log riceve sempre gli errori (LOGERR).  I messaggi di
+   diagnostica (DBG) vengono scritti solo con il ToolType DEBUG nell'icona
+   di VagaFileManager (DEBUG o DEBUG=TRUE; DEBUG=FALSE li disattiva). */
 
-void DBG(CONST_STRPTR fmt, ...)
+BOOL gDebugLog = FALSE;
+
+static void LogWrite(CONST_STRPTR prefix, CONST_STRPTR fmt, va_list args)
 {
     BPTR fh;
-    va_list args;
     char buf[1024];
 
-    va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
 
     fh = IDOS->Open("T:VagaFileManager.log", MODE_READWRITE);
     if (!fh)
@@ -186,9 +192,65 @@ void DBG(CONST_STRPTR fmt, ...)
     if (fh)
     {
         IDOS->ChangeFilePosition(fh, 0, OFFSET_END);
-        IDOS->FPrintf(fh, "%s\n", buf);
+        IDOS->FPrintf(fh, "%s%s\n", prefix, buf);
         IDOS->Close(fh);
     }
+}
+
+void DBG(CONST_STRPTR fmt, ...)
+{
+    va_list args;
+    if (!gDebugLog) return;
+    va_start(args, fmt);
+    LogWrite("", fmt, args);
+    va_end(args);
+}
+
+void LOGERR(CONST_STRPTR fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    LogWrite("ERROR: ", fmt, args);
+    va_end(args);
+}
+
+/* Legge il ToolType DEBUG dall'icona del programma (avvio da Workbench:
+   argv e' il WBStartup; da Shell: icona accanto all'eseguibile). */
+static void ReadDebugToolType(int argc, char **argv)
+{
+    struct DiskObject *dob = NULL;
+    BPTR old;
+
+    if (!IIcon) return;
+    if (argc == 0 && argv)
+    {
+        struct WBStartup *wbs = (struct WBStartup *)argv;
+        if (wbs->sm_NumArgs > 0 && wbs->sm_ArgList)
+        {
+            old = IDOS->SetCurrentDir(wbs->sm_ArgList[0].wa_Lock);
+            dob = IIcon->GetDiskObject(wbs->sm_ArgList[0].wa_Name);
+            IDOS->SetCurrentDir(old);
+        }
+    }
+    else
+    {
+        char name[256];
+        if (IDOS->GetCliProgramName(name, sizeof(name)) && IDOS->GetProgramDir())
+        {
+            old = IDOS->SetCurrentDir(IDOS->GetProgramDir());
+            dob = IIcon->GetDiskObject(IDOS->FilePart(name));
+            IDOS->SetCurrentDir(old);
+        }
+    }
+    if (!dob) return;
+    {
+        STRPTR v = IIcon->FindToolType((STRPTR *)dob->do_ToolTypes, "DEBUG");
+        if (v)
+            gDebugLog = (IIcon->MatchToolValue(v, "FALSE") || IIcon->MatchToolValue(v, "NO") ||
+                         IIcon->MatchToolValue(v, "OFF") || IIcon->MatchToolValue(v, "0"))
+                        ? FALSE : TRUE;
+    }
+    IIcon->FreeDiskObject(dob);
 }
 
 /* ===== Inizializzazione e preferenze ===== */
@@ -497,6 +559,8 @@ static void ParsePrefs(CONST_STRPTR file,
                 prefs->height = atoi(line + 7);
             else if (!inPath && !inVolume && !strncmp(line, "Split=", 6))
                 prefs->split = atoi(line + 6) ? 1 : 0;
+            else if (!inPath && !inVolume && !strncmp(line, "WBEmulation=", 12))
+                prefs->wbEmulation = atoi(line + 12) ? 1 : 0;
             else if (!inPath && !inVolume && !strncmp(line, "HiddenBars=", 11))
                 prefs->hiddenBars = (ULONG)atoi(line + 11) &
                                     (BAR_PATH | BAR_TOOLS | BAR_FILTER | BAR_STATUS);
@@ -579,6 +643,16 @@ void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort,
         }
     }
 
+    /* Emulazione WB: la vista (sempre icone) e' forzata, non scelta: non
+       deve sostituire quella ricordata per il cassetto, ne' creare voci
+       nuove che dopo l'emulazione aprirebbero tutto a icone. */
+    if (gPrefs.wbEmulation)
+    {
+        if (!pp) return;
+        view   = pp->viewMode;
+        filter = pp->viewFilter;
+    }
+
     if (!pp)
     {
         if (gPathPrefsCount >= MAX_PATH_PREFS) return;
@@ -641,6 +715,7 @@ void SavePrefs(void)
         diskPrefs.height = gPrefs.height;
         diskPrefs.split  = gPrefs.split;
         diskPrefs.hiddenBars = gPrefs.hiddenBars;
+        diskPrefs.wbEmulation = gPrefs.wbEmulation;
 
         /* La geometria vale per il volume su cui l'istanza e' stata
            aperta, non per l'ultima cartella visitata. */
@@ -677,6 +752,7 @@ void SavePrefs(void)
         IDOS->FPrintf(fh, "Height=%ld\n", (long)wp->height);
         IDOS->FPrintf(fh, "Split=%ld\n",  (long)wp->split);
         IDOS->FPrintf(fh, "HiddenBars=%ld\n", (long)wp->hiddenBars);
+        IDOS->FPrintf(fh, "WBEmulation=%ld\n", (long)wp->wbEmulation);
 
         for (i = 0; i < vaCount; i++)
         {
@@ -1028,7 +1104,7 @@ static void RebuildPaneBars(struct Window *win)
         newLayout = CreatePaneUI(p);
         if (!newLayout)
         {
-            DBG("bars: cannot rebuild pane %d", p);
+            LOGERR("bars: cannot rebuild pane %d", p);
             if (pn->colInfo && pn->colInfo != oldCol)
                 IListBrowser->FreeLBColumnInfo(pn->colInfo);
             pn->paneLayout = old.paneLayout;
@@ -1431,7 +1507,7 @@ static struct PluginSession *SessionOpen(int pane)
         if (!gSessions[i].used) { s = &gSessions[i]; break; }
     if (!s)
     {
-        DBG("plugin session: table full");
+        LOGERR("plugin session: table full");
         return NULL;
     }
 
@@ -1450,7 +1526,7 @@ static struct PluginSession *SessionOpen(int pane)
     l = IDOS->CreateDir(s->dir);
     if (!l)
     {
-        DBG("plugin session: cannot create '%s'", s->dir);
+        LOGERR("plugin session: cannot create '%s'", s->dir);
         s->dir[0] = '\0';
         return NULL;
     }
@@ -1585,7 +1661,7 @@ void RunPlugin(CONST_STRPTR path)
         }
         if (!py)
         {
-            DBG("plugin run: Python not found (C:Python / C:Python3)");
+            LOGERR("plugin run: Python not found (C:Python / C:Python3)");
             ShowMessage(LS(MSG_APP_TITLE),
                 "Python not found: install C:Python or C:Python3.");
             return;
@@ -1609,12 +1685,14 @@ void RunPlugin(CONST_STRPTR path)
         /* Argomenti Python:
              1 porta ARexx, 2 path pannello, 3 eseguibile VFM,
              4 porta del drawer per --notify, 5 directory del canale
-             (la cartella della sessione).
+             (la cartella della sessione), 6 DEBUG/NODEBUG (ToolType
+             DEBUG di VFM: il plugin scrive nel suo log ogni passo o solo
+             gli errori).
            I plugin possono quindi usare il canale su file senza ARexx. */
         snprintf(cmd, sizeof(cmd),
-                 "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+                 "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" %s",
                  py, absPath, gRexxPortName, gPathBuffer, exePath,
-                 gDropPortName, channel);
+                 gDropPortName, channel, gDebugLog ? "DEBUG" : "NODEBUG");
         stack = 1024 * 1024;
     }
     else
@@ -1628,7 +1706,7 @@ void RunPlugin(CONST_STRPTR path)
         DBG("plugin run: rc=%ld cmd=%s", (long)rc, cmd);
         if (rc == -1)
         {
-            DBG("plugin run: failed to start");
+            LOGERR("plugin run: failed to start");
             if (session) SessionClose(session);
             ShowMessage(LS(MSG_APP_TITLE),
                 "Cannot start the plugin. Check C:Python / C:Python3 and the script path.");
@@ -2814,6 +2892,9 @@ static uint32 ContextMenuHookFunc(struct Hook *hook, struct Window *win, struct 
     msg->Menu = NULL;
     msg->Context = NULL;
     if (!win || gCtxMenuBlocked || gDragActive || gDragButtonDown) return 0;
+    /* Emulazione WB: nessun menu contestuale, il tasto destro mostra la
+       barra dei menu come nel Workbench */
+    if (gPrefs.wbEmulation) return 0;
 
     for (p = 0; p < 2; p++)
     {
@@ -2926,7 +3007,10 @@ static BOOL HandlePaneKey(int which, ULONG qual, struct Window *win)
                 /* come il pulsante Apri: cassetto in una nuova istanza */
                 TryOpenSelected(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList, TRUE);
             else
-                OpenSelectedEntries(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList, FALSE);
+                /* Emulazione WB: come il doppio click, i cassetti si
+                   aprono in nuove finestre */
+                OpenSelectedEntries(pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList,
+                                    gPrefs.wbEmulation ? TRUE : FALSE);
             break;
 
         case PANEKEY_BACKSPACE:
@@ -3360,6 +3444,7 @@ int main(int argc, char **argv)
     if (argc > 2 && argv[2] && !strcmp(argv[2], "-m"))
         centerMouse = TRUE;
 
+    ReadDebugToolType(argc, argv);
     LoadPrefs();
 
     /* Geometria della finestra: la chiave e' il volume del percorso
@@ -3825,7 +3910,7 @@ int main(int argc, char **argv)
                                             case GID_LIST:
                                             {
                                                 uint32 relEvent=0; IIntuition->GetAttrs(listGad, LISTBROWSER_RelEvent, &relEvent, TAG_DONE);
-                                                if (relEvent==LBRE_DOUBLECLICK) TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,FALSE);
+                                                if (relEvent==LBRE_DOUBLECLICK) TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,gPrefs.wbEmulation ? TRUE : FALSE);   /* Emulazione WB: cassetto in una nuova finestra */
                                                 /* selezionando qui si svuota la selezione dell'altro pannello */
                                                 ClearOtherPaneSelection(gp, windows[WID_MAIN]);
                                                 /* release of a potential drag started on the list/icon gadget */
@@ -3941,6 +4026,40 @@ int main(int argc, char **argv)
                                                     statusGad = gPanes[gp].statusGad;
                                                     toggleGad = gPanes[gp].toggleGad;
                                                     fl        = &gPanes[gp].fileList;
+                                                    needStatus = TRUE;
+                                                    break;
+                                                case MENU_WB_EMULATION:
+                                                    /* Il menu principale non cambia: la
+                                                       voce resta sempre raggiungibile per
+                                                       tornare indietro. */
+                                                    gPrefs.wbEmulation = gPrefs.wbEmulation ? 0 : 1;
+                                                    /* il Workbench ha una finestra per
+                                                       cassetto: si chiude la vista doppia */
+                                                    if (gPrefs.wbEmulation && gPanes[1].listGad)
+                                                        ToggleSplit(windows[WID_MAIN], gMainWinObj);
+                                                    if (gPrefs.wbEmulation)
+                                                    {
+                                                        /* LoadPath passera' a icone: si
+                                                           ricorda la vista per il ritorno */
+                                                        gPreEmuView = (LONG)gViewMode;
+                                                    }
+                                                    else if (gPreEmuView >= 0)
+                                                    {
+                                                        /* torna la vista di prima */
+                                                        gViewMode = (ULONG)gPreEmuView;
+                                                        if (gViewMode != FBVM_ICONS)
+                                                            gViewFilter = VIEW_FILTER_ALL_FILES;
+                                                        gPreEmuView = -1;
+                                                    }
+                                                    RebuildPaneBars(windows[WID_MAIN]);
+                                                    gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+                                                    listGad   = gPanes[gp].listGad;
+                                                    pathGad   = gPanes[gp].pathGad;
+                                                    statusGad = gPanes[gp].statusGad;
+                                                    toggleGad = gPanes[gp].toggleGad;
+                                                    fl        = &gPanes[gp].fileList;
+                                                    UpdateMenu();
+                                                    SavePrefs();
                                                     needStatus = TRUE;
                                                     break;
                                                 case MENU_BAR_PATH:

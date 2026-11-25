@@ -814,7 +814,7 @@ static struct AppMessage *BuildAppDropMessage(char (*paths)[PATH_MAX_LEN], LONG 
         BPTR lock = LockWBArg(paths[i], &nm);
         if (!lock)
         {
-            DBG("AppWindow: lock non riuscito per '%s'", paths[i]);
+            LOGERR("AppWindow: lock non riuscito per '%s'", paths[i]);
             continue;
         }
         strcpy(names, nm);
@@ -959,7 +959,7 @@ static BOOL TypeTextIntoWindow(CONST_STRPTR text)
     if (HasControlChars(text)) return FALSE;
     if (!EnsureInputLibraries())
     {
-        DBG("drop text: keymap/input.device non disponibili");
+        LOGERR("drop text: keymap/input.device non disponibili");
         return FALSE;
     }
 
@@ -1023,7 +1023,7 @@ static BOOL DropTextToExternalWindow(struct Window *w, char (*paths)[PATH_MAX_LE
         (unsigned long)w->Flags, (long)shell, text);
     if (!ActivateForDrop(w))
     {
-        DBG("drop: impossibile attivare la finestra di destinazione (flags=%08lx)",
+        LOGERR("drop: impossibile attivare la finestra di destinazione (flags=%08lx)",
             (unsigned long)w->Flags);
         return FALSE;
     }
@@ -1492,11 +1492,11 @@ void DoDragDropOut(struct List *list, struct Window *win, WORD screenX, WORD scr
             break;
         case DT_APPWIN:
             if (!SendAppWindowDrop(t->win, t->x, t->y, paths, count))
-                DBG("AppWindow: drop non inviato");
+                LOGERR("AppWindow: drop non inviato");
             break;
         case DT_TEXT:
             if (!DropTextToExternalWindow(t->win, paths, count))
-                DBG("drop testuale non riuscito");
+                LOGERR("drop testuale non riuscito");
             break;
         default:
             /* come nel Workbench: rilasciare dove non si puo' non fa nulla */
@@ -1805,7 +1805,7 @@ void SendVFMDrop(struct List *list, struct MsgPort *port, WORD screenX, WORD scr
     LONG count = 0, i, totalLen = 0;
     struct VFMDropMessage *drop;
 
-    if (!port) { DBG("VFM target port is NULL"); return; }
+    if (!port) { LOGERR("VFM target port is NULL"); return; }
 
     paths = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags(MAX_CLIPBOARD * PATH_MAX_LEN,
         AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);

@@ -3,6 +3,25 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 86 - 2026-11-25
+
+- New View > Workbench emulation: hides all the bars, shows the icons,
+  turns off the context menus (the right mouse button shows the menu
+  bar) and opens drawers in new windows on double-click or Return, like
+  the Workbench.  It is remembered; turning it off brings back the bars
+  and the view you had before.
+- When a file cannot be deleted (for example because it is open in an
+  editor) a requester shows the reason given by the system, with Retry,
+  Skip, Skip all and Cancel, instead of waiting.
+- VFM, WB2VFM and the bundled plugins now write only errors to their log
+  files in T:.  Set the DEBUG tooltype of the VagaFileManager (or WB2VFM)
+  icon to TRUE to log everything; it ships as DEBUG=FALSE.
+
+## 1.1 build 84 - 2026-11-25
+
+- Version 1.1.  It collects all the changes listed below since the last
+  release (1.0 build 62).  The build number keeps counting from 1.0.
+
 ## 1.0 build 83 - 2026-11-25
 
 - New View > Bars submenu: show or hide the path bar, the button bar,

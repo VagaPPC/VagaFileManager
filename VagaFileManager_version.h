@@ -13,8 +13,8 @@
 
 /* Versione applicazione e numero di build.
    Incrementare VFM_BUILD ad ogni build/rilascio. */
-#define VFM_VERSION       "1.0"
-#define VFM_BUILD         83
+#define VFM_VERSION       "1.1"
+#define VFM_BUILD         86
 #define VFM_VERSION_DATE  "25.11.2026"
 
 /* Versione del protocollo dei comandi (porta ARexx e canale plugin),
@@ -30,7 +30,9 @@
 #define VFM_STR_(x) #x
 #define VFM_STR(x)  VFM_STR_(x)
 
-/* "1.0 build 1" e "1.0 build 1 (21.11.2026)" */
+/* "1.1 build 84" e "1.1 build 84 (25.11.2026)".  Il numero di build
+   non riparte con una nuova versione: e' un contatore unico, sempre
+   crescente, a cui fanno riferimento CHANGELOG, commit e segnalazioni. */
 #define VFM_VERSION_FULL  VFM_VERSION " build " VFM_STR(VFM_BUILD)
 #define VFM_VERSION_LONG  VFM_VERSION_FULL " (" VFM_VERSION_DATE ")"
 

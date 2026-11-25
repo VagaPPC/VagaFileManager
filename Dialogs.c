@@ -273,6 +273,28 @@ LONG AskCopyError(CONST_STRPTR name, LONG err)
     return IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
 }
 
+/* Errore durante una cancellazione, come per la copia: nome e testo
+   dell'errore di sistema.  Ritorna 1=Riprova, 2=Salta, 3=Salta tutti,
+   0=Annulla. */
+LONG AskDeleteError(CONST_STRPTR name, LONG err)
+{
+    struct EasyStruct es;
+    APTR args[1];
+    char fault[160];
+    char body[PATH_MAX_LEN + 200];
+
+    fault[0] = '\0';
+    if (err) IDOS->Fault(err, NULL, fault, sizeof(fault));
+    snprintf(body, sizeof(body), LS(MSG_DELETE_ERROR_BODY),
+             (name && name[0]) ? name : "", fault);
+    InitEasyAtMouse(&es);
+    es.es_Title = (STRPTR)LS(MSG_ERROR_TITLE);
+    es.es_TextFormat = (STRPTR)"%s";
+    es.es_GadgetFormat = (STRPTR)LS(MSG_DELETE_ERROR_BUTTONS);
+    args[0] = (APTR)body;
+    return IIntuition->EasyRequestArgs(NULL, &es, NULL, args);
+}
+
 /* Richiesta di una riga di testo: 'buf' contiene il testo iniziale e, se
    l'utente conferma, il testo inserito.  'width' e' la larghezza interna. */
 static BOOL PromptStringWidth(CONST_STRPTR title, STRPTR buf, ULONG bufSize, ULONG width)
@@ -870,6 +892,7 @@ static Object *LoadAboutLogo(struct Screen *scr)
         if (img && w > 0 && h > 0) return img;
         if (img) IIntuition->DisposeObject(img);
     }
+    LOGERR("about logo: cannot load '%s' or '%s'", ABOUT_LOGO_FILE, ABOUT_LOGO_PNG);
     return NULL;
 }
 
@@ -960,6 +983,7 @@ static void OpenAboutLink(CONST_STRPTR url)
         return;
     }
 
+    LOGERR("about link: cannot open '%s' (OpenURL and URL: failed)", url);
     snprintf(cmd, sizeof(cmd), LS(MSG_OPENWITH_FAILED), url);
     ShowMessage(LS(MSG_ERROR_TITLE), cmd);
 }
@@ -1362,13 +1386,13 @@ static void AddBarsSubmenu(struct TagItem *tags, int *n)
     AddMenuItem(tags, n, LS(MSG_MENU_BARS), 0, NULL, MIMG_SETTINGS, FALSE, FALSE, FALSE);
     AddMenuTag(tags, n, NM_SubItems, SI_BEGIN);
     AddMenuItem(tags, n, LS(MSG_BAR_PATH), MENU_BAR_PATH, NULL, -1,
-                TRUE, BarVisible(BAR_PATH), FALSE);
+                TRUE, BarChecked(BAR_PATH), FALSE);
     AddMenuItem(tags, n, LS(MSG_BAR_TOOLS), MENU_BAR_TOOLS, NULL, -1,
-                TRUE, BarVisible(BAR_TOOLS), FALSE);
+                TRUE, BarChecked(BAR_TOOLS), FALSE);
     AddMenuItem(tags, n, LS(MSG_BAR_FILTER), MENU_BAR_FILTER, NULL, -1,
-                TRUE, BarVisible(BAR_FILTER), FALSE);
+                TRUE, BarChecked(BAR_FILTER), FALSE);
     AddMenuItem(tags, n, LS(MSG_BAR_STATUS), MENU_BAR_STATUS, NULL, -1,
-                TRUE, BarVisible(BAR_STATUS), FALSE);
+                TRUE, BarChecked(BAR_STATUS), FALSE);
     AddMenuTag(tags, n, NM_SubItems, SI_END);
 }
 
@@ -1385,7 +1409,7 @@ static Object *NewMenuTree(struct TagItem *tags)
     {
         ULONG err = 0;
         IIntuition->GetAttr(MA_ErrorCode, root, &err);
-        DBG("menuclass MM_NEWMENU failed: %lu", (unsigned long)err);
+        LOGERR("menuclass MM_NEWMENU failed: %lu", (unsigned long)err);
         IIntuition->DisposeObject(root);
         return NULL;
     }
@@ -1455,6 +1479,9 @@ void BuildMenu(void)
        pulsanti (che contiene il pulsante Dividi) e' nascosta. */
     AddMenuItem(tags, &n, LS(MSG_MENU_SPLIT), MENU_SPLIT, NULL, -1,
                 TRUE, (gPanes[1].listGad != NULL), FALSE);
+    /* Emulazione WB: solo nel menu principale, mai nei contestuali */
+    AddMenuItem(tags, &n, LS(MSG_MENU_WBEMULATION), MENU_WB_EMULATION, NULL, -1,
+                TRUE, gPrefs.wbEmulation ? TRUE : FALSE, FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_SHOWINFO), MENU_VIEW_SHOWINFO, NULL, MIMG_SHOWINFO,
                 TRUE, gShowInfoFiles ? TRUE : FALSE, (gViewMode == FBVM_ICONS));
@@ -1679,10 +1706,10 @@ void SyncContextMenus(void)
     }
     if (gCtxMenuEmpty)
     {
-        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_PATH,   BarVisible(BAR_PATH));
-        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_TOOLS,  BarVisible(BAR_TOOLS));
-        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_FILTER, BarVisible(BAR_FILTER));
-        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_STATUS, BarVisible(BAR_STATUS));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_PATH,   BarChecked(BAR_PATH));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_TOOLS,  BarChecked(BAR_TOOLS));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_FILTER, BarChecked(BAR_FILTER));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_STATUS, BarChecked(BAR_STATUS));
     }
 }
 

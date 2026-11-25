@@ -1,4 +1,4 @@
-## version $VER: VagaFileManager.catalog 1.0 (21.11.2026)
+## version $VER: VagaFileManager.catalog 1.1 (25.11.2026)
 ## codeset 4
 ## language spanish
 ;
@@ -105,7 +105,7 @@ MSG_DELETE_CONFIRM_TITLE
 Confirmar eliminación
 ;
 MSG_DELETE_FAILED
-No se puede eliminar:\n%s\n(La carpeta puede no estar vacía)
+No se puede eliminar:\n%s\n%s
 ;
 MSG_DUPLICATE
 Duplicar
@@ -493,4 +493,13 @@ Borrar filtro
 ;
 MSG_ABOUT_DONATE
 Donar:
+;
+MSG_MENU_WBEMULATION
+Emulación WB
+;
+MSG_DELETE_ERROR_BODY
+Error al eliminar '%s':\n%s
+;
+MSG_DELETE_ERROR_BUTTONS
+Reintentar|Omitir|Omitir todos|Cancelar
 ;

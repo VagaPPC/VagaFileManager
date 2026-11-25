@@ -875,6 +875,15 @@ void LoadPath(CONST_STRPTR path, Object *listGad, Object *pathGad, Object *statu
         }
     }
 
+    /* Emulazione WB: sempre a icone, come il Workbench, anche se per questo
+       cassetto era ricordata la vista a elenco (che resta memorizzata). */
+    if (gPrefs.wbEmulation && gViewMode != FBVM_ICONS)
+    {
+        gViewMode = FBVM_ICONS;
+        gViewFilter = DirHasInfoFiles(usePath) ? VIEW_FILTER_ICONS_ONLY
+                                               : VIEW_FILTER_ALL_FILES;
+    }
+
     /* la modalità icone/lista è un attributo del gadget, non basta
        cambiare gViewMode */
     if (listGad)
@@ -961,7 +970,7 @@ BOOL TryOpenSelected(Object *listGad, Object *pathGad, Object *statusGad, struct
         }
         else
         {
-            DBG("cannot launch '%s': workbench.library not available", newPath);
+            LOGERR("cannot launch '%s': workbench.library not available", newPath);
         }
         return TRUE;
     }

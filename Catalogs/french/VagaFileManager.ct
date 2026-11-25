@@ -1,4 +1,4 @@
-## version $VER: VagaFileManager.catalog 1.0 (21.11.2026)
+## version $VER: VagaFileManager.catalog 1.1 (25.11.2026)
 ## codeset 4
 ## language french
 ;
@@ -105,7 +105,7 @@ MSG_DELETE_CONFIRM_TITLE
 Confirmer la suppression
 ;
 MSG_DELETE_FAILED
-Impossible de supprimer :\n%s\n(Le dossier n'est peut-être pas vide)
+Impossible de supprimer :\n%s\n%s
 ;
 MSG_DUPLICATE
 Dupliquer
@@ -493,4 +493,13 @@ Effacer le filtre
 ;
 MSG_ABOUT_DONATE
 Faire un don :
+;
+MSG_MENU_WBEMULATION
+Émulation WB
+;
+MSG_DELETE_ERROR_BODY
+Erreur pendant la suppression de '%s' :\n%s
+;
+MSG_DELETE_ERROR_BUTTONS
+Réessayer|Passer|Tout passer|Annuler
 ;
