@@ -5,9 +5,11 @@
 #
 # Recursive search by file name, done entirely by the plugin:
 #
-#   1. asks for the name or pattern (VFM Reaction DIALOG);
-#   2. searches recursively from the drawer open in the pane the plugin
-#      was started from (PATH, or argv[2] as a fallback);
+#   1. asks for the name or pattern (VFM Reaction DIALOG), with an
+#      "Include subfolders" checkbox, ticked by default;
+#   2. searches from the drawer open in the pane the plugin was started
+#      from (PATH, or argv[2] as a fallback), in the subfolders too if
+#      the box is ticked;
 #   3. one match: VFM goes straight to it;
 #      more matches: they are listed in the same result window as Grep.py
 #      (ProAction listbrowser, or the ASL fallback);
@@ -125,7 +127,7 @@ def make_matcher(pattern):
 
 # ===== Search =====
 
-def find_names(root, matches_name, progress=None, with_info=False):
+def find_names(root, matches_name, progress=None, with_info=False, recursive=True):
     """Recursive search by name.  Returns (paths, truncated, canceled).
 
     .info files are skipped unless with_info is true.
@@ -175,7 +177,7 @@ def find_names(root, matches_name, progress=None, with_info=False):
                 if len(found) >= G.MAX_RESULTS:
                     return (found, True, False)
 
-            if is_dir and not G.is_link(path):
+            if recursive and is_dir and not G.is_link(path):
                 stack.append((path, depth + 1))
 
     return (found, False, False)
@@ -184,22 +186,8 @@ def find_names(root, matches_name, progress=None, with_info=False):
 # ===== VFM interaction =====
 
 def ask_pattern():
-    """Ask for the pattern with the VFM DIALOG command."""
-    result = G.send_channel(
-        'DIALOG VFM Find|Name or pattern (#?, *, ?):||Search|Cancel', 600)
-    if result is None:
-        return None
-
-    rc, answer = result
-    if rc != 0 or '|' not in answer:
-        return None
-
-    idx, sep, text = answer.partition('|')
-    if idx.strip() != '1':
-        return None
-
-    text = text.strip()
-    return text if text else None
+    """Pattern and 'Include subfolders' choice (VFM DIALOG with checkbox)."""
+    return G.ask_search('VFM Find', 'Name or pattern (#?, *, ?):')
 
 
 def search_root():
@@ -229,7 +217,7 @@ def main():
         message('The active pane path is not a directory:\n' + str(root))
         return
 
-    pattern = ask_pattern()
+    pattern, recursive = ask_pattern()
     if not pattern:
         log('no pattern')
         return
@@ -239,7 +227,7 @@ def main():
         message('Invalid pattern:\n' + pattern, False)
         return
 
-    log('search %r from %s' % (pattern, root))
+    log('search %r from %s (subfolders: %s)' % (pattern, root, recursive))
     if not G.progress_open(False):
         G.progress_close()
         log('search canceled before start')
@@ -248,7 +236,8 @@ def main():
     # Searching for icons on purpose: include the .info files.
     with_info = '.info' in pattern.lower()
     found, truncated, canceled = find_names(root, matches_name,
-                                            G.progress_update, with_info)
+                                            G.progress_update, with_info,
+                                            recursive)
     G.progress_close()
 
     if canceled:

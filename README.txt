@@ -169,6 +169,9 @@ Python / ARexx addons:
 - The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
   Reaction interface an addon can either use the channel command
     DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
+  With the optional prefix CHECK=<0|1>:<label>| a checkbox is shown under
+  the text field and the reply becomes <index>|<0|1>|<text>.  Find and
+  Grep use it for "Include subfolders".
   or, without ARexx, launch VFM in dialog mode:
     VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
     VagaFileManager --dialog "@<spec-file>"
@@ -198,10 +201,19 @@ Python / ARexx addons:
   Add / Overwrite / Cancel; Add decompresses the existing archive, appends
   the new entries and compresses it again.
 - All three archive add-ons use the VFM progress window with the total
-  file count and do not need a VFM rebuild to be updated.
+  file count.  Its close button interrupts the compression after a
+  confirmation: the archiver gets CTRL-C and a window without close button
+  says to wait while the files are removed; it closes by itself when the
+  clean-up is done.  A new archive is removed,
+  an archive that was being added to is restored from a safety copy (LHA,
+  LZX), and GZIP keeps the old archive because it only replaces it at the
+  end.
 - Add-ons can drive the VFM progress window with the channel command
-  `PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal]`;
-  `PROGRESS CLOSE` closes it.  The bundled add-ons use it.
+  `PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal]`;
+  `PROGRESS CLOSE` closes it.  NOBUTTONS shows no Cancel/Pause buttons:
+  only the close button, which reports the cancel request (reply 1).
+  `PROGRESS TEXT <message>` shows a message instead of the file count in
+  the open window (`PROGRESS TEXT` alone brings the count back).
 - If a plugin does nothing, check its log in T: (for example
   T:CompressLHA.log): every add-on writes its startup and channel
   commands there.

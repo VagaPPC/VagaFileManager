@@ -72,6 +72,9 @@ LHA_LOG = 'T:VFM_CompressLHA_lha_%d.log' % _PID
 FILE_LIST = 'T:VFM_CompressLHA_files_%d.lst' % _PID
 RUN_SCRIPT = 'T:VFM_CompressLHA_run_%d.script' % _PID
 DONE_FILE = 'T:VFM_CompressLHA_done_%d.txt' % _PID
+CLI_FILE = 'T:VFM_CompressLHA_cli_%d.txt' % _PID
+ARCHIVER = 'LHA'
+TITLE = 'CompressLHA'
 
 _seq = 0
 
@@ -186,7 +189,7 @@ PROGRESS_OK = None
 def progress_open(nocancel=True, total=0):
     global PROGRESS_OK
 
-    prefix = 'NOCANCEL ' if nocancel else ''
+    prefix = 'NOBUTTONS ' if nocancel else ''
     result = send_channel('PROGRESS %sINDET 0 %d' % (prefix, total), 6000)
     if result is None or result[0] != 0:
         PROGRESS_OK = False
@@ -200,7 +203,7 @@ def progress_update(done=0, total=0, nocancel=True):
     if not PROGRESS_OK:
         return True
 
-    prefix = 'NOCANCEL ' if nocancel else ''
+    prefix = 'NOBUTTONS ' if nocancel else ''
     result = send_channel('PROGRESS %sINDET %d %d' % (prefix, done, total), 6000)
     if result is None or result[0] != 0:
         return True
@@ -213,6 +216,151 @@ def progress_close():
     if PROGRESS_OK:
         send_channel('PROGRESS CLOSE', 600)
     PROGRESS_OK = None
+
+
+# ===== Interruption (close button of the progress window) =====
+#
+# The progress window has no buttons (PROGRESS NOBUTTONS): its close button
+# asks to stop.  The launcher script writes its CLI number to CLI_FILE and
+# the packer gets CTRL-C (C:Break).  If it has not stopped after 15 s, the
+# plugin waits for it to finish (window without close button, bar still
+# moving) instead of removing files that are still open.  Then the result
+# is thrown away: a new archive is removed, an archive that was being added
+# to is restored from the safety copy.
+
+def remove_quiet(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def remove_retry(path):
+    """Remove a file that the stopped packer may still hold open."""
+    for attempt in range(10):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+            return True
+        except OSError:
+            time.sleep(0.5)
+    return not os.path.exists(path)
+
+
+def confirm_interrupt():
+    if asl is None:
+        return True
+    try:
+        return asl.MessageBox(TITLE, 'Interrupt the compression?',
+                              'Interrupt|Continue') == 1
+    except Exception:
+        return True
+
+
+def wait_job(total_files):
+    """Wait for DONE_FILE keeping the progress bar alive.
+
+    Returns 'done', 'timeout' or 'cancel'.
+    """
+    start = time.time()
+    while not os.path.exists(DONE_FILE):
+        time.sleep(0.6)
+        if not progress_update(0, total_files, True):
+            if confirm_interrupt():
+                return 'cancel'
+            # Continue: a new window clears the close request.
+            progress_close()
+            progress_open(True, 0)
+            progress_update(0, total_files, True)
+        if (time.time() - start) > 3600:
+            return 'timeout'
+    return 'done'
+
+
+def job_finished():
+    """True when the launcher script has ended.
+
+    The script writes DONE_FILE as its last line, but CTRL-C also stops
+    the script itself, so that line is not reached after an interruption.
+    While the script runs, the shell keeps RUN_SCRIPT open and AmigaOS
+    refuses to delete it: once it can be deleted, the job is over.
+    """
+    if os.path.exists(DONE_FILE):
+        return True
+    try:
+        os.remove(RUN_SCRIPT)
+        return True
+    except OSError:
+        return not os.path.exists(RUN_SCRIPT)
+
+
+WAIT_TEXT = 'Interrupting: please wait while the files are removed...'
+
+
+def stop_job(total_files):
+    """CTRL-C to the shell running the packer, then wait for the script to
+    end.  Meanwhile a window without close button shows WAIT_TEXT; the
+    caller closes it (progress_close) after the clean-up."""
+    global PROGRESS_OK
+    num = ''
+    try:
+        f = open(CLI_FILE, 'r')
+        num = f.read().strip()
+        f.close()
+    except IOError:
+        pass
+    log('interrupt: CLI %r' % num)
+
+    progress_close()
+    cmd = 'PROGRESS NOCANCEL NOBUTTONS INDET 0 %d' % total_files
+    result = send_channel(cmd, 6000)
+    # progress_close() above cleared PROGRESS_OK: the wait window is open
+    # again, so the caller's progress_close() must send PROGRESS CLOSE.
+    PROGRESS_OK = (result is not None and result[0] == 0)
+    send_channel('PROGRESS TEXT ' + WAIT_TEXT, 6000)
+
+    if num.isdigit():
+        run_command('C:Break %s C' % num)
+    start = time.time()
+    warned = False
+    while not job_finished() and (time.time() - start) < 3600:
+        time.sleep(0.5)
+        send_channel(cmd, 6000)          # keeps the bar moving
+        if not warned and (time.time() - start) > 15:
+            log('interrupt: %s did not stop, waiting for it to finish'
+                % ARCHIVER, True)
+            warned = True
+    log('interrupt: %s stopped' % ARCHIVER)
+
+
+def make_backup(archive):
+    """Copy an existing archive before adding to it.
+
+    Returns the backup path, None if there is no archive, False on error.
+    """
+    if not os.path.exists(archive):
+        return None
+    backup = archive + '.vfmbak'
+    remove_quiet(backup)
+    try:
+        import shutil
+        shutil.copyfile(archive, backup)
+    except Exception:
+        remove_quiet(backup)
+        message('Cannot make a safety copy of the archive:\n' + archive)
+        return False
+    return backup
+
+
+def restore_backup(archive, backup):
+    """Put the archive back as it was before."""
+    if not backup:
+        return
+    remove_retry(archive)
+    try:
+        os.rename(backup, archive)
+    except OSError:
+        log('cannot restore %s from %s' % (archive, backup), True)
 
 
 # ===== Selection and panes =====
@@ -562,6 +710,8 @@ def run_lha(archive, files):
         # Give LHA a large stack: the default stack of a RUN shell is
         # small, and old command-line tools can overflow it.
         f.write('Stack 262144\n')
+        # CLI number of this shell, to stop the packer (C:Break)
+        f.write('Echo >%s "$Process"\n' % CLI_FILE)
         f.write(cmd + '\n')
         f.write('Echo >' + DONE_FILE + '\n')
         f.close()
@@ -571,6 +721,10 @@ def run_lha(archive, files):
         except OSError:
             pass
         message('Cannot write the LHA launcher script:\n' + RUN_SCRIPT)
+        return False
+
+    backup = make_backup(archive)
+    if backup is False:
         return False
 
     progress_open(True, 0)
@@ -587,19 +741,29 @@ def run_lha(archive, files):
             os.remove(FILE_LIST)
         except OSError:
             pass
+        if backup:
+            remove_quiet(backup)   # the archive was not touched
         message('Cannot start LHA.\nSee T:CompressLHA.log.')
         return False
 
-    timed_out = False
-    start = time.time()
-    while not os.path.exists(DONE_FILE):
-        time.sleep(0.6)
-        progress_update(0, total_files, True)
-        if (time.time() - start) > 3600:
-            timed_out = True
-            break
+    status = wait_job(total_files)
+    timed_out = (status == 'timeout')
+    if status == 'cancel':
+        stop_job(total_files)            # the wait window stays open
+    else:
+        progress_close()
+    remove_quiet(CLI_FILE)
 
-    progress_close()
+    if status == 'cancel':
+        log('compression interrupted by the user')
+        remove_quiet(DONE_FILE)
+        remove_quiet(RUN_SCRIPT)
+        remove_quiet(FILE_LIST)
+        remove_retry(archive)
+        restore_backup(archive, backup)
+        progress_close()                 # the wait window closes by itself
+        send_channel('REFRESH')
+        return False
 
     try:
         os.remove(DONE_FILE)
@@ -635,10 +799,13 @@ def run_lha(archive, files):
 
     if not success:
         log('LHA failed')
+        restore_backup(archive, backup)
         message('LHA failed.\n\n%s' % (tail if tail else
                 'See T:CompressLHA.log.'))
         return False
 
+    if backup:
+        remove_quiet(backup)
     log('LHA ok')
     message('Archive created:\n' + archive, False)
     send_channel('REFRESH')

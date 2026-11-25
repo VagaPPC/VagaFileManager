@@ -76,6 +76,9 @@ REQ_OUT = 'T:VFM_CompressGZIP_req_%d.txt' % _PID
 GZIP_LOG = 'T:VFM_CompressGZIP_gzip_%d.log' % _PID
 RUN_SCRIPT = 'T:VFM_CompressGZIP_run_%d.script' % _PID
 DONE_FILE = 'T:VFM_CompressGZIP_done_%d.txt' % _PID
+CLI_FILE = 'T:VFM_CompressGZIP_cli_%d.txt' % _PID
+ARCHIVER = 'gzip'
+TITLE = 'CompressGZIP'
 
 _seq = 0
 
@@ -196,7 +199,7 @@ PROGRESS_OK = None
 def progress_open(nocancel=True, total=0):
     global PROGRESS_OK
 
-    prefix = 'NOCANCEL ' if nocancel else ''
+    prefix = 'NOBUTTONS ' if nocancel else ''
     result = send_channel('PROGRESS %sINDET 0 %d' % (prefix, total), 6000)
     if result is None or result[0] != 0:
         PROGRESS_OK = False
@@ -210,7 +213,7 @@ def progress_update(done=0, total=0, nocancel=True):
     if not PROGRESS_OK:
         return True
 
-    prefix = 'NOCANCEL ' if nocancel else ''
+    prefix = 'NOBUTTONS ' if nocancel else ''
     result = send_channel('PROGRESS %sINDET %d %d' % (prefix, done, total), 6000)
     if result is None or result[0] != 0:
         return True
@@ -223,6 +226,121 @@ def progress_close():
     if PROGRESS_OK:
         send_channel('PROGRESS CLOSE', 600)
     PROGRESS_OK = None
+
+
+# ===== Interruption (close button of the progress window) =====
+#
+# The progress window has no buttons (PROGRESS NOBUTTONS): its close button
+# asks to stop.  The launcher script writes its CLI number to CLI_FILE and
+# the packer gets CTRL-C (C:Break).  If it has not stopped after 15 s, the
+# plugin waits for it to finish (window without close button, bar still
+# moving) instead of removing files that are still open.  Then the result
+# is thrown away: a new archive is removed, an archive that was being added
+# to is restored from the safety copy.
+
+def remove_quiet(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def remove_retry(path):
+    """Remove a file that the stopped packer may still hold open."""
+    for attempt in range(10):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+            return True
+        except OSError:
+            time.sleep(0.5)
+    return not os.path.exists(path)
+
+
+def confirm_interrupt():
+    if asl is None:
+        return True
+    try:
+        return asl.MessageBox(TITLE, 'Interrupt the compression?',
+                              'Interrupt|Continue') == 1
+    except Exception:
+        return True
+
+
+def wait_job(total_files):
+    """Wait for DONE_FILE keeping the progress bar alive.
+
+    Returns 'done', 'timeout' or 'cancel'.
+    """
+    start = time.time()
+    while not os.path.exists(DONE_FILE):
+        time.sleep(0.6)
+        if not progress_update(0, total_files, True):
+            if confirm_interrupt():
+                return 'cancel'
+            # Continue: a new window clears the close request.
+            progress_close()
+            progress_open(True, 0)
+            progress_update(0, total_files, True)
+        if (time.time() - start) > 3600:
+            return 'timeout'
+    return 'done'
+
+
+def job_finished():
+    """True when the launcher script has ended.
+
+    The script writes DONE_FILE as its last line, but CTRL-C also stops
+    the script itself, so that line is not reached after an interruption.
+    While the script runs, the shell keeps RUN_SCRIPT open and AmigaOS
+    refuses to delete it: once it can be deleted, the job is over.
+    """
+    if os.path.exists(DONE_FILE):
+        return True
+    try:
+        os.remove(RUN_SCRIPT)
+        return True
+    except OSError:
+        return not os.path.exists(RUN_SCRIPT)
+
+
+WAIT_TEXT = 'Interrupting: please wait while the files are removed...'
+
+
+def stop_job(total_files):
+    """CTRL-C to the shell running the packer, then wait for the script to
+    end.  Meanwhile a window without close button shows WAIT_TEXT; the
+    caller closes it (progress_close) after the clean-up."""
+    global PROGRESS_OK
+    num = ''
+    try:
+        f = open(CLI_FILE, 'r')
+        num = f.read().strip()
+        f.close()
+    except IOError:
+        pass
+    log('interrupt: CLI %r' % num)
+
+    progress_close()
+    cmd = 'PROGRESS NOCANCEL NOBUTTONS INDET 0 %d' % total_files
+    result = send_channel(cmd, 6000)
+    # progress_close() above cleared PROGRESS_OK: the wait window is open
+    # again, so the caller's progress_close() must send PROGRESS CLOSE.
+    PROGRESS_OK = (result is not None and result[0] == 0)
+    send_channel('PROGRESS TEXT ' + WAIT_TEXT, 6000)
+
+    if num.isdigit():
+        run_command('C:Break %s C' % num)
+    start = time.time()
+    warned = False
+    while not job_finished() and (time.time() - start) < 3600:
+        time.sleep(0.5)
+        send_channel(cmd, 6000)          # keeps the bar moving
+        if not warned and (time.time() - start) > 15:
+            log('interrupt: %s did not stop, waiting for it to finish'
+                % ARCHIVER, True)
+            warned = True
+    log('interrupt: %s stopped' % ARCHIVER)
 
 
 # ===== Selection and panes =====
@@ -635,6 +753,8 @@ def run_gzip(archive, files, src, mode):
         # Give gzip a large stack: the default stack of a RUN shell is
         # small, and old command-line tools can overflow it.
         f.write('Stack 262144\n')
+        # CLI number of this shell, to stop the packer (C:Break)
+        f.write('Echo >%s "$Process"\n' % CLI_FILE)
         f.write('CD %s\n' % quote_arg(src))
         if add_to_existing:
             f.write('%s -d -c %s >%s\n' %
@@ -663,16 +783,25 @@ def run_gzip(archive, files, src, mode):
         message('Cannot start GZIP.\nSee T:CompressGZIP.log.')
         return False
 
-    timed_out = False
-    start = time.time()
-    while not os.path.exists(DONE_FILE):
-        time.sleep(0.6)
-        progress_update(0, total_files, True)
-        if (time.time() - start) > 3600:
-            timed_out = True
-            break
+    status = wait_job(total_files)
+    timed_out = (status == 'timeout')
+    if status == 'cancel':
+        stop_job(total_files)            # the wait window stays open
+    else:
+        progress_close()
+    remove_quiet(CLI_FILE)
 
-    progress_close()
+    if status == 'cancel':
+        log('compression interrupted by the user')
+        # The existing archive is only replaced at the end: just remove
+        # the temporary files.
+        remove_quiet(DONE_FILE)
+        remove_quiet(RUN_SCRIPT)
+        remove_retry(tar_temp)
+        remove_retry(tmp_archive)
+        progress_close()                 # the wait window closes by itself
+        send_channel('REFRESH')
+        return False
 
     try:
         os.remove(DONE_FILE)

@@ -3,6 +3,18 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 90 - 2026-11-25
+
+- LHA and GZIP plugins: the progress window no longer shows disabled
+  buttons.  Its close button interrupts the compression after a
+  confirmation; a message asks to wait while the files are removed and
+  closes by itself.  A new archive is removed, an LHA archive that was
+  being added to is put back as it was, and GZIP keeps the old archive.
+- Find and Grep plugins: new "Include subfolders" checkbox (ticked by
+  default); without it only the current drawer is searched.
+- While a drawer keeps changing (for example during a long compression)
+  VFM refreshes it at most every 2 seconds and stays responsive.
+
 ## 1.1 build 86 - 2026-11-25
 
 - New View > Workbench emulation: hides all the bars, shows the icons,

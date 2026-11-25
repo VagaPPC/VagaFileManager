@@ -5,8 +5,10 @@
 #
 # Recursive grep inside text files, with a ProAction/ReAction result list.
 #
-#   1. asks for the string to search (VFM Reaction dialog);
-#   2. recursively scans the active pane path (argv[2]);
+#   1. asks for the string to search (VFM Reaction dialog), with an
+#      "Include subfolders" checkbox, ticked by default;
+#   2. scans the active pane path (argv[2]), and its subfolders if the
+#      box is ticked;
 #   3. skips binary files and searches only text files;
 #   4. shows the matching files in a ProAction listbrowser;
 #   5. selecting one (OK or double-click) sends REVEAL to VFM, which
@@ -239,27 +241,47 @@ def progress_close():
     PROGRESS_OK = None
 
 
-def ask_word():
-    """Ask for the string with VFM's Reaction DIALOG command.
+SUBFOLDERS_LABEL = 'Include subfolders'
 
-    Format: DIALOG <title>|<prompt>|<default>|<buttons>
-    Reply:  <button-index>|<typed-text>
+
+def ask_search(title, prompt):
+    """Ask for the search text with VFM's Reaction DIALOG command and an
+    'Include subfolders' checkbox (ticked by default).  Find.py uses it too.
+
+    Format: DIALOG CHECK=1:<label>|<title>|<prompt>|<default>|<buttons>
+    Reply:  <button-index>|<0|1>|<typed-text>
+    A VFM without checkboxes answers <button-index>|<typed-text>: then the
+    search is recursive, as before.
+
+    Returns (text, recursive); text is None when cancelled or empty.
     """
-    result = send_channel(
-        'DIALOG VFM Grep|String to search:||Search|Cancel', 600)
+    result = send_channel('DIALOG CHECK=1:%s|%s|%s||Search|Cancel' %
+                          (SUBFOLDERS_LABEL, title, prompt), 600)
     if result is None:
-        return None
+        return (None, True)
 
     rc, answer = result
     if rc != 0 or '|' not in answer:
-        return None
+        return (None, True)
 
-    idx, sep, text = answer.partition('|')
-    if idx.strip() != '1':          # 1 = Search / Return, 2 = Cancel
-        return None
+    parts = answer.split('|', 2)
+    if len(parts) == 3 and parts[1] in ('0', '1'):
+        recursive = (parts[1] == '1')
+        text = parts[2]
+    else:
+        recursive = True
+        text = answer.partition('|')[2]
 
-    word = text.strip()
-    return word if word else None
+    if parts[0].strip() != '1':     # 1 = Search / Return, 2 = Cancel
+        return (None, recursive)
+
+    text = text.strip()
+    return ((text or None), recursive)
+
+
+def ask_word():
+    """String to search and whether to search the subfolders too."""
+    return ask_search('VFM Grep', 'String to search:')
 
 
 # ===== Text-file detection and search =====
@@ -331,7 +353,7 @@ def is_link(path):
         return False
 
 
-def find_matches(root, word, progress=None):
+def find_matches(root, word, progress=None, recursive=True):
     """Recursive search from root.
 
     Returns (list_of_paths, truncated, canceled).  If progress is given, it
@@ -388,7 +410,7 @@ def find_matches(root, word, progress=None):
 
             try:
                 if os.path.isdir(path):
-                    if not is_link(path):
+                    if recursive and not is_link(path):
                         stack.append((path, depth + 1))
                     continue
             except (IOError, OSError):
@@ -992,18 +1014,19 @@ def main():
         message('The active pane path is not a directory:\n' + START_PATH)
         return
 
-    word = ask_word()
+    word, recursive = ask_word()
     if not word:
         log('no search string')
         return
 
-    log('search %r from %s' % (word, START_PATH))
+    log('search %r from %s (subfolders: %s)' % (word, START_PATH, recursive))
     if not progress_open(False):
         progress_close()
         log('search canceled before start')
         return
 
-    matches, truncated, canceled = find_matches(START_PATH, word, progress_update)
+    matches, truncated, canceled = find_matches(START_PATH, word, progress_update,
+                                                recursive)
     progress_close()
 
     if canceled:
