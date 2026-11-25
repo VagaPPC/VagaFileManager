@@ -69,8 +69,8 @@
 
 #define PATH_MAX_LEN 1024
 #define WB2_VERSION "1.0"
-/* Build proprio della commodity; tenerlo allineato alle release VFM. */
-#define WB2_BUILD   72
+/* La commodity ha lo stesso numero di build di VFM. */
+#define WB2_BUILD   VFM_BUILD
 
 static const char wb2_version_tag[] __attribute__((used)) =
     "\0$VER: WB2VFM " WB2_VERSION " build " VFM_STR(WB2_BUILD) " (" VFM_VERSION_DATE ")";
@@ -143,6 +143,71 @@ static void LaunchVFM(CONST_STRPTR path)
     Log("launch cmd='%s' rc=%ld", cmd, (long)err);
 }
 
+/* Richiesta pendente del doppio click sul desktop (vedi HandleLeftClick):
+   la finestra che il Workbench apre per quel percorso viene sostituita da
+   VFM come quella di un'icona, cosi' VFM parte dal processo Workbench e
+   ne eredita il path dei comandi (la commodity, avviata da WBStartup, non
+   ne ha uno: make & co. non si troverebbero nella Shell aperta da VFM). */
+static volatile BOOL  gDesktopPending = FALSE;
+static volatile ULONG gDesktopPendingTicks = 0;
+static char gDesktopLaunch[PATH_MAX_LEN];
+
+/* Tick (1/50 s) dall'inizio del giorno. */
+static ULONG NowTicks(void)
+{
+    struct DateStamp ds;
+    IDOS->DateStamp(&ds);
+    return (ULONG)ds.ds_Minute * 60 * 50 + (ULONG)ds.ds_Tick;
+}
+
+/* Sostituisce la finestra che il Workbench sta aprendo per 'full' con
+   VFM.  Gira nel processo Workbench (dentro OpenWindowTagList). */
+static struct Window *InterceptDrawerWindow(struct IntuitionIFace *Self,
+                                            const struct NewWindow *newWindow,
+                                            const struct TagItem *tagList,
+                                            CONST_STRPTR full)
+{
+    struct Window *hidden = NULL;
+
+    /* Non restituire NULL: Workbench mostrerebbe
+       "Questo cassetto non può essere aperto".
+       Apriamo una finestra valida ma invisibile/1x1 fuori
+       schermo, poi lanciamo VFM. */
+    if (newWindow)
+    {
+        struct NewWindow nw = *newWindow;
+        nw.LeftEdge = -32000;
+        nw.TopEdge  = -32000;
+        nw.Width    = 1;
+        nw.Height   = 1;
+        nw.Flags   |= WFLG_BORDERLESS;
+        hidden = gOrigOpenWindowTagList ?
+            gOrigOpenWindowTagList(Self, &nw, tagList) : NULL;
+    }
+    Log("hidden window %p", (void *)hidden);
+
+    LaunchVFM(full);
+
+    /* Chiudi l'oggetto Workbench (la finestra nascosta) dal
+       lato Workbench: CloseWindow cross-task blocca il
+       sistema.  Un secondo dopo il setup e' completato. */
+    if (gClosePort)
+    {
+        struct CloseMsg *cm = (struct CloseMsg *)
+            IExec->AllocVecTags(sizeof(struct CloseMsg),
+                AVT_Type, MEMF_SHARED,
+                AVT_ClearWithValue, 0, TAG_DONE);
+        if (cm)
+        {
+            cm->msg.mn_Length = sizeof(struct CloseMsg);
+            strncpy(cm->path, full, sizeof(cm->path) - 1);
+            cm->path[sizeof(cm->path) - 1] = '\0';
+            IExec->PutMsg(gClosePort, (struct Message *)cm);
+        }
+    }
+    return hidden;
+}
+
 static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                                                 const struct NewWindow *newWindow,
                                                 const struct TagItem *tagList)
@@ -192,50 +257,36 @@ static struct Window *Patched_OpenWindowTagList(struct IntuitionIFace *Self,
                 if (which == WBO_ICON && full[0] &&
                     (type == WBDRAWER || type == WBDISK))
                 {
-                    struct Window *hidden = NULL;
                     IIntuition->UnlockPubScreen(NULL, scr);
                     Log("intercept '%s' (type=%lu)", full, (unsigned long)type);
-
-                    /* Non restituire NULL: Workbench mostrerebbe
-                       "Questo cassetto non puÃ² essere aperto".
-                       Apriamo una finestra valida ma invisibile/1x1 fuori
-                       schermo, poi lanciamo VFM. */
-                    if (newWindow)
-                    {
-                        struct NewWindow nw = *newWindow;
-                        nw.LeftEdge = -32000;
-                        nw.TopEdge  = -32000;
-                        nw.Width    = 1;
-                        nw.Height   = 1;
-                        nw.Flags   |= WFLG_BORDERLESS;
-                        hidden = gOrigOpenWindowTagList ?
-                            gOrigOpenWindowTagList(Self, &nw, tagList) : NULL;
-                    }
-                    Log("hidden window %p", (void *)hidden);
-
-                    LaunchVFM(full);
-
-                    /* Chiudi l'oggetto Workbench (la finestra nascosta) dal
-                       lato Workbench: CloseWindow cross-task blocca il
-                       sistema.  Un secondo dopo il setup e' completato. */
-                    if (gClosePort)
-                    {
-                        struct CloseMsg *cm = (struct CloseMsg *)
-                            IExec->AllocVecTags(sizeof(struct CloseMsg),
-                                AVT_Type, MEMF_SHARED,
-                                AVT_ClearWithValue, 0, TAG_DONE);
-                        if (cm)
-                        {
-                            cm->msg.mn_Length = sizeof(struct CloseMsg);
-                            strncpy(cm->path, full, sizeof(cm->path) - 1);
-                            cm->path[sizeof(cm->path) - 1] = '\0';
-                            IExec->PutMsg(gClosePort, (struct Message *)cm);
-                        }
-                    }
-                    return hidden;
+                    return InterceptDrawerWindow(Self, newWindow, tagList, full);
                 }
             }
             IIntuition->UnlockPubScreen(NULL, scr);
+        }
+
+        /* Richiesta del doppio click sul desktop: questa e' la finestra
+           che il Workbench apre per il percorso chiesto.  Le icone hanno
+           la precedenza (controllate sopra).  La commodity annulla la
+           richiesta dopo mezzo secondo; qui si scarta comunque una
+           richiesta vecchia di piu' di 1 secondo.  Lettura e azzeramento
+           del flag sono atomici: la commodity puo' annullarlo insieme. */
+        {
+            BOOL took;
+            IExec->Forbid();
+            took = gDesktopPending;
+            gDesktopPending = FALSE;
+            IExec->Permit();
+            if (took)
+            {
+                ULONG now = NowTicks();
+                if (now >= gDesktopPendingTicks && now - gDesktopPendingTicks < 50)
+                {
+                    Log("intercept desktop request '%s'", gDesktopLaunch);
+                    return InterceptDrawerWindow(Self, newWindow, tagList, gDesktopLaunch);
+                }
+                Log("desktop request expired");
+            }
         }
     }
 
@@ -329,7 +380,45 @@ static void HandleLeftClick(const struct InputEvent *ie)
             }
             Log("desktop double-click at %ld,%ld -> %s",
                 (long)mx, (long)my, path);
-            LaunchVFM(path);
+
+            /* Si chiede al Workbench di aprire il percorso: la patch
+               intercetta la sua finestra e lancia VFM dal processo
+               Workbench (path dei comandi corretto).  Se il Workbench
+               rifiuta, si lancia VFM direttamente come prima. */
+            strncpy(gDesktopLaunch, path, sizeof(gDesktopLaunch) - 1);
+            gDesktopLaunch[sizeof(gDesktopLaunch) - 1] = '\0';
+            gDesktopPendingTicks = NowTicks();
+            gDesktopPending = TRUE;
+            if (!IWorkbench || !IWorkbench->OpenWorkbenchObjectA(gDesktopLaunch, NULL))
+            {
+                gDesktopPending = FALSE;
+                Log("OpenWorkbenchObject failed, launching directly");
+                LaunchVFM(path);
+            }
+            else
+            {
+                /* Il Workbench apre una finestra solo se quella del
+                   percorso non e' gia' aperta (anche la finestra nascosta
+                   di un intercetto precedente): se entro mezzo secondo
+                   la patch non ha preso la richiesta, la si annulla e
+                   VFM parte da qui, cosi' non resta in sospeso. */
+                BOOL still = TRUE;
+                int t;
+                for (t = 0; t < 25 && still; t++)
+                {
+                    IDOS->Delay(2);
+                    still = gDesktopPending;
+                }
+                IExec->Forbid();
+                still = gDesktopPending;
+                gDesktopPending = FALSE;
+                IExec->Permit();
+                if (still)
+                {
+                    Log("no Workbench window for '%s', launching directly", path);
+                    LaunchVFM(path);
+                }
+            }
             return;
         }
     }
