@@ -505,6 +505,8 @@ BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
 LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize, CONST_STRPTR buttons);
+LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize,
+                       CONST_STRPTR buttons, CONST_STRPTR checkLabel, ULONG *checked);
 BOOL RevealPath(CONST_STRPTR path, struct Window *win);
 void ShowAbout(struct Window *win);
 
@@ -560,6 +562,8 @@ void ProgressSetIndeterminateTotal(ULONG total);
 void ProgressSetCancelable(BOOL on);
 void ProgressOpen(struct Window *win, ULONG total);
 void ProgressClose(void);
+void ProgressSetButtons(BOOL on);
+void ProgressSetText(CONST_STRPTR text);
 void FreeProgressBarClass(void);
 
 /* ---- Azioni su selezione e appunti ---- */

@@ -25,6 +25,8 @@
  */
 
 #include "VagaFileManager.h"
+#include <proto/checkbox.h>
+#include <gadgets/checkbox.h>
 
 static BOOL IconFileExists(CONST_STRPTR path);
 static BOOL TbimagesAvailable(void);
@@ -382,13 +384,25 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
    Campi: titolo, prompt, testo iniziale, pulsanti separati da '|'
    (massimo 6).  Ritorna l'indice del pulsante (1..n) e lascia in buf
    il testo inserito; 0 se la finestra viene chiusa. */
-#define GID_DLG_STR 2000
-#define GID_DLG_BTN 2001
+#define GID_DLG_STR   2000
+#define GID_DLG_BTN   2001
+#define GID_DLG_CHECK 2010
 
 LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
                   STRPTR buf, ULONG bufSize, CONST_STRPTR buttons)
 {
+    return PromptDialogCheck(title, prompt, buf, bufSize, buttons, NULL, NULL);
+}
+
+/* Come PromptDialog, con una casella di spunta facoltativa sotto il campo
+   di testo: checkLabel NULL = nessuna casella.  *checked e' lo stato
+   iniziale e, alla chiusura, quello scelto dall'utente. */
+LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
+                       STRPTR buf, ULONG bufSize, CONST_STRPTR buttons,
+                       CONST_STRPTR checkLabel, ULONG *checked)
+{
     Object *winObj = NULL, *strGad = NULL, *labelGad = NULL, *btnRow = NULL;
+    Object *checkGad = NULL;
     Object *btn[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
     struct TagItem rowTags[32];
     struct Window *win = NULL;
@@ -435,6 +449,13 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
         BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE,
         TAG_DONE);
 
+    if (checkLabel && checkLabel[0] && checked)
+        checkGad = IIntuition->NewObject(ICheckBox->CHECKBOX_GetClass(), NULL,
+            GA_ID, GID_DLG_CHECK, GA_RelVerify, TRUE,
+            GA_Text, (ULONG)checkLabel,
+            CHECKBOX_Checked, *checked ? TRUE : FALSE,
+            TAG_DONE);
+
     for (i = 0; i < nButtons; i++)
     {
         btn[i] = IIntuition->NewObject(NULL, "button.gadget",
@@ -460,12 +481,14 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
         WA_Title, (ULONG)((title && title[0]) ? title : LS(MSG_APP_TITLE)),
         WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
         WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
-        WA_InnerWidth, 560, WA_InnerHeight, 140,
+        WA_InnerWidth, 560, WA_InnerHeight, checkGad ? 165 : 140,
         WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)labelGad, CHILD_WeightedHeight, 0,
             LAYOUT_AddChild, (ULONG)strGad, CHILD_WeightedHeight, 0,
+            checkGad ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)checkGad,
+            checkGad ? CHILD_WeightedHeight : TAG_IGNORE, 0,
             LAYOUT_AddChild, (ULONG)btnRow, CHILD_WeightedHeight, 0,
             TAG_DONE),
         TAG_DONE);
@@ -496,6 +519,8 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
                             {
                                 ULONG id = res & WMHI_GADGETMASK;
                                 STRPTR t = NULL;
+                                if (id == GID_DLG_CHECK)
+                                    break;   /* la casella non chiude il dialogo */
                                 IIntuition->GetAttr(STRINGA_TextVal, strGad, (ULONG *)&t);
                                 if (t)
                                 {
@@ -517,6 +542,12 @@ LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
                 }
             }
         }
+        if (checkGad && checked)
+        {
+            ULONG on = 0;
+            IIntuition->GetAttr(CHECKBOX_Checked, checkGad, &on);
+            *checked = on ? 1 : 0;
+        }
         IIntuition->DisposeObject(winObj);
     }
     return result;
@@ -530,6 +561,14 @@ static BOOL gProgIndeterminate = FALSE;
 static ULONG gProgPhase = 0;
 static ULONG gProgAdvanceCount = 0;
 static BOOL gProgCancelable = TRUE;
+/* FALSE: finestra senza Annulla/Pausa, solo il pulsante di chiusura (che
+   interrompe).  Usato dai plugin con PROGRESS NOBUTTONS. */
+static BOOL gProgButtons = TRUE;
+
+void ProgressSetButtons(BOOL on)
+{
+    gProgButtons = on;
+}
 static ULONG gProgIndetTotal = 0;
 
 /* Abilita/disabilita Cancel e Pause.  Usato dai comandi PROGRESS degli
@@ -548,9 +587,27 @@ static void FormatBytes(uint64 n, STRPTR buf, ULONG size)
 }
 
 /* Compone la riga informativa mostrata sotto la progress bar. */
+/* Testo fisso mostrato al posto del conteggio (PROGRESS TEXT dei plugin,
+   per esempio "attendi la cancellazione dei file"); vuoto = conteggio. */
+static char gProgTextOverride[256] = "";
+
+void ProgressSetText(CONST_STRPTR text)
+{
+    if (!text) text = "";
+    strncpy(gProgTextOverride, text, sizeof(gProgTextOverride) - 1);
+    gProgTextOverride[sizeof(gProgTextOverride) - 1] = '\0';
+    if (gProgWin) ProgressUpdate();
+}
+
 static void BuildProgInfo(STRPTR buf, ULONG size)
 {
     ULONG pct;
+
+    if (gProgTextOverride[0])
+    {
+        snprintf(buf, size, "%s", gProgTextOverride);
+        return;
+    }
 
     if (gProgIndeterminate)
     {
@@ -755,7 +812,7 @@ void ProgressOpen(struct Window *win, ULONG total)
         WA_Title, (ULONG)LS(MSG_PROG_TITLE), WA_DragBar, TRUE, WA_DepthGadget, TRUE,
         WA_CloseGadget, gProgCancelable ? TRUE : FALSE,
         WA_SizeGadget, FALSE, WA_Activate, TRUE,
-        WA_InnerWidth, 460, WA_InnerHeight, 112,
+        WA_InnerWidth, 460, WA_InnerHeight, gProgButtons ? 112 : 80,
         WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
@@ -763,11 +820,12 @@ void ProgressOpen(struct Window *win, ULONG total)
                 CHILD_MinHeight, 24, CHILD_MaxHeight, 24,
             LAYOUT_AddChild, (ULONG)gProgInfoGad, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
                 CHILD_MinHeight, 18, CHILD_MaxHeight, 18,
-            LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
+            gProgButtons ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)(gProgButtons ? IIntuition->NewObject(NULL, "layout.gadget",
                 LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ, LAYOUT_EvenSize, TRUE,
                 LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_CANCEL, GA_RelVerify, TRUE, GA_Disabled, gProgCancelable ? FALSE : TRUE, GA_Text, (ULONG)LS(MSG_BTN_CANCEL), TAG_DONE),
                 LAYOUT_AddChild, (ULONG)(gProgPauseBtn = IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_PAUSE, GA_RelVerify, TRUE, GA_Disabled, gProgCancelable ? FALSE : TRUE, GA_Text, (ULONG)LS(MSG_PROG_PAUSE), TAG_DONE)),
-            TAG_DONE), CHILD_WeightedHeight, 0,
+            TAG_DONE) : NULL),
+            gProgButtons ? CHILD_WeightedHeight : TAG_IGNORE, 0,
         TAG_DONE), TAG_DONE);
 
     if (gProgWinObj)
@@ -784,6 +842,7 @@ void ProgressOpen(struct Window *win, ULONG total)
         /* niente finestra: evita di restare in stato "progress" */
         gProgActive = FALSE;
         gProgCancelable = TRUE;
+        gProgButtons = TRUE;
     }
 }
 
@@ -796,7 +855,9 @@ void ProgressClose(void)
     gProgIndeterminate = FALSE; gProgPhase = 0;
     gProgActive = FALSE; gProgCancel = FALSE; gProgPause = FALSE;
     gProgCancelable = TRUE;
+    gProgButtons = TRUE;
     gProgIndetTotal = 0;
+    gProgTextOverride[0] = '\0';
 }
 
 /* ===== Cambio vista ===== */

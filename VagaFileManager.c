@@ -1376,11 +1376,15 @@ static void RefreshPaneAfterFilter(int p, struct Window *win)
 }
 
 /* ---- rilettura differita dopo le notifiche DOS ----
-   Le notifiche che arrivano entro mezzo secondo dall'ultima rilettura non
-   si possono scartare: un programma che crea un file lo scrive in piu'
+   Le notifiche che arrivano entro REFRESH_MIN_TICKS dall'ultima rilettura
+   non si possono scartare: un programma che crea un file lo scrive in piu'
    passi (crea, scrive, chiude) e l'ultima notifica e' quella che conta.
-   Il pannello viene segnato e riletto allo scadere di questo timer. */
-#define REFRESH_DELAY_MICROS 500000
+   Il pannello viene segnato e riletto allo scadere di questo timer.  Con
+   modifiche continue (un archivio in scrittura, un programma che legge
+   una cartella grande) la cartella si rilegge al massimo ogni 2 secondi:
+   rileggerla ogni mezzo secondo rendeva VFM lentissimo. */
+#define REFRESH_DELAY_SECS 2
+#define REFRESH_MIN_TICKS  (REFRESH_DELAY_SECS * 50)
 
 static struct MsgPort *gRefreshTimerPort = NULL;
 static struct TimeRequest *gRefreshTimerReq = NULL;
@@ -1439,8 +1443,8 @@ static BOOL RefreshTimerArm(void)
     if (!gRefreshTimerOpen) return FALSE;
     if (gRefreshTimerPending) return TRUE;
     gRefreshTimerReq->Request.io_Command = TR_ADDREQUEST;
-    gRefreshTimerReq->Time.Seconds = 0;
-    gRefreshTimerReq->Time.Microseconds = REFRESH_DELAY_MICROS;
+    gRefreshTimerReq->Time.Seconds = REFRESH_DELAY_SECS;
+    gRefreshTimerReq->Time.Microseconds = 0;
     IExec->SendIO((struct IORequest *)gRefreshTimerReq);
     gRefreshTimerPending = TRUE;
     return TRUE;
@@ -2078,8 +2082,8 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | REVEAL <path> | "
             "SELECT [ADD] <pattern> | SELECT NONE | "
             "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | SPLIT | "
-            "DIALOG <title>|<prompt>|<text>|<buttons> | ASK <prompt> | STATUS [text] | "
-            "PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal] | PROGRESS CLOSE | "
+            "DIALOG [CHECK=0|1:<label>|]<title>|<prompt>|<text>|<buttons> | ASK <prompt> | STATUS [text] | "
+            "PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal] | PROGRESS TEXT [message] | PROGRESS CLOSE | "
             "NEW | SCRIPT <file> | QUIT");
     }
     else if (!IUtility->Stricmp(cmd, "VERSION"))
@@ -2143,24 +2147,34 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             ProgressClose();
             RexxSetResult(msg, "OK");
         }
+        else if (!IUtility->Strnicmp(a, "TEXT", 4) && (a[4] == ' ' || a[4] == '\t' || a[4] == '\0'))
+        {
+            /* PROGRESS TEXT <messaggio>: testo al posto del conteggio nella
+               finestra aperta; senza messaggio torna il conteggio */
+            a += 4;
+            while (*a == ' ' || *a == '\t') a++;
+            ProgressSetText(a);
+            ProgressPoll();
+            RexxSetResult(msg, gProgCancel ? "1" : "0");
+        }
         else
         {
             BOOL nocancel = FALSE;
+            BOOL nobuttons = FALSE;
             BOOL indet = FALSE;
             LONG done = 0, total = 0;
             unsigned long long bytesDone = 0, bytesTotal = 0;
             int n;
 
-            if (!IUtility->Strnicmp(a, "NOCANCEL", 8))
+            /* parole chiave in qualunque ordine prima dei numeri:
+               NOCANCEL, NOBUTTONS (niente Annulla/Pausa: solo il pulsante
+               di chiusura, che interrompe), INDET */
+            for (;;)
             {
-                nocancel = TRUE;
-                a += 8;
-                while (*a == ' ' || *a == '\t') a++;
-            }
-            if (!IUtility->Strnicmp(a, "INDET", 5))
-            {
-                indet = TRUE;
-                a += 5;
+                if (!IUtility->Strnicmp(a, "NOCANCEL", 8)) { nocancel = TRUE; a += 8; }
+                else if (!IUtility->Strnicmp(a, "NOBUTTONS", 9)) { nobuttons = TRUE; a += 9; }
+                else if (!IUtility->Strnicmp(a, "INDET", 5)) { indet = TRUE; a += 5; }
+                else break;
                 while (*a == ' ' || *a == '\t') a++;
             }
 
@@ -2170,7 +2184,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             {
                 msg->rm_Result1 = RC_ERROR;
                 RexxSetResult(msg,
-                    "PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal] | PROGRESS CLOSE");
+                    "PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal] | PROGRESS TEXT [message] | PROGRESS CLOSE");
             }
             else
             {
@@ -2178,6 +2192,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
                 {
                     if (gProgWinObj) ProgressClose();
                     ProgressSetCancelable(nocancel ? FALSE : TRUE);
+                    ProgressSetButtons(nobuttons ? FALSE : TRUE);
                     ProgressOpen(win, total > 0 ? (ULONG)total : 1);
                     if (indet || total <= 0) ProgressSetIndeterminate(TRUE);
                 }
@@ -2245,10 +2260,34 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         char prompt[256] = "";
         char text[256] = "";
         char buttons[128] = "OK|Cancel";
+        char checkLabel[128] = "";
+        ULONG checked = 0;
+        BOOL hasCheck = FALSE;
         char *fields[4];
         ULONG sizes[4];
         LONG f;
         char *s = args;
+
+        /* Prefisso facoltativo: CHECK=<0|1>:<etichetta>| aggiunge una
+           casella di spunta sotto il campo di testo; la risposta diventa
+           <indice>|<0|1>|<testo>.  Senza prefisso nulla cambia. */
+        if (!IUtility->Strnicmp(s, "CHECK=", 6))
+        {
+            char *sep;
+            hasCheck = TRUE;
+            s += 6;
+            checked = (*s == '1') ? 1 : 0;
+            if (*s) s++;
+            if (*s == ':') s++;
+            sep = strchr(s, '|');
+            {
+                ULONG n = sep ? (ULONG)(sep - s) : (ULONG)strlen(s);
+                if (n >= sizeof(checkLabel)) n = sizeof(checkLabel) - 1;
+                memcpy(checkLabel, s, n);
+                checkLabel[n] = '\0';
+            }
+            s = sep ? sep + 1 : NULL;
+        }
 
         fields[0] = title;   sizes[0] = sizeof(title);
         fields[1] = prompt;  sizes[1] = sizeof(prompt);
@@ -2272,12 +2311,17 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         DBG("DIALOG: title='%s' prompt='%s' text='%s' buttons='%s'",
             title, prompt, text, buttons);
         {
-            LONG idx = PromptDialog(title, prompt, text, sizeof(text), buttons);
-            DBG("DIALOG: idx=%ld text='%s'", (long)idx, text);
+            LONG idx = PromptDialogCheck(title, prompt, text, sizeof(text), buttons,
+                                         hasCheck ? checkLabel : NULL, &checked);
+            DBG("DIALOG: idx=%ld text='%s' check=%lu", (long)idx, text, (unsigned long)checked);
             if (idx > 0)
             {
                 char result[512];
-                snprintf(result, sizeof(result), "%ld|%s", (long)idx, text);
+                if (hasCheck)
+                    snprintf(result, sizeof(result), "%ld|%lu|%s", (long)idx,
+                             (unsigned long)checked, text);
+                else
+                    snprintf(result, sizeof(result), "%ld|%s", (long)idx, text);
                 RexxSetResult(msg, result);
             }
             else
@@ -3689,7 +3733,7 @@ int main(int argc, char **argv)
                             IDOS->DateStamp(&ds);
                             ticks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
                             if (ticks < gPanes[p].lastRefreshTicks) ticks += 1440 * 50;  /* midnight rollover */
-                            if (gPanes[p].lastRefreshTicks == 0 || ticks - gPanes[p].lastRefreshTicks >= 25)
+                            if (gPanes[p].lastRefreshTicks == 0 || ticks - gPanes[p].lastRefreshTicks >= REFRESH_MIN_TICKS)
                                 RefreshPaneFromNotify(p, windows[WID_MAIN]);
                             else
                             {
