@@ -43,8 +43,8 @@ Features
 - Queue Control: Cancel or pause ongoing file operations and resume them later.
 - Quick Filter: real-time filtering while typing (300 ms debounce), with
   wildcard and regex support.
-- Find: recursive file search with a results window; selecting a result
-  reveals the file in the active pane.  Supports AmigaDOS wildcards
+- Find (Find.py plugin): recursive file search with a results window;
+  selecting a result reveals the file in VFM.  Supports AmigaDOS wildcards
   (#?, ?, [], ~) and *; without wildcards the name is a substring match.
 - Performance: Faster and more responsive than the standard Workbench.
 - Actively Maintained: Supported directly by the author.
@@ -135,15 +135,35 @@ Python / ARexx addons:
     C:Python "<script>" "<arexx-port>" "<path>" "<vfm-executable>" \
              "<drop-port>" "<plugin-channel-dir>"
   The drop port and the channel directory are used by the file-based
-  command channel.
+  command channel.  Each plugin launch gets its own channel directory
+  (a session), deleted when the plugin ends: its commands always act on
+  the pane the plugin was started from, even if the user activates the
+  other pane meanwhile.  If that pane is closed, commands that need it
+  answer "Pane closed".
 - VFM looks for C:Python, then C:Python3.
 - Plugin command channel (no ARexx needed):
     - write a one-line request to "<plugin-channel-dir>/req_<id>.txt";
     - run:  VagaFileManager --notify "<drop-port>"
     - read "<plugin-channel-dir>/rep_<id>.txt", format "<rc>|<result>".
-  The commands are the same as the ARexx API (VERSION, CD, PATH, ENTRIES,
-  SELECTED, DIALOG, REVEAL, ...).  This works even when the system ARexx
-  host lookup/RX is not working.
+  The commands are the same as the ARexx API.  This works even when the
+  system ARexx host lookup/RX is not working.
+- Commands (ARexx port and plugin channel).  The port exposes only what a
+  script cannot know or do by itself: VFM state and interface.  File
+  operations (rename, copy, delete...) are done by the plugin itself.
+    Read context:  PATH, ENTRIES, SELECTED, ADDONINFO, VERSION, PROTOCOL
+    Interface:     CD <path>, OPEN [name], UP, FORWARD, REFRESH,
+                   REVEAL <path>, SELECT [ADD] <pattern>, SELECT NONE,
+                   VIEW ICONS|ALLFILES, SORT TYPE|NAME|DATE|SIZE,
+                   MODE ICONS|DETAILS, SPLIT
+    Services:      DIALOG, ASK <prompt>, STATUS [text], PROGRESS
+    Application:   NEW, SCRIPT <file>, QUIT, HELP
+  SELECTED returns the path of a file with one full path per line.
+  SELECT accepts AmigaDOS patterns (a plain name is an exact match) and
+  returns the number of matching entries.  STATUS shows a message in the
+  status bar until VFM updates it; STATUS alone restores it.
+  PROTOCOL returns the version of this command set (currently 2).  It
+  changes only when a command changes or is removed, not when one is
+  added.  Older builds answer "Unknown command": treat that as 1.
 - The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
   Reaction interface an addon can either use the channel command
     DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
@@ -154,15 +174,13 @@ Python / ARexx addons:
   buttons); it avoids quoting problems when the text contains '|' or '"'.
   VFM writes "<index>|<typed-text>" to the result file; 0 = cancelled.
   <buttons> accepts up to six labels separated by '|'.
-  See Plugins/ARexxDemo.py for a complete, commented example: the
-  Reaction window uses --dialog and commands use the file channel; it
-  also keeps a C:RX fallback for older VFM builds.  Diagnostics are in
-  T:ARexxDemo.log.
+  See Plugins/CompressLHA.py for a complete, commented example that uses
+  the file channel, DIALOG and PROGRESS.
 - Python plugins use the file channel and do not need ARexx.  `.rexx`
   plugins are ARexx scripts and still use C:RX.  The VFM ARexx port remains
   available to external clients.
-- `Plugins/Find.py` is a complete example: it asks VFM for the pattern,
-  runs the native recursive FIND, shows the results and reveals the
+- `Plugins/Find.py` asks for the pattern with DIALOG, searches by name
+  by itself, shows the results (same window as Grep.py) and reveals the
   selected file.
 - `Plugins/Grep.py` recursively searches text files from the active pane
   path.  It uses ProAction (if running) for the results list, with an ASL
@@ -181,10 +199,10 @@ Python / ARexx addons:
   file count and do not need a VFM rebuild to be updated.
 - Add-ons can drive the VFM progress window with the channel command
   `PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal]`;
-  `PROGRESS CLOSE` closes it.  FIND/GREP and the bundled add-ons use it.
-- If no window appears, run it once from a Shell to see Python errors:
-    C:Python PROGDIR:Plugins/ARexxDemo.py VAGAFILEMANAGER PROGDIR: PROGDIR:VagaFileManager
-  and check T:ARexxDemo.log.
+  `PROGRESS CLOSE` closes it.  The bundled add-ons use it.
+- If a plugin does nothing, check its log in T: (for example
+  T:CompressLHA.log): every add-on writes its startup and channel
+  commands there.
 
 ARexx diagnostics:
 - With VFM running, from the project directory:

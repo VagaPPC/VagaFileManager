@@ -554,6 +554,9 @@ def run_lha(archive, files):
     try:
         f = open(RUN_SCRIPT, 'w')
         f.write('FailAt 21\n')
+        # Give LHA a large stack: the default stack of a RUN shell is
+        # small, and old command-line tools can overflow it.
+        f.write('Stack 262144\n')
         f.write(cmd + '\n')
         f.write('Echo >' + DONE_FILE + '\n')
         f.close()

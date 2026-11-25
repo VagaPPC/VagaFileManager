@@ -64,6 +64,12 @@ PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
 
 LOG = 'T:Grep.log'
 
+# Window titles and the label of the query in the result list.  Find.py
+# imports this module and changes them to reuse the same result window.
+TITLE = 'VFM Grep'
+QUERY_LABEL = 'Word'
+NOUN = 'files'
+
 MAX_RESULTS = 500
 MAX_DEPTH = 64
 MAX_FILE_SIZE = 32 * 1024 * 1024   # skip larger files
@@ -85,7 +91,7 @@ _seq = 0
 # ===== Small helpers =====
 
 def log(text):
-    """Append a diagnostic line to T:Grep.log (best effort)."""
+    """Append a diagnostic line to LOG (best effort)."""
     try:
         f = open(LOG, 'a')
         f.write(text + '\n')
@@ -99,7 +105,7 @@ def message(text):
     log('message: ' + text)
     if asl is not None:
         try:
-            asl.MessageBox('VFM Grep', text, 'OK')
+            asl.MessageBox(TITLE, text, 'OK')
         except Exception:
             pass
 
@@ -725,7 +731,7 @@ def choose_result_proaction(matches, word, truncated):
     ciid = None
 
     try:
-        title = 'VFM Grep - %d files' % len(matches)
+        title = '%s - %d %s' % (TITLE, len(matches), NOUN)
         if truncated:
             title = title + ' - first %d' % MAX_RESULTS
 
@@ -752,7 +758,7 @@ def choose_result_proaction(matches, word, truncated):
             'ADDLAYOUT GUIID %s TAGSTRING "LAYOUT_Orientation,LAYOUT_ORIENT_VERT,LAYOUT_SpaceOuter,1,TAG_DONE"'
             % guikey)
 
-        label = 'Word: %s    %d files' % (safe_text(word), len(matches))
+        label = '%s: %s    %d %s' % (QUERY_LABEL, safe_text(word), len(matches), NOUN)
         if truncated:
             label = label + ' - first %d' % MAX_RESULTS
         label_gid = pa_need(
@@ -932,7 +938,7 @@ def choose_result_asl_full(matches, root, truncated):
         return None
 
     try:
-        title = 'VFM Grep: %d file(s)' % len(matches)
+        title = '%s: %d %s' % (TITLE, len(matches), NOUN)
         if truncated:
             title = title + ' (first %d)' % MAX_RESULTS
         if asl is None:

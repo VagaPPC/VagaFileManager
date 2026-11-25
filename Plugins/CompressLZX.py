@@ -578,6 +578,9 @@ def run_lzx(archive, files, src):
     try:
         f = open(RUN_SCRIPT, 'w')
         f.write('FailAt 21\n')
+        # LZX is an old 68k program and needs a large stack, especially
+        # with -r; the default stack of a RUN shell is far too small.
+        f.write('Stack 262144\n')
         f.write('CD %s\n' % quote_arg(cd_dir))
         for command in commands:
             f.write('%s >>%s\n' % (command, LZX_LOG))

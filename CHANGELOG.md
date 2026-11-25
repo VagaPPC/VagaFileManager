@@ -3,6 +3,34 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 70 - 2026-11-25
+
+- The file lists now always show the final state of a drawer after a
+  change made by another program (for example an archive just created):
+  quick sequences of changes are no longer partly missed.
+- Plugins always work on the pane they were started from, even if you
+  click the other pane while they are running.  If that pane is closed
+  meanwhile, the plugin is told so instead of acting on the wrong pane.
+- Find (plugin) searches from the drawer open in the pane.  A single
+  match is shown in VFM right away; with several matches, the one you
+  pick is selected in VFM.  Searching for #?.info now finds icon files
+  too, and VFM shows them even if .info files were hidden.
+- The ARexx port now offers only what scripts cannot do by themselves:
+  information about VFM and control of its window.  The commands RENAME,
+  DELETE, DUPLICATE, COPY, CUT, PASTE, INFO, SIZE, FIND, GREP and
+  SEARCHPATH have been removed; scripts handle files directly.  HELP
+  lists the available commands.
+- New ARexx commands: SELECT selects the files matching a name or
+  pattern (for example #?.lha); SELECT ADD adds them to the current
+  selection and SELECT NONE clears it.  STATUS shows a message in the
+  status bar.
+- SELECTED now returns a file listing the full path of every selected
+  item, one per line: long selections are no longer cut and names with
+  spaces are kept whole.
+- New ARexx command PROTOCOL: returns the version of the command set
+  (now 2), so scripts can check what this VFM supports.
+- The ARexxDemo plugin has been removed.
+
 ## 1.0 build 61 - 2026-11-25
 
 - All context menus now have "Show" (by icons / all files) and

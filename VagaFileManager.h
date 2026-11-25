@@ -478,12 +478,8 @@ BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
 LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize, CONST_STRPTR buttons);
-BOOL ShowResultsWindow(CONST_STRPTR title, struct List *resultList, LONG count,
-                       char *selected, ULONG selectedSize);
 BOOL RevealPath(CONST_STRPTR path, struct Window *win);
 void ShowAbout(struct Window *win);
-void DoFindFile(struct Window *win);
-void DoGrep(struct Window *win);
 
 /* ---- Vista ---- */
 void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win);
@@ -527,7 +523,6 @@ ULONG CountFilesRecursive(CONST_STRPTR src);
 BOOL PathIsInfo(CONST_STRPTR path);
 void CountTreeRecursive(CONST_STRPTR src, ULONG *files, uint64 *bytes);
 ULONG CountDeleteObjects(CONST_STRPTR src);
-void SetDeleteProgress(BOOL on);
 void ProgressUpdate(void);
 void ProgressSetBytes(uint64 total);
 void ProgressSetCounts(ULONG done, ULONG total);

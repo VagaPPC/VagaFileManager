@@ -3,182 +3,292 @@
 # VagaFileManager plugin: Find
 # ---------------------------------------------------------------------------
 #
-# The plugin asks VFM to run its native FIND command through the file-based
-# plugin channel.  VFM then:
+# Recursive search by file name, done entirely by the plugin:
 #
-#   1. opens a requester asking for the file name;
-#   2. searches recursively from the active pane path (PATH);
-#   3. shows the results in a Reaction listbrowser window;
-#   4. when a result is selected (or double-clicked) and confirmed with OK,
-#      navigates the active pane to its drawer and selects the file.
+#   1. asks for the name or pattern (VFM Reaction DIALOG);
+#   2. searches recursively from the drawer open in the pane the plugin
+#      was started from (PATH, or argv[2] as a fallback);
+#   3. one match: VFM goes straight to it;
+#      more matches: they are listed in the same result window as Grep.py
+#      (ProAction listbrowser, or the ASL fallback);
+#   4. the chosen entry is shown in the calling VFM window with REVEAL:
+#      the pane moves to its drawer and the entry is selected.
 #
-# The search field accepts AmigaDOS wildcards (#?, ?, [], ~) and the
-# common *.  Without wildcards the name is matched as a substring.
+# The search field accepts AmigaDOS wildcards (#?, ?, #x, [a-z], [~x],
+# (a|b), ~pattern, ' to escape) and the common *.  Without wildcards the
+# name is matched as a substring.  Case is ignored.  Drawers match too.
+# .info files are skipped, unless the pattern itself contains ".info"
+# (for example #?.info): then they are searched like any other file.
 #
-# No ARexx and no C:RX are used.  The plugin receives:
+# The channel, progress window and result window come from Grep.py, which
+# must be in the same drawer.  The plugin receives:
 #
 #   sys.argv[1] = ARexx port (kept for compatibility)
 #   sys.argv[2] = active pane path at launch
 #   sys.argv[3] = VagaFileManager executable
 #   sys.argv[4] = public drop port of this instance
-#   sys.argv[5] = plugin channel directory (T:VFM_<task>)
+#   sys.argv[5] = plugin session directory (T:VFM_<task>/s<n>)
 #
-# Protocol (one command):
-#   write  <channel>/req_<id>.txt
-#   run    VagaFileManager --notify "<drop-port>"
-#   read   <channel>/rep_<id>.txt   ->  <rc>|<result>
+# Diagnostics are appended to T:Find.log.
 # ---------------------------------------------------------------------------
 
 import os
+import re
 import sys
 import time
 
-try:
-    import amiga
-except ImportError:
-    amiga = None
+import Grep as G
 
-try:
-    import asl
-except ImportError:
-    asl = None
+G.LOG = 'T:Find.log'
+G.TITLE = 'VFM Find'
+G.QUERY_LABEL = 'Pattern'
+G.NOUN = 'entries'
 
-PORT = sys.argv[1] if len(sys.argv) > 1 else 'VAGAFILEMANAGER'
-START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
-VFM = sys.argv[3] if len(sys.argv) > 3 else ''
-DROP_PORT = sys.argv[4] if len(sys.argv) > 4 else ''
-PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
+log = G.log
+message = G.message
 
-LOG = 'T:Find.log'
-_seq = 0
+WILDCARDS = '#?*[]()|~%\''
 
 
-def log(text):
-    """Append a diagnostic line to T:Find.log (best effort)."""
-    try:
-        f = open(LOG, 'a')
-        f.write(text + '\n')
-        f.close()
-    except Exception:
-        pass
+# ===== AmigaDOS pattern -> regular expression =====
+
+def _atom(pat, i):
+    """Translate one atom starting at pat[i]; return (regex, next index)."""
+    c = pat[i]
+    if c == '?':
+        return ('.', i + 1)
+    if c == '*':
+        return ('.*', i + 1)
+    if c == '%':
+        return ('', i + 1)
+    if c == "'" and i + 1 < len(pat):
+        return (re.escape(pat[i + 1]), i + 2)
+    if c == '[':
+        j = pat.find(']', i + 1)
+        if j < 0:
+            return (re.escape(c), i + 1)
+        body = pat[i + 1:j]
+        if body.startswith('~'):
+            body = '^' + body[1:]
+        body = body.replace('\\', '\\\\')
+        return ('[' + body + ']', j + 1)
+    if c == '(':
+        inner, j = _sequence(pat, i + 1, ')')
+        return ('(?:' + inner + ')', j + 1)
+    if c == '#' and i + 1 < len(pat):
+        inner, j = _atom(pat, i + 1)
+        return ('(?:' + inner + ')*', j)
+    return (re.escape(c), i + 1)
 
 
-def message(text):
-    """Show an error with ASL (if available) and log it."""
-    log('message: ' + text)
-    if asl is not None:
-        try:
-            asl.MessageBox('Find', text, 'OK')
-        except Exception:
-            pass
+def _sequence(pat, i, stop):
+    """Translate atoms and '|' alternatives until 'stop' or the end."""
+    parts = []
+    current = ''
+    while i < len(pat) and pat[i] != stop:
+        if pat[i] == '|':
+            parts.append(current)
+            current = ''
+            i += 1
+            continue
+        regex, i = _atom(pat, i)
+        current += regex
+    parts.append(current)
+    return ('|'.join(parts), i)
 
 
-def run_command(cmd):
-    """Run a Shell command and wait; None if it cannot start."""
-    if amiga is not None:
-        try:
-            return amiga.system(cmd)
-        except Exception:
-            log('amiga.system exception')
-    try:
-        return os.system(cmd)
-    except Exception:
+def make_matcher(pattern):
+    """Return a function name -> bool, or None if the pattern is invalid."""
+    text = pattern.strip()
+    if not text:
         return None
 
+    if not [c for c in text if c in WILDCARDS]:
+        needle = text.lower()
+        return lambda name: needle in name.lower()
 
-def send_channel(command):
-    """Send one command through the plugin file channel.
+    negate = False
+    if text.startswith('~') and not text.startswith('~['):
+        negate = True
+        text = text[1:]
 
-    Returns (rc, result) or None if the channel is unavailable.
+    try:
+        regex, end = _sequence(text, 0, None)
+        compiled = re.compile('^(?:' + regex + ')$', re.IGNORECASE)
+    except re.error:
+        return None
+
+    if negate:
+        return lambda name: compiled.match(name) is None
+    return lambda name: compiled.match(name) is not None
+
+
+# ===== Search =====
+
+def find_names(root, matches_name, progress=None, with_info=False):
+    """Recursive search by name.  Returns (paths, truncated, canceled).
+
+    .info files are skipped unless with_info is true.
     """
-    global _seq
+    found = []
+    seen = {}
+    stack = [(root, 0)]
+    scanned = 0
+    last_progress = 0.0
 
-    if not PLUGIN_DIR or not DROP_PORT or not VFM:
-        return None
+    while stack:
+        directory, depth = stack.pop()
+        if depth > G.MAX_DEPTH:
+            continue
 
-    command = command.replace('\n', ' ').strip()
-    if not command:
-        return (None, '')
+        key = directory.lower()
+        if key in seen:
+            continue
+        seen[key] = 1
 
-    _seq += 1
-    pid = 0
-    try:
-        pid = os.getpid()
-    except Exception:
-        pass
-
-    ident = '%d_%d_%d' % (pid, int(time.time() * 1000) % 100000000, _seq)
-    req = os.path.join(PLUGIN_DIR, 'req_' + ident + '.txt')
-    rep = os.path.join(PLUGIN_DIR, 'rep_' + ident + '.txt')
-
-    try:
-        f = open(req, 'w')
-        f.write(command + '\n')
-        f.close()
-    except IOError:
-        log('channel: cannot write ' + req)
-        return None
-
-    rc = run_command('"%s" --notify "%s"' % (VFM, DROP_PORT))
-    log('channel notify: rc=%s' % rc)
-
-    answer = None
-    for attempt in range(50):
         try:
-            f = open(rep, 'r')
-            answer = f.read()
-            f.close()
-            if '|' in answer:
-                break
-        except IOError:
-            answer = None
-        time.sleep(0.1)
+            names = os.listdir(directory)
+        except (IOError, OSError):
+            continue
+        names.sort()
 
-    try:
-        os.remove(req)
-    except OSError:
-        pass
-    try:
-        os.remove(rep)
-    except OSError:
-        pass
+        for name in names:
+            scanned += 1
+            if progress is not None:
+                now = time.time()
+                if (now - last_progress) >= 0.5:
+                    last_progress = now
+                    if not progress(scanned, 0):
+                        return (found, False, True)
 
-    if answer is None or '|' not in answer:
-        log('channel: no reply for ' + command)
+            if not with_info and name.lower().endswith('.info'):
+                continue
+
+            path = os.path.join(directory, name)
+            try:
+                is_dir = os.path.isdir(path)
+            except (IOError, OSError):
+                continue
+
+            if matches_name(name):
+                found.append(path)
+                if len(found) >= G.MAX_RESULTS:
+                    return (found, True, False)
+
+            if is_dir and not G.is_link(path):
+                stack.append((path, depth + 1))
+
+    return (found, False, False)
+
+
+# ===== VFM interaction =====
+
+def ask_pattern():
+    """Ask for the pattern with the VFM DIALOG command."""
+    result = G.send_channel(
+        'DIALOG VFM Find|Name or pattern (#?, *, ?):||Search|Cancel', 600)
+    if result is None:
         return None
 
-    rc, sep, result = answer.partition('|')
-    try:
-        log('channel: rc=%s result=%r' % (rc, result))
-        return (int(rc), result)
-    except ValueError:
-        log('channel: bad reply %r' % answer)
+    rc, answer = result
+    if rc != 0 or '|' not in answer:
         return None
 
+    idx, sep, text = answer.partition('|')
+    if idx.strip() != '1':
+        return None
+
+    text = text.strip()
+    return text if text else None
+
+
+def search_root():
+    """The drawer open in the plugin's pane, or the launch path.
+
+    PATH is always the drawer the user is looking at, even when a drawer
+    is selected in it.
+    """
+    result = G.send_channel('PATH', 600)
+    if result is not None and result[0] == 0 and result[1].strip():
+        return result[1].strip()
+    return G.START_PATH
+
+
+# ===== Main =====
 
 def main():
     log('start path=%s vfm=%s channel=%s drop=%s' %
-        (START_PATH, VFM, PLUGIN_DIR, DROP_PORT))
+        (G.START_PATH, G.VFM, G.PLUGIN_DIR, G.DROP_PORT))
 
-    if not START_PATH:
-        message('No active directory.')
+    if not G.PLUGIN_DIR or not G.DROP_PORT:
+        message('The plugin command channel is not available.')
         return
 
-    if not PLUGIN_DIR or not DROP_PORT:
-        message('The plugin command channel is not available.\n'
-                'Use VFM build 11 or newer.')
+    root = search_root()
+    if not root or not os.path.isdir(root):
+        message('The active pane path is not a directory:\n' + str(root))
         return
 
-    # The native FIND command asks for the pattern, searches from the
-    # active pane (PATH), shows the result window and reveals the selected
-    # file.  This plugin only has to send the command through the channel.
-    result = send_channel('FIND')
-    if result is None:
-        message('Cannot send FIND to VagaFileManager.\n'
-                'Check T:Find.log and the plugin channel.')
+    pattern = ask_pattern()
+    if not pattern:
+        log('no pattern')
         return
 
-    log('FIND returned rc=%s' % result[0])
+    matches_name = make_matcher(pattern)
+    if matches_name is None:
+        message('Invalid pattern:\n' + pattern)
+        return
+
+    log('search %r from %s' % (pattern, root))
+    if not G.progress_open(False):
+        G.progress_close()
+        log('search canceled before start')
+        return
+
+    # Searching for icons on purpose: include the .info files.
+    with_info = '.info' in pattern.lower()
+    found, truncated, canceled = find_names(root, matches_name,
+                                            G.progress_update, with_info)
+    G.progress_close()
+
+    if canceled:
+        log('search canceled')
+        return
+
+    found.sort()
+    log('matches=%d truncated=%d' % (len(found), 1 if truncated else 0))
+
+    if not found:
+        message('Nothing matches "%s".' % pattern)
+        return
+
+    chosen = None
+    if len(found) == 1:
+        # A single match needs no list: show it in VFM right away.
+        chosen = found[0]
+    elif G.arexx is not None:
+        status, chosen = G.choose_result_proaction(found, pattern, truncated)
+        if status == 'cancel':
+            log('ProAction: cancelled')
+            return
+        if status == 'fail':
+            log('ProAction unavailable, falling back to ASL')
+
+    if chosen is None and len(found) > 1:
+        chosen = G.choose_result_asl_full(found, root, truncated)
+
+    if not chosen:
+        log('no result selected')
+        return
+
+    log('selected %r' % chosen)
+    result = G.send_channel('REVEAL ' + chosen)
+    if result is None or result[0] != 0:
+        message('Cannot reveal the selected entry in VagaFileManager.\n'
+                'See T:Find.log for details.')
+        return
+
+    log('revealed %r' % chosen)
 
 
 if __name__ == '__main__':

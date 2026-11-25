@@ -14,8 +14,17 @@
 /* Versione applicazione e numero di build.
    Incrementare VFM_BUILD ad ogni build/rilascio. */
 #define VFM_VERSION       "1.0"
-#define VFM_BUILD         61
+#define VFM_BUILD         70
 #define VFM_VERSION_DATE  "25.11.2026"
+
+/* Versione del protocollo dei comandi (porta ARexx e canale plugin),
+   restituita dal comando PROTOCOL.  Si incrementa solo quando un comando
+   cambia o viene rimosso, o quando cambia il formato di una risposta;
+   un comando nuovo non la cambia.  Le build che non conoscono PROTOCOL
+   rispondono "Unknown command": per i plugin e' il protocollo 1.
+     1  build fino alla 69 (senza PROTOCOL; le 63-69 erano di prova)
+     2  build 70: niente operazioni sui file, SELECTED su file, sessioni */
+#define VFM_PROTOCOL      2
 
 /* Helper per trasformare VFM_BUILD in stringa. */
 #define VFM_STR_(x) #x

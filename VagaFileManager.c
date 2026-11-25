@@ -38,6 +38,7 @@
 #include <ctype.h>
 #include <libraries/keymap.h>
 #include <devices/inputevent.h>
+#include <devices/timer.h>
 
 /* Tipo dei messaggi "notify" usati dal canale comandi dei plugin.
    Deve essere diverso da VFMDROP_TYPE (0x5646) e dai valori AMTYPE_*:
@@ -92,6 +93,30 @@ static struct Hook gKeyIDCMPHook;
 
 char gDropPortName[64];
 char gPluginDir[PATH_MAX_LEN];
+
+/* Sessioni dei plugin: ogni lancio di un plugin Python riceve una
+   sottocartella propria del canale (T:VFM_<task>/s<n>) legata al
+   pannello da cui e' partito.  I comandi che arrivano da quella cartella
+   agiscono sempre su quel pannello, anche se nel frattempo l'utente ha
+   attivato l'altro.  Alla fine del processo DOS ci risponde con un
+   DeathMessage e la cartella viene cancellata. */
+#define MAX_PLUGIN_SESSIONS 16
+struct PluginSession
+{
+    BOOL   used;
+    int    pane;
+    ULONG  paneGen;              /* gPane1Gen al lancio (solo pannello 1) */
+    char   dir[PATH_MAX_LEN];
+    struct DeathMessage *dm;     /* MEMF_SHARED, riusato fra i lanci */
+};
+static struct PluginSession gSessions[MAX_PLUGIN_SESSIONS];
+static struct MsgPort *gSessionPort = NULL;
+static ULONG gSessionSeq = 0;
+/* Incrementato a ogni apertura del pannello 1: se il pannello viene
+   chiuso e riaperto, le sessioni legate a quello vecchio non valgono piu'. */
+static ULONG gPane1Gen = 0;
+/* Cartella della sessione che sta eseguendo un comando (o NULL). */
+static CONST_STRPTR gCurSessionDir = NULL;
 
 struct Bookmark gBookmarks[MAX_BOOKMARKS];
 LONG gBookmarkCount = 0;
@@ -913,6 +938,8 @@ static void HideTopBar(struct Window *win)
 /* attiva (o chiude) il secondo pannello */
 static void UpdateTopBar(struct Window *win);
 static void UpdatePaneMarkers(struct Window *win);
+static void RefreshAfterSelection(Object *listGad, struct Window *win);
+static void ClearOtherPaneSelection(int gp, struct Window *win);
 
 /* Attiva/disattiva la modalita' split: mostra o nasconde il secondo
    pannello e la barra comandi condivisa. */
@@ -971,6 +998,7 @@ static void ToggleSplitPanes(struct Window *win, Object *winObj)
         start[sizeof(start) - 1] = '\0';
 
         gActivePane = 1;
+        gPane1Gen++;
         PaneInit(1, start);
         /* eredita le impostazioni del pannello 0, poi applica quelle del path */
         pn->viewMode      = gPanes[0].viewMode;
@@ -1121,10 +1149,245 @@ static void RefreshPaneAfterFilter(int p, struct Window *win)
     gActivePane = save;
 }
 
+/* ---- rilettura differita dopo le notifiche DOS ----
+   Le notifiche che arrivano entro mezzo secondo dall'ultima rilettura non
+   si possono scartare: un programma che crea un file lo scrive in piu'
+   passi (crea, scrive, chiude) e l'ultima notifica e' quella che conta.
+   Il pannello viene segnato e riletto allo scadere di questo timer. */
+#define REFRESH_DELAY_MICROS 500000
+
+static struct MsgPort *gRefreshTimerPort = NULL;
+static struct TimeRequest *gRefreshTimerReq = NULL;
+static BOOL gRefreshTimerOpen = FALSE;
+static BOOL gRefreshTimerPending = FALSE;
+static BOOL gRefreshPending[2] = { FALSE, FALSE };
+
+static void RefreshTimerOpen(void)
+{
+    gRefreshTimerPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_DONE);
+    if (!gRefreshTimerPort) return;
+    gRefreshTimerReq = (struct TimeRequest *)IExec->AllocSysObjectTags(ASOT_IOREQUEST,
+        ASOIOR_Size, sizeof(struct TimeRequest),
+        ASOIOR_ReplyPort, gRefreshTimerPort,
+        TAG_DONE);
+    if (gRefreshTimerReq &&
+        IExec->OpenDevice(TIMERNAME, UNIT_MICROHZ, (struct IORequest *)gRefreshTimerReq, 0) == 0)
+    {
+        gRefreshTimerOpen = TRUE;
+        return;
+    }
+    if (gRefreshTimerReq) IExec->FreeSysObject(ASOT_IOREQUEST, gRefreshTimerReq);
+    gRefreshTimerReq = NULL;
+    IExec->FreeSysObject(ASOT_PORT, gRefreshTimerPort);
+    gRefreshTimerPort = NULL;
+}
+
+static void RefreshTimerClose(void)
+{
+    if (gRefreshTimerOpen)
+    {
+        if (gRefreshTimerPending)
+        {
+            if (!IExec->CheckIO((struct IORequest *)gRefreshTimerReq))
+                IExec->AbortIO((struct IORequest *)gRefreshTimerReq);
+            IExec->WaitIO((struct IORequest *)gRefreshTimerReq);
+            gRefreshTimerPending = FALSE;
+        }
+        IExec->CloseDevice((struct IORequest *)gRefreshTimerReq);
+        gRefreshTimerOpen = FALSE;
+    }
+    if (gRefreshTimerReq) IExec->FreeSysObject(ASOT_IOREQUEST, gRefreshTimerReq);
+    gRefreshTimerReq = NULL;
+    if (gRefreshTimerPort) IExec->FreeSysObject(ASOT_PORT, gRefreshTimerPort);
+    gRefreshTimerPort = NULL;
+}
+
+static ULONG RefreshTimerSignal(void)
+{
+    return gRefreshTimerOpen ? (1UL << gRefreshTimerPort->mp_SigBit) : 0;
+}
+
+/* Arma il timer, se non e' gia' in corso.  FALSE se non e' disponibile. */
+static BOOL RefreshTimerArm(void)
+{
+    if (!gRefreshTimerOpen) return FALSE;
+    if (gRefreshTimerPending) return TRUE;
+    gRefreshTimerReq->Request.io_Command = TR_ADDREQUEST;
+    gRefreshTimerReq->Time.Seconds = 0;
+    gRefreshTimerReq->Time.Microseconds = REFRESH_DELAY_MICROS;
+    IExec->SendIO((struct IORequest *)gRefreshTimerReq);
+    gRefreshTimerPending = TRUE;
+    return TRUE;
+}
+
+/* Rilegge la cartella del pannello p dopo una notifica. */
+static void RefreshPaneFromNotify(int p, struct Window *win)
+{
+    struct DateStamp ds;
+    int save = gActivePane;
+
+    IDOS->DateStamp(&ds);
+    gPanes[p].lastRefreshTicks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
+    gRefreshPending[p] = FALSE;
+    if (!win || !gPanes[p].listGad) return;
+
+    DBG("directory changed, refreshing pane %d", p);
+    gActivePane = p;
+    LoadPath(gPanes[p].pathBuffer, gPanes[p].listGad, gPanes[p].pathGad,
+             gPanes[p].statusGad, win, &gPanes[p].fileList);
+    gActivePane = save;
+}
+
+/* ---- sessioni dei plugin ---- */
+
+/* Cancella i file di una cartella del canale (e, se richiesto, le
+   sottocartelle di primo livello con il loro contenuto), poi la cartella. */
+static void DeleteChannelDir(CONST_STRPTR dir, BOOL subdirs)
+{
+    APTR ctx;
+    struct ExamineData *ed;
+    char path[PATH_MAX_LEN];
+
+    if (!dir || !dir[0]) return;
+
+    ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)dir,
+            EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
+    if (ctx)
+    {
+        while ((ed = IDOS->ExamineDir(ctx)) != NULL)
+        {
+            snprintf(path, sizeof(path), "%s/%s", dir, ed->Name);
+            if (EXD_IS_DIRECTORY(ed))
+            {
+                if (subdirs) DeleteChannelDir(path, FALSE);
+            }
+            else
+                IDOS->Delete(path);
+        }
+        IDOS->ReleaseDirContext(ctx);
+    }
+    IDOS->Delete(dir);
+}
+
+static struct PluginSession *SessionOpen(int pane)
+{
+    struct PluginSession *s = NULL;
+    LONG i;
+    BPTR l;
+
+    if (!gPluginDir[0] || !gSessionPort) return NULL;
+
+    for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
+        if (!gSessions[i].used) { s = &gSessions[i]; break; }
+    if (!s)
+    {
+        DBG("plugin session: table full");
+        return NULL;
+    }
+
+    if (!s->dm)
+    {
+        s->dm = (struct DeathMessage *)IExec->AllocVecTags(sizeof(struct DeathMessage),
+                    AVT_Type, MEMF_SHARED, TAG_DONE);
+        if (!s->dm) return NULL;
+    }
+    memset(s->dm, 0, sizeof(*s->dm));
+    s->dm->dm_Msg.mn_ReplyPort = gSessionPort;
+    s->dm->dm_Msg.mn_Length = sizeof(*s->dm);
+
+    snprintf(s->dir, sizeof(s->dir), "%s/s%lu", gPluginDir,
+             (unsigned long)++gSessionSeq);
+    l = IDOS->CreateDir(s->dir);
+    if (!l)
+    {
+        DBG("plugin session: cannot create '%s'", s->dir);
+        s->dir[0] = '\0';
+        return NULL;
+    }
+    IDOS->UnLock(l);
+
+    s->pane = pane;
+    s->paneGen = gPane1Gen;
+    s->used = TRUE;
+    DBG("plugin session: open '%s' pane=%d", s->dir, pane);
+    return s;
+}
+
+static void SessionClose(struct PluginSession *s)
+{
+    DBG("plugin session: close '%s'", s->dir);
+    DeleteChannelDir(s->dir, FALSE);
+    s->dir[0] = '\0';
+    s->used = FALSE;
+}
+
+/* Il pannello della sessione esiste ancora (e non e' stato riaperto)? */
+static BOOL SessionPaneAlive(const struct PluginSession *s)
+{
+    if (s->pane == 0) return TRUE;
+    return (gPanes[1].listGad && s->paneGen == gPane1Gen) ? TRUE : FALSE;
+}
+
+/* DeathMessage restituiti da DOS: il processo del plugin e' terminato. */
+static void ProcessSessionDeaths(void)
+{
+    struct Message *m;
+    LONG i;
+
+    if (!gSessionPort) return;
+    while ((m = IExec->GetMsg(gSessionPort)) != NULL)
+    {
+        for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
+        {
+            if (gSessions[i].used && (struct Message *)gSessions[i].dm == m)
+            {
+                SessionClose(&gSessions[i]);
+                break;
+            }
+        }
+    }
+}
+
+/* All'uscita: se un plugin e' ancora in esecuzione il suo DeathMessage
+   arrivera' piu' tardi.  In quel caso porta e messaggi non vengono
+   liberati e la porta passa a PA_IGNORE, cosi' DOS non scrive in memoria
+   liberata e non segnala un task che non esiste piu'. */
+static void SessionsShutdown(void)
+{
+    BOOL alive = FALSE;
+    LONG i;
+
+    ProcessSessionDeaths();
+    for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
+    {
+        if (gSessions[i].used)
+        {
+            alive = TRUE;
+            DeleteChannelDir(gSessions[i].dir, FALSE);
+            gSessions[i].used = FALSE;
+        }
+        else if (gSessions[i].dm)
+        {
+            IExec->FreeVec(gSessions[i].dm);
+            gSessions[i].dm = NULL;
+        }
+    }
+    if (gSessionPort)
+    {
+        if (alive)
+            gSessionPort->mp_Flags = PA_IGNORE;
+        else
+            IExec->FreeSysObject(ASOT_PORT, gSessionPort);
+        gSessionPort = NULL;
+    }
+}
+
 /* ---- plugin (script ARexx) ---- */
 
 void RunPlugin(CONST_STRPTR path)
 {
+    struct PluginSession *session = NULL;
+    CONST_STRPTR channel = gPluginDir;
     char absPath[PATH_MAX_LEN];
     char exePath[PATH_MAX_LEN];
     char cmd[PATH_MAX_LEN * 6 + 256];
@@ -1187,25 +1450,36 @@ void RunPlugin(CONST_STRPTR path)
             strncpy(exePath, "VagaFileManager", sizeof(exePath) - 1);
         exePath[sizeof(exePath) - 1] = '\0';
 
+        /* Sessione propria, legata al pannello attivo al lancio.  Se non
+           si riesce a crearla si usa la cartella comune (pannello attivo
+           al momento di ogni comando, come nelle build precedenti). */
+        session = SessionOpen((gActivePane == 1 && gPanes[1].listGad) ? 1 : 0);
+        if (session) channel = session->dir;
+
         /* Argomenti Python:
              1 porta ARexx, 2 path pannello, 3 eseguibile VFM,
-             4 porta del drawer per --notify, 5 directory del canale.
+             4 porta del drawer per --notify, 5 directory del canale
+             (la cartella della sessione).
            I plugin possono quindi usare il canale su file senza ARexx. */
         snprintf(cmd, sizeof(cmd),
                  "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
                  py, absPath, gRexxPortName, gPathBuffer, exePath,
-                 gDropPortName, gPluginDir);
+                 gDropPortName, channel);
         stack = 1024 * 1024;
     }
     else
         snprintf(cmd, sizeof(cmd), "C:RX \"%s\"", absPath);
     {
         LONG rc = IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
-                                   SYS_StackSize, stack, TAG_DONE);
+                                   SYS_StackSize, stack,
+                                   session ? NP_NotifyOnDeathMessage : TAG_IGNORE,
+                                   (ULONG)(session ? session->dm : NULL),
+                                   TAG_DONE);
         DBG("plugin run: rc=%ld cmd=%s", (long)rc, cmd);
         if (rc == -1)
         {
             DBG("plugin run: failed to start");
+            if (session) SessionClose(session);
             ShowMessage(LS(MSG_APP_TITLE),
                 "Cannot start the plugin. Check C:Python / C:Python3 and the script path.");
         }
@@ -1265,26 +1539,10 @@ static void RexxSetResult(struct RexxMsg *msg, CONST_STRPTR text)
         msg->rm_Result2 = (LONG)gIRexx->CreateArgstring(text, strlen(text));
 }
 
-static void RexxSelectedNames(int gp, STRPTR out, ULONG outSize)
-{
-    struct Node *n;
-    out[0] = '\0';
-    for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
-    {
-        ULONG sel = FALSE;
-        STRPTR name = NULL;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel,
-            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!sel || !name) continue;
-        if (out[0]) strncat(out, " ", outSize - strlen(out) - 1);
-        strncat(out, name, outSize - strlen(out) - 1);
-    }
-}
-
-/* Scrive i percorsi completi delle voci selezionate in un file dentro la
-   directory del canale plugin e ne restituisce il percorso.  Usato dal
-   comando ADDONINFO: i nomi possono contenere spazi, quindi non si puo'
-   usare la lista separata da spazi di SELECTED. */
+/* Scrive i percorsi completi delle voci selezionate (uno per riga) in un
+   file dentro la directory del canale plugin e ne restituisce il percorso.
+   Usato da SELECTED e ADDONINFO: nessun limite di lunghezza e nessun
+   problema con i nomi che contengono spazi. */
 static ULONG gSelectedListSeq = 0;
 
 static LONG WriteSelectedFullPaths(int gp, STRPTR outPath, ULONG outSize)
@@ -1298,7 +1556,12 @@ static LONG WriteSelectedFullPaths(int gp, STRPTR outPath, ULONG outSize)
 
     if (outPath && outSize) outPath[0] = '\0';
 
-    if (gPluginDir[0])
+    /* Nella cartella della sessione, se il comando arriva da un plugin:
+       il file sparisce insieme alla sessione. */
+    if (gCurSessionDir)
+        snprintf(path, sizeof(path), "%s/selected_%lu.txt", gCurSessionDir,
+                 (unsigned long)++gSelectedListSeq);
+    else if (gPluginDir[0])
         snprintf(path, sizeof(path), "%s/selected_%lu.txt", gPluginDir,
                  (unsigned long)++gSelectedListSeq);
     else
@@ -1385,152 +1648,68 @@ static BOOL SelectEntryByName(Object *listGad, struct Window *win,
     return FALSE;
 }
 
-static BOOL GetSearchRoot(int gp, STRPTR out, ULONG outSize)
+/* Comando SELECT: seleziona le voci del pannello gp il cui nome
+   corrisponde al pattern AmigaDOS (senza distinzione maiuscole/minuscole;
+   un nome senza caratteri jolly e' un confronto esatto).  add == FALSE
+   sostituisce la selezione, TRUE la amplia.  Restituisce il numero di
+   voci che corrispondono, -1 se il pattern non e' valido. */
+static LONG SelectEntriesByPattern(int gp, CONST_STRPTR pattern, BOOL add,
+                                   struct Window *win)
 {
     struct Pane *pn = &gPanes[gp];
-    struct Node *node;
-    ULONG selCount;
-
-    if (!out || outSize == 0) return FALSE;
-    out[0] = '\0';
-
-    /* Se e' selezionato un solo cassetto/volume, cerca dentro quello;
-       altrimenti usa la directory corrente. */
-    selCount = CountSelectedEntries(&pn->fileList);
-    if (selCount == 1)
-    {
-        ULONG index = MAX_ENTRIES;
-        STRPTR name = NULL;
-        node = GetFirstSelectedNode(&pn->fileList);
-        if (node)
-        {
-            IListBrowser->GetListBrowserNodeAttrs(node, LBNA_UserData, &index,
-                LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-            if (name && index < (ULONG)pn->entryCount && pn->isDir[index])
-            {
-                if (pn->pathBuffer[0] == '\0')
-                {
-                    strncpy(out, name, outSize - 1);
-                    out[outSize - 1] = '\0';
-                }
-                else if (!BuildChildPath(pn->pathBuffer, name, out, outSize))
-                    out[0] = '\0';
-
-                if (out[0]) return TRUE;
-            }
-        }
-    }
-
-    strncpy(out, pn->pathBuffer, outSize - 1);
-    out[outSize - 1] = '\0';
-    return out[0] != '\0';
-}
-
-static BOOL RexxRenameSelected(int gp, CONST_STRPTR newName)
-{
-    struct Node *node = GetFirstSelectedNode(&gPanes[gp].fileList);
-    ULONG index = MAX_ENTRIES;
-    STRPTR name = NULL;
-    char oldPath[PATH_MAX_LEN], newPath[PATH_MAX_LEN];
-
-    if (!node || !newName || !newName[0]) return FALSE;
-    if (IsRootPath(gPathBuffer)) return FALSE;
-    IListBrowser->GetListBrowserNodeAttrs(node, LBNA_UserData, &index,
-        LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-    if (!name || index >= (ULONG)gEntryCount) return FALSE;
-    if (!BuildChildPath(gPathBuffer, name, oldPath, sizeof(oldPath))) return FALSE;
-    if (!BuildChildPath(gPathBuffer, newName, newPath, sizeof(newPath))) return FALSE;
-    if (!IDOS->Rename(oldPath, newPath)) return FALSE;
-    MoveInfoFile(oldPath, newPath);
-    return TRUE;
-}
-
-static LONG RexxDeleteSelected(int gp, struct Window *win)
-{
     struct Node *n;
+    STRPTR parsed;
+    ULONG size;
     LONG count = 0;
-    ULONG total = 0;
-    BOOL useProgress = FALSE;
+    ULONG firstIdx = MAX_ENTRIES;
 
-    if (IsRootPath(gPanes[gp].pathBuffer)) return 0;
+    if (!pattern || !pattern[0]) return -1;
 
-    /* conta gli oggetti (file + cassetti) per la barra di avanzamento */
-    for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    size = strlen(pattern) * 2 + 2;
+    parsed = (STRPTR)IExec->AllocVecTags(size, AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    if (!parsed) return -1;
+    if (IDOS->ParsePatternNoCase(pattern, parsed, size) < 0)
     {
-        ULONG sel = FALSE, index = MAX_ENTRIES;
+        IExec->FreeVec(parsed);
+        return -1;
+    }
+
+    for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
+    {
         STRPTR name = NULL;
-        char full[PATH_MAX_LEN];
+        ULONG idx = MAX_ENTRIES;
+        BOOL match;
 
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-        if (!sel) continue;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
-            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!name || index >= (ULONG)gEntryCount) continue;
-        if (!BuildChildPath(gPathBuffer, name, full, sizeof(full))) continue;
-        total += CountDeleteObjects(full);
+        IListBrowser->GetListBrowserNodeAttrs(n,
+            LBNA_UserData, &idx,
+            LBNA_Column, COL_NAME, LBNCA_Text, &name,
+            TAG_DONE);
+        match = (name && idx < (ULONG)pn->entryCount &&
+                 IDOS->MatchPatternNoCase(parsed, name)) ? TRUE : FALSE;
+
+        if (match)
+        {
+            IListBrowser->SetListBrowserNodeAttrs(n, LBNA_Selected, TRUE, TAG_DONE);
+            if (count == 0) firstIdx = idx;
+            count++;
+        }
+        else if (!add)
+            IListBrowser->SetListBrowserNodeAttrs(n, LBNA_Selected, FALSE, TAG_DONE);
     }
-    if (total > 0)
+    IExec->FreeVec(parsed);
+
+    if (pn->listGad && firstIdx < MAX_ENTRIES)
     {
-        ProgressOpen(win, total);
-        useProgress = TRUE;
+        if (win)
+            IIntuition->SetGadgetAttrs((struct Gadget *)pn->listGad, win, NULL,
+                LISTBROWSER_MakeVisible, firstIdx, TAG_DONE);
+        else
+            IIntuition->SetAttrs(pn->listGad, LISTBROWSER_MakeVisible, firstIdx, TAG_DONE);
     }
-
-    SetDeleteProgress(TRUE);
-    for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
-    {
-        ULONG sel = FALSE, index = MAX_ENTRIES;
-        STRPTR name = NULL;
-        char full[PATH_MAX_LEN];
-
-        if (useProgress && gProgCancel) break;
-
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-        if (!sel) continue;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
-            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!name || index >= (ULONG)gEntryCount) continue;
-        /* la radice e' gia' esclusa all'inizio della funzione */
-        if (!BuildChildPath(gPathBuffer, name, full, sizeof(full))) continue;
-
-        if (DeleteEntryRecursive(full, 0)) { DeleteSiblingInfo(full); count++; }
-    }
-    SetDeleteProgress(FALSE);
-    if (useProgress) ProgressClose();
+    RefreshAfterSelection(pn->listGad, win);
+    /* Come con il mouse: la selezione vive in un solo pannello. */
+    if (count > 0) ClearOtherPaneSelection(gp, win);
     return count;
-}
-
-static int64 RexxSelectedSize(int gp)
-{
-    struct Node *n;
-    int64 total = 0;
-    BOOL any = FALSE;
-
-    for (n = gPanes[gp].fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
-    {
-        ULONG sel = FALSE, index = MAX_ENTRIES;
-        STRPTR name = NULL;
-        char full[PATH_MAX_LEN];
-
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_Selected, &sel, TAG_DONE);
-        if (!sel) continue;
-        IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &index,
-            LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-        if (!name || index >= (ULONG)gEntryCount || !gIsDir[index]) continue;
-
-        if (IsRootPath(gPathBuffer))
-        {
-            strncpy(full, name, sizeof(full) - 1);
-            full[sizeof(full) - 1] = '\0';
-        }
-        else if (!BuildChildPath(gPathBuffer, name, full, sizeof(full)))
-            continue;
-
-        {
-            int64 b = 0;
-            if (CalculatePathSize(full, &b, NULL, NULL)) { total += b; any = TRUE; }
-        }
-    }
-    return any ? total : -1;
 }
 
 /* Svuota il filtro rapido di un pannello.  Serve a REVEAL/Find: il file
@@ -1572,18 +1751,31 @@ BOOL RevealPath(CONST_STRPTR path, struct Window *win)
     NavigateTo(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
     selected = SelectEntryByName(pn->listGad, win, &pn->fileList, targetName);
 
-    /* Il file puo' essere nascosto dal filtro rapido o dal filtro "solo
-       icone": per rivelarlo bisogna mostrarlo.  Facciamo un solo reload
-       se uno dei due filtri e' attivo. */
-    if (!selected && (pn->filterBuffer[0] || gViewFilter == VIEW_FILTER_ICONS_ONLY))
+    /* Il file puo' essere nascosto dal filtro rapido, dal filtro "solo
+       icone" o, se e' un .info, dall'opzione "mostra .info" (salvata per
+       cartella) e dalla vista icone, che non mostra mai i .info.  Per
+       rivelarlo bisogna mostrarlo: un solo reload se serve. */
+    {
+        ULONG tl = targetName ? strlen(targetName) : 0;
+        BOOL isInfo = (tl > 5 && IUtility->Stricmp(targetName + tl - 5, ".info") == 0) ? TRUE : FALSE;
+        BOOL infoHidden = (isInfo && (!gShowInfoFiles || gViewMode == FBVM_ICONS)) ? TRUE : FALSE;
+
+    if (!selected && (pn->filterBuffer[0] || gViewFilter == VIEW_FILTER_ICONS_ONLY || infoHidden))
     {
         if (pn->filterBuffer[0])
             ClearPaneFilter(gp, win);
         if (gViewFilter == VIEW_FILTER_ICONS_ONLY)
             gViewFilter = VIEW_FILTER_ALL_FILES;
+        if (infoHidden)
+        {
+            gShowInfoFiles = TRUE;
+            /* LoadPath applica gViewMode al gadget */
+            if (gViewMode == FBVM_ICONS) gViewMode = FBVM_DETAILS;
+        }
         LoadPath(parent, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
         selected = SelectEntryByName(pn->listGad, win, &pn->fileList, targetName);
         UpdateMenu();
+    }
     }
 
     DBG("reveal: selected=%ld name='%s' filter='%s' viewfilter=%lu",
@@ -1609,6 +1801,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     Object *statusGad = gPanes[gp].statusGad;
     Object *toggleGad = gPanes[gp].toggleGad;
     struct List *fl = &gPanes[gp].fileList;
+    BOOL keepStatus = FALSE;   /* STATUS: non sovrascrivere il messaggio */
 
     DBG("rexx: '%s'", a0 ? a0 : "(null)");
     msg->rm_Result1 = RC_OK;
@@ -1650,16 +1843,21 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
 
     if (!IUtility->Stricmp(cmd, "HELP"))
     {
+        /* La porta espone solo stato e interfaccia di VFM: le operazioni
+           sui file (rinomina, copia, cancella...) le fanno i plugin. */
         RexxSetResult(msg,
-            "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | PATH | ADDONINFO | PROGRESS | ENTRIES | SELECTED | "
-            "RENAME <name> | DELETE | DUPLICATE | COPY | CUT | PASTE | INFO | SIZE | "
-            "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | "
-            "SPLIT | NEW | SCRIPT <file> | ASK <prompt> | "
-            "DIALOG <title>|<prompt>|<text>|<buttons> | "
-            "REVEAL <path> | SEARCHPATH | FIND | GREP | QUIT | VERSION");
+            "PATH | ENTRIES | SELECTED | ADDONINFO | VERSION | PROTOCOL | "
+            "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | REVEAL <path> | "
+            "SELECT [ADD] <pattern> | SELECT NONE | "
+            "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | SPLIT | "
+            "DIALOG <title>|<prompt>|<text>|<buttons> | ASK <prompt> | STATUS [text] | "
+            "PROGRESS [NOCANCEL] [INDET] done total [bytesDone bytesTotal] | PROGRESS CLOSE | "
+            "NEW | SCRIPT <file> | QUIT");
     }
     else if (!IUtility->Stricmp(cmd, "VERSION"))
         RexxSetResult(msg, "VagaFileManager " VFM_VERSION_FULL);
+    else if (!IUtility->Stricmp(cmd, "PROTOCOL"))
+        RexxSetResult(msg, VFM_STR(VFM_PROTOCOL));
     else if (!IUtility->Stricmp(cmd, "QUIT"))
         gRexxQuit = TRUE;
     else if (!IUtility->Stricmp(cmd, "NEW"))
@@ -1800,17 +1998,6 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             RexxSetResult(msg, info);
         }
     }
-    else if (!IUtility->Stricmp(cmd, "SEARCHPATH"))
-    {
-        char root[PATH_MAX_LEN];
-        if (GetSearchRoot(gp, root, sizeof(root)))
-            RexxSetResult(msg, root);
-        else
-        {
-            msg->rm_Result1 = RC_ERROR;
-            RexxSetResult(msg, "");
-        }
-    }
     else if (!IUtility->Stricmp(cmd, "ASK"))
     {
         char answer[256];
@@ -1895,58 +2082,15 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
     }
     else if (!IUtility->Stricmp(cmd, "SELECTED"))
     {
-        char b[1024];
-        RexxSelectedNames(gp, b, sizeof(b));
-        RexxSetResult(msg, b);
-    }
-    else if (!IUtility->Stricmp(cmd, "RENAME"))
-    {
-        if (RexxRenameSelected(gp, args))
-            LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, fl);
-        else
+        /* Risultato: il percorso del file con la lista (anche vuota). */
+        char listPath[PATH_MAX_LEN];
+        if (WriteSelectedFullPaths(gp, listPath, sizeof(listPath)) < 0)
         {
             msg->rm_Result1 = RC_ERROR;
-            RexxSetResult(msg, "Rename failed");
-        }
-    }
-    else if (!IUtility->Stricmp(cmd, "DELETE"))
-    {
-        if (RexxDeleteSelected(gp, win) > 0)
-            LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, fl);
-        else
-        {
-            msg->rm_Result1 = RC_ERROR;
-            RexxSetResult(msg, "Nothing deleted");
-        }
-    }
-    else if (!IUtility->Stricmp(cmd, "DUPLICATE"))
-        DoDuplicateSelected(listGad, pathGad, statusGad, win, fl);
-    else if (!IUtility->Stricmp(cmd, "COPY"))
-        DoCopySelected(fl);
-    else if (!IUtility->Stricmp(cmd, "CUT"))
-        DoCutSelected(fl);
-    else if (!IUtility->Stricmp(cmd, "PASTE"))
-        DoPaste(listGad, pathGad, statusGad, win, fl);
-    else if (!IUtility->Stricmp(cmd, "INFO"))
-        DoInfo(fl, win);
-    else if (!IUtility->Stricmp(cmd, "FIND"))
-        DoFindFile(win);
-    else if (!IUtility->Stricmp(cmd, "GREP"))
-        DoGrep(win);
-    else if (!IUtility->Stricmp(cmd, "SIZE"))
-    {
-        int64 sz = RexxSelectedSize(gp);
-        if (sz < 0)
-        {
-            msg->rm_Result1 = RC_ERROR;
-            RexxSetResult(msg, "No directory selected");
+            RexxSetResult(msg, "");
         }
         else
-        {
-            char b[32];
-            snprintf(b, sizeof(b), "%lld", (long long)sz);
-            RexxSetResult(msg, b);
-        }
+            RexxSetResult(msg, listPath);
     }
     else if (!IUtility->Stricmp(cmd, "VIEW"))
     {
@@ -1974,6 +2118,68 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         LoadPath(gPathBuffer, listGad, pathGad, statusGad, win, fl);
         UpdateMenu();
     }
+    else if (!IUtility->Stricmp(cmd, "SELECT"))
+    {
+        char pat[512];
+        char *a = args;
+        BOOL add = FALSE;
+        ULONG l;
+
+        if (!IUtility->Strnicmp(a, "ADD", 3) && (a[3] == ' ' || a[3] == '\t'))
+        {
+            add = TRUE;
+            a += 3;
+            while (*a == ' ' || *a == '\t') a++;
+        }
+        /* Il pattern puo' essere tra virgolette (nomi con spazi). */
+        strncpy(pat, a, sizeof(pat) - 1);
+        pat[sizeof(pat) - 1] = '\0';
+        l = strlen(pat);
+        if (l >= 2 && pat[0] == '"' && pat[l - 1] == '"')
+        {
+            memmove(pat, pat + 1, l - 2);
+            pat[l - 2] = '\0';
+        }
+
+        if (!add && !IUtility->Stricmp(pat, "NONE"))
+        {
+            DeselectAllEntries(fl);
+            RefreshAfterSelection(listGad, win);
+            RexxSetResult(msg, "0");
+        }
+        else
+        {
+            LONG n = pat[0] ? SelectEntriesByPattern(gp, pat, add, win) : -1;
+            if (n < 0)
+            {
+                msg->rm_Result1 = RC_ERROR;
+                RexxSetResult(msg, "SELECT [ADD] <pattern> | SELECT NONE");
+            }
+            else
+            {
+                char b[32];
+                snprintf(b, sizeof(b), "%ld", (long)n);
+                RexxSetResult(msg, b);
+            }
+        }
+    }
+    else if (!IUtility->Stricmp(cmd, "STATUS"))
+    {
+        /* Messaggio nella barra di stato del pannello: resta finche' VFM
+           non aggiorna la barra (selezione, navigazione...).  STATUS senza
+           testo ripristina subito la barra normale. */
+        static char statusMsg[2][256];
+        if (args[0] && statusGad)
+        {
+            snprintf(statusMsg[gp], sizeof(statusMsg[gp]), "%s", args);
+            if (win)
+                IIntuition->RefreshSetGadgetAttrs((struct Gadget *)statusGad, win, NULL,
+                    GA_Text, (ULONG)statusMsg[gp], TAG_DONE);
+            else
+                IIntuition->SetAttrs(statusGad, GA_Text, (ULONG)statusMsg[gp], TAG_DONE);
+            keepStatus = TRUE;
+        }
+    }
     else if (!IUtility->Stricmp(cmd, "SCRIPT"))
         RunPlugin(args);
     else
@@ -1982,6 +2188,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
         RexxSetResult(msg, "Unknown command");
     }
 
+    if (!keepStatus)
     {
         int cp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
         if (gPanes[cp].listGad)
@@ -2050,92 +2257,153 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
     IExec->FreeSysObject(ASOT_PORT, reply);
 }
 
-static void ProcessPluginRequests(struct Window *win)
+/* Comandi che non dipendono da un pannello: restano disponibili anche
+   quando il pannello della sessione e' stato chiuso. */
+static BOOL PluginCommandNeedsPane(CONST_STRPTR cmd)
 {
-    for (;;)
+    static const char *const neutral[] = {
+        "HELP", "VERSION", "PROTOCOL", "QUIT", "NEW", "SPLIT", "ASK", "DIALOG",
+        "PROGRESS", "SCRIPT", NULL
+    };
+    char word[32];
+    ULONG n = 0;
+    LONG i;
+
+    while (*cmd == ' ' || *cmd == '\t') cmd++;
+    while (cmd[n] && cmd[n] != ' ' && cmd[n] != '\t' && n < sizeof(word) - 1)
     {
-        APTR ctx;
-        struct ExamineData *ed;
-        char name[256];
-        char full[PATH_MAX_LEN];
-        char replyPath[PATH_MAX_LEN];
-        char cmd[2048];
-        char result[4096];
-        BPTR fh;
-        LONG rc;
-        int gp;
-        BOOL found = FALSE;
-        ULONG l;
+        word[n] = cmd[n];
+        n++;
+    }
+    word[n] = '\0';
 
-        if (!gPluginDir[0]) return;
+    for (i = 0; neutral[i]; i++)
+        if (!IUtility->Stricmp(word, neutral[i])) return FALSE;
+    return TRUE;
+}
 
-        name[0] = '\0';
-        ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)gPluginDir,
-                EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
-        if (!ctx) return;
+/* Legge ed esegue una richiesta req_* della cartella 'dir'.
+   session == NULL: cartella comune, pannello attivo al momento.
+   Restituisce TRUE se ha trovato una richiesta. */
+static BOOL ProcessOneChannelRequest(CONST_STRPTR dir, struct PluginSession *session,
+                                     struct Window *win)
+{
+    APTR ctx;
+    struct ExamineData *ed;
+    char name[256];
+    char full[PATH_MAX_LEN];
+    char replyPath[PATH_MAX_LEN];
+    char cmd[2048];
+    char result[4096];
+    BPTR fh;
+    LONG rc = RC_ERROR;
+    int gp;
+    int save = gActivePane;
+    BOOL found = FALSE;
+    BOOL run = TRUE;
+    ULONG l;
 
-        while ((ed = IDOS->ExamineDir(ctx)) != NULL)
+    name[0] = '\0';
+    result[0] = '\0';
+    ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)dir,
+            EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
+    if (!ctx) return FALSE;
+
+    while ((ed = IDOS->ExamineDir(ctx)) != NULL)
+    {
+        ULONG n = strlen(ed->Name);
+        if (!EXD_IS_DIRECTORY(ed) && n > 4 && strncmp(ed->Name, "req_", 4) == 0)
         {
-            ULONG n = strlen(ed->Name);
-            if (n > 4 && strncmp(ed->Name, "req_", 4) == 0)
-            {
-                if (n >= sizeof(name)) n = sizeof(name) - 1;
-                memcpy(name, ed->Name, n);
-                name[n] = '\0';
-                found = TRUE;
-                break;
-            }
-        }
-        IDOS->ReleaseDirContext(ctx);
-        if (!found) break;
-
-        snprintf(full, sizeof(full), "%s/%s", gPluginDir, name);
-        cmd[0] = '\0';
-        fh = IDOS->Open(full, MODE_OLDFILE);
-        if (fh)
-        {
-            if (!IDOS->FGets(fh, cmd, sizeof(cmd))) cmd[0] = '\0';
-            IDOS->Close(fh);
-        }
-        IDOS->Delete(full);
-
-        l = strlen(cmd);
-        while (l > 0 && (cmd[l - 1] == '\n' || cmd[l - 1] == '\r'))
-            cmd[--l] = '\0';
-
-        snprintf(replyPath, sizeof(replyPath), "%s/rep_%s", gPluginDir, name + 4);
-        gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
-        ExecutePluginCommand(cmd, gp, win, &rc, result, sizeof(result));
-
-        fh = IDOS->Open(replyPath, MODE_NEWFILE);
-        if (fh)
-        {
-            IDOS->FPrintf(fh, "%ld|%s", (long)rc, result);
-            IDOS->Close(fh);
+            if (n >= sizeof(name)) n = sizeof(name) - 1;
+            memcpy(name, ed->Name, n);
+            name[n] = '\0';
+            found = TRUE;
+            break;
         }
     }
+    IDOS->ReleaseDirContext(ctx);
+    if (!found) return FALSE;
+
+    snprintf(full, sizeof(full), "%s/%s", dir, name);
+    cmd[0] = '\0';
+    fh = IDOS->Open(full, MODE_OLDFILE);
+    if (fh)
+    {
+        if (!IDOS->FGets(fh, cmd, sizeof(cmd))) cmd[0] = '\0';
+        IDOS->Close(fh);
+    }
+    IDOS->Delete(full);
+
+    l = strlen(cmd);
+    while (l > 0 && (cmd[l - 1] == '\n' || cmd[l - 1] == '\r'))
+        cmd[--l] = '\0';
+
+    snprintf(replyPath, sizeof(replyPath), "%s/rep_%s", dir, name + 4);
+
+    if (!session)
+        gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+    else if (SessionPaneAlive(session))
+        gp = session->pane;
+    else if (PluginCommandNeedsPane(cmd))
+    {
+        /* Il pannello del plugin non c'e' piu': niente ripiego silenzioso
+           sull'altro pannello. */
+        DBG("plugin session '%s': pane closed, '%s' refused", dir, cmd);
+        run = FALSE;
+        strcpy(result, "Pane closed");
+        gp = 0;
+    }
+    else
+        gp = 0;
+
+    if (run)
+    {
+        gCurSessionDir = session ? session->dir : NULL;
+        ExecutePluginCommand(cmd, gp, win, &rc, result, sizeof(result));
+        gCurSessionDir = NULL;
+
+        /* ExecuteRexxCommand rende attivo il pannello del comando: per una
+           sessione legata all'altro pannello ripristiniamo quello scelto
+           dall'utente (se esiste ancora). */
+        if (session && gActivePane != save &&
+            (save == 0 || gPanes[1].listGad))
+            gActivePane = save;
+    }
+
+    fh = IDOS->Open(replyPath, MODE_NEWFILE);
+    if (fh)
+    {
+        IDOS->FPrintf(fh, "%ld|%s", (long)rc, result);
+        IDOS->Close(fh);
+    }
+    return TRUE;
+}
+
+/* Esegue tutte le richieste in attesa: cartella comune e sessioni. */
+static void ProcessPluginRequests(struct Window *win)
+{
+    BOOL any;
+    LONG i;
+
+    if (!gPluginDir[0]) return;
+
+    do
+    {
+        any = FALSE;
+        if (ProcessOneChannelRequest(gPluginDir, NULL, win)) any = TRUE;
+        for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
+        {
+            if (gSessions[i].used &&
+                ProcessOneChannelRequest(gSessions[i].dir, &gSessions[i], win))
+                any = TRUE;
+        }
+    } while (any && !gRexxQuit);
 }
 
 static void CleanupPluginDir(void)
 {
-    APTR ctx;
-    struct ExamineData *ed;
-    char path[PATH_MAX_LEN];
-
     if (!gPluginDir[0]) return;
-
-    ctx = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)gPluginDir,
-            EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
-    if (ctx)
-    {
-        while ((ed = IDOS->ExamineDir(ctx)) != NULL)
-        {
-            snprintf(path, sizeof(path), "%s/%s", gPluginDir, ed->Name);
-            IDOS->Delete(path);
-        }
-        IDOS->ReleaseDirContext(ctx);
-    }
-    IDOS->Delete(gPluginDir);
+    DeleteChannelDir(gPluginDir, TRUE);
 }
 
 /* Manda il messaggio di notifica alla porta pubblica del drawer. */
@@ -2894,7 +3162,10 @@ int main(int argc, char **argv)
         BPTR l = IDOS->CreateDir(gPluginDir);
         if (l) IDOS->UnLock(l);
     }
-    DBG("plugin channel '%s'", gPluginDir);
+    /* Porta privata che riceve i DeathMessage dei plugin terminati. */
+    gSessionPort = (struct MsgPort *)IExec->AllocSysObjectTags(ASOT_PORT, TAG_END);
+    RefreshTimerOpen();
+    DBG("plugin channel '%s' (session port %p)", gPluginDir, (void *)gSessionPort);
 
     /* lock the default public screen (Workbench) for the toolbar icons */
     gPubScreen = IIntuition->LockPubScreen(NULL);
@@ -2995,6 +3266,8 @@ int main(int argc, char **argv)
                     ULONG rexxSig = gRexxPort ? (1UL << gRexxPort->mp_SigBit) : 0;
                     ULONG dragSig = DragTimerSignal();
                     ULONG appDropSig = AppDropReplySignal();
+                    ULONG sessionSig = gSessionPort ? (1UL << gSessionPort->mp_SigBit) : 0;
+                    ULONG refreshSig = RefreshTimerSignal();
                     ULONG wait;
 
                     for (p = 0; p < 2; p++)
@@ -3002,9 +3275,13 @@ int main(int argc, char **argv)
                             notifyBits |= 1UL << gPanes[p].notifyPort->mp_SigBit;
 
                     wait = IExec->Wait(winSig | appSig | notifyBits | rexxSig |
-                                       dragSig | appDropSig |
+                                       dragSig | appDropSig | sessionSig | refreshSig |
                                        SIGBREAKF_CTRL_C);
                     if (wait & SIGBREAKF_CTRL_C) done = TRUE;
+
+                    /* plugin terminati: via le loro cartelle di sessione */
+                    if (sessionSig && (wait & sessionSig))
+                        ProcessSessionDeaths();
 
                     /* risposte agli AppMessage dei drop verso altre app */
                     if (appDropSig && (wait & appDropSig))
@@ -3053,19 +3330,28 @@ int main(int argc, char **argv)
                             ticks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
                             if (ticks < gPanes[p].lastRefreshTicks) ticks += 1440 * 50;  /* midnight rollover */
                             if (gPanes[p].lastRefreshTicks == 0 || ticks - gPanes[p].lastRefreshTicks >= 25)
+                                RefreshPaneFromNotify(p, windows[WID_MAIN]);
+                            else
                             {
-                                int save = gActivePane;
-                                gPanes[p].lastRefreshTicks = (ULONG)ds.ds_Minute * 50 + ds.ds_Tick;
-                                DBG("directory changed, refreshing pane %d", p);
-                                if (windows[WID_MAIN] && gPanes[p].listGad)
-                                {
-                                    gActivePane = p;
-                                    LoadPath(gPanes[p].pathBuffer, gPanes[p].listGad, gPanes[p].pathGad,
-                                             gPanes[p].statusGad, windows[WID_MAIN], &gPanes[p].fileList);
-                                }
-                                gActivePane = save;
+                                /* troppo presto: rilettura differita, cosi'
+                                   lo stato finale della cartella si vede
+                                   sempre.  Senza timer si rilegge subito. */
+                                gRefreshPending[p] = TRUE;
+                                if (!RefreshTimerArm())
+                                    RefreshPaneFromNotify(p, windows[WID_MAIN]);
                             }
                         }
+                    }
+
+                    /* ---- rilettura differita ---- */
+                    if (refreshSig && (wait & refreshSig) && gRefreshTimerPending &&
+                        IExec->CheckIO((struct IORequest *)gRefreshTimerReq))
+                    {
+                        IExec->WaitIO((struct IORequest *)gRefreshTimerReq);
+                        gRefreshTimerPending = FALSE;
+                        for (p = 0; p < 2; p++)
+                            if (gRefreshPending[p])
+                                RefreshPaneFromNotify(p, windows[WID_MAIN]);
                     }
 
                     /* ---- drag & drop da altri programmi / altri pannelli ---- */
@@ -3564,6 +3850,8 @@ int main(int argc, char **argv)
     {
         if (gPanes[p].colInfo) { IListBrowser->FreeLBColumnInfo(gPanes[p].colInfo); gPanes[p].colInfo = NULL; }
     }
+    SessionsShutdown();
+    RefreshTimerClose();
     CleanupPluginDir();
     if (appPort) IExec->FreeSysObject(ASOT_PORT, appPort);
 

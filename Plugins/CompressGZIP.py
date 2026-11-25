@@ -627,6 +627,9 @@ def run_gzip(archive, files, src, mode):
     try:
         f = open(RUN_SCRIPT, 'w')
         f.write('FailAt 21\n')
+        # Give gzip a large stack: the default stack of a RUN shell is
+        # small, and old command-line tools can overflow it.
+        f.write('Stack 262144\n')
         f.write('CD %s\n' % quote_arg(src))
         if add_to_existing:
             f.write('%s -d -c %s >%s\n' %
