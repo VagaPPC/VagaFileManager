@@ -236,7 +236,7 @@ def main():
 
     matches_name = make_matcher(pattern)
     if matches_name is None:
-        message('Invalid pattern:\n' + pattern)
+        message('Invalid pattern:\n' + pattern, False)
         return
 
     log('search %r from %s' % (pattern, root))
@@ -259,7 +259,7 @@ def main():
     log('matches=%d truncated=%d' % (len(found), 1 if truncated else 0))
 
     if not found:
-        message('Nothing matches "%s".' % pattern)
+        message('Nothing matches "%s".' % pattern, False)
         return
 
     chosen = None

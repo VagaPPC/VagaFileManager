@@ -61,6 +61,9 @@ START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
 VFM = sys.argv[3] if len(sys.argv) > 3 else ''
 DROP_PORT = sys.argv[4] if len(sys.argv) > 4 else ''
 PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
+# argv[6] = DEBUG when the DEBUG tooltype of VagaFileManager is on:
+# then every step is logged, otherwise only errors.
+DEBUG = len(sys.argv) > 6 and sys.argv[6].upper() == 'DEBUG'
 
 LOG = 'T:Grep.log'
 
@@ -90,19 +93,21 @@ _seq = 0
 
 # ===== Small helpers =====
 
-def log(text):
+def log(text, error=False):
     """Append a diagnostic line to LOG (best effort)."""
+    if not (DEBUG or error):
+        return
     try:
         f = open(LOG, 'a')
-        f.write(text + '\n')
+        f.write(('ERROR: ' if error else '') + text + '\n')
         f.close()
     except Exception:
         pass
 
 
-def message(text):
+def message(text, error=True):
     """Show a message with ASL (if available) and log it."""
-    log('message: ' + text)
+    log('message: ' + text, error)
     if asl is not None:
         try:
             asl.MessageBox(TITLE, text, 'OK')
@@ -975,7 +980,7 @@ def main():
         (START_PATH, VFM, PLUGIN_DIR, DROP_PORT))
 
     if not START_PATH:
-        message('No active directory.')
+        message('No active directory.', False)
         return
 
     if not PLUGIN_DIR or not DROP_PORT:
@@ -1009,7 +1014,7 @@ def main():
     log('matches=%d truncated=%d' % (len(matches), 1 if truncated else 0))
 
     if not matches:
-        message('No text file contains "%s".' % word)
+        message('No text file contains "%s".' % word, False)
         return
 
     chosen = None

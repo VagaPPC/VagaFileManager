@@ -56,6 +56,9 @@ START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
 VFM = sys.argv[3] if len(sys.argv) > 3 else ''
 DROP_PORT = sys.argv[4] if len(sys.argv) > 4 else ''
 PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
+# argv[6] = DEBUG when the DEBUG tooltype of VagaFileManager is on:
+# then every step is logged, otherwise only errors.
+DEBUG = len(sys.argv) > 6 and sys.argv[6].upper() == 'DEBUG'
 
 LOG = 'T:CompressLZX.log'
 
@@ -74,17 +77,19 @@ _seq = 0
 
 # ===== Utilities =====
 
-def log(text):
+def log(text, error=False):
+    if not (DEBUG or error):
+        return
     try:
         f = open(LOG, 'a')
-        f.write(text + '\n')
+        f.write(('ERROR: ' if error else '') + text + '\n')
         f.close()
     except Exception:
         pass
 
 
-def message(text):
-    log('message: ' + text)
+def message(text, error=True):
+    log('message: ' + text, error)
     if asl is not None:
         try:
             asl.MessageBox('CompressLZX', text, 'OK')
@@ -339,10 +344,10 @@ def path_is_inside(path, container):
 def validate_destination(archive, files):
     for path in files:
         if path.lower() == archive.lower():
-            message('The archive cannot be one of the selected files.')
+            message('The archive cannot be one of the selected files.', False)
             return False
         if os.path.isdir(path) and path_is_inside(archive, path):
-            message('The archive cannot be created inside a selected drawer.')
+            message('The archive cannot be created inside a selected drawer.', False)
             return False
     return True
 
@@ -528,7 +533,7 @@ def run_lzx(archive, files, src):
         (lzx, archive, len(files), src))
 
     if not files:
-        message('No files selected.')
+        message('No files selected.', False)
         return False
 
     if not validate_destination(archive, files):
@@ -667,7 +672,7 @@ def run_lzx(archive, files, src):
         return False
 
     log('LZX ok')
-    message('Archive created:\n' + archive)
+    message('Archive created:\n' + archive, False)
     send_channel('REFRESH')
     return True
 
@@ -697,7 +702,7 @@ def main():
         return
 
     if info['count'] <= 0:
-        message('Select one or more files in the active pane first.')
+        message('Select one or more files in the active pane first.', False)
         return
 
     files = read_selected(info['listfile'], info['count'])
@@ -706,12 +711,12 @@ def main():
                 'See T:CompressLZX.log.')
         return
     if not files:
-        message('Select one or more files in the active pane first.')
+        message('Select one or more files in the active pane first.', False)
         return
 
     src = active_path(info)
     if not src:
-        message('Select files inside a drawer, not volumes/assigns.')
+        message('Select files inside a drawer, not volumes/assigns.', False)
         return
 
     default_name = default_archive_name(files)
@@ -720,14 +725,14 @@ def main():
         dst = other_path(info)
         if not dst:
             message('The other pane is in the root view.\n'
-                    'Open a drawer in the other pane first.')
+                    'Open a drawer in the other pane first.', False)
             return
 
         name = ask_archive_name(default_name)
         if not name:
             return
         if ('/' in name) or (':' in name):
-            message('Enter only a file name, not a path.')
+            message('Enter only a file name, not a path.', False)
             return
         name = ensure_lzx_extension(name)
         archive = join_amiga(dst, name)
