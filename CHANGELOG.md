@@ -3,6 +3,29 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.0 build 83 - 2026-11-25
+
+- New View > Bars submenu: show or hide the path bar, the button bar,
+  the filter bar and the status bar.  Also in the context menu of empty
+  space; the choice is remembered.  The View menu item for the icon
+  size is now called "Size".
+- New View > Split item (ticked in split view), so split view is
+  available even with the button bar hidden.
+- New button before the filter field: clears the filter and shows all
+  files again.
+- Greek translation.
+- Program > Information now shows the VagaPPC logo; the mail address and
+  the new "Donate" link to Ko-fi can be clicked.
+- Keyboard shortcuts, shown next to the menu items: Amiga+C copy,
+  Amiga+X cut, Amiga+V paste, Amiga+A select all, Amiga+D duplicate,
+  Amiga+I file information, Ctrl+N new drawer, F2 rename, F5 refresh,
+  Amiga+F filter field, Amiga+L path field.  Del, Esc and Shift+Return
+  are now shown in the menus too.
+- WB2VFM: a VFM window opened by double-clicking the desktop now finds
+  the same Shell commands as the Workbench (for example make in a Shell
+  opened from VFM), and it opens even if a RAM: drawer window is already
+  open.
+
 ## 1.0 build 73 - 2026-11-25
 
 - Sizes are now shown in a readable form, such as 512, 1,5K, 19M or

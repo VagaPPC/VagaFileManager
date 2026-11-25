@@ -141,7 +141,8 @@ enum
     GID_FILTER,
     GID_TOP_COPY,
     GID_TOP_MOVE,
-    GID_TOP_DELETE
+    GID_TOP_DELETE,
+    GID_CLEAR_FILTER       /* pulsante che svuota il filtro rapido */
 };
 
 enum
@@ -183,7 +184,12 @@ enum
     MENU_INVERT_SELECTION,
     MENU_DESELECT_ALL,
     MENU_CTX_OPEN,         /* Apri del menu contestuale: cassetti in nuove finestre */
-    MENU_OPEN_WITH         /* Apri con... (solo file) */
+    MENU_OPEN_WITH,        /* Apri con... (solo file) */
+    MENU_BAR_PATH,         /* Vista > Vista barra: barra del percorso */
+    MENU_BAR_TOOLS,        /* barra dei pulsanti */
+    MENU_BAR_FILTER,       /* barra del filtro */
+    MENU_BAR_STATUS,       /* barra di stato */
+    MENU_SPLIT             /* Vista > Dividi (anche senza barra pulsanti) */
 };
 #define MENU_BOOKMARK_BASE 1000
 #define MENU_SCRIPT_BASE   2000
@@ -236,7 +242,16 @@ struct VFMPrefs
 {
     LONG  width, height;
     ULONG split;
+    ULONG hiddenBars;     /* BAR_* nascoste; 0 = tutte visibili (default) */
 };
+
+/* Barre di ogni pannello che si possono nascondere (Vista > Vista barra).
+   L'impostazione e' globale (entrambi i pannelli) e salvata nelle prefs. */
+#define BAR_PATH    (1UL << 0)
+#define BAR_TOOLS   (1UL << 1)
+#define BAR_FILTER  (1UL << 2)
+#define BAR_STATUS  (1UL << 3)
+#define BarVisible(b) ((gPrefs.hiddenBars & (b)) == 0)
 
 /* ---- stato globale ---- */
 extern struct VFMPrefs gPrefs;
@@ -281,6 +296,7 @@ enum
     IMG_SIZE,
     IMG_SHELL,
     IMG_SPLIT,
+    IMG_CLEARFILTER,
     IMG_COUNT
 };
 

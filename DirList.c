@@ -771,10 +771,12 @@ void UpdateWindowTitle(struct Window *win, CONST_STRPTR path)
 void SetPathGadget(Object *pathGad, struct Window *win, CONST_STRPTR path)
 {
     CONST_STRPTR display;
-    if (!pathGad) return;
     if (!path) path = "";
     strncpy(gPathBuffer, path, sizeof(gPathBuffer) - 1);
     gPathBuffer[sizeof(gPathBuffer) - 1] = '\0';
+    /* barra del percorso nascosta: il percorso del pannello va comunque
+       aggiornato, solo non c'e' niente da mostrare */
+    if (!pathGad) return;
     display = (gPathBuffer[0] == '\0') ? LS(MSG_ROOT_ASSIGNS) : gPathBuffer;
     if (win)
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)pathGad, win, NULL,

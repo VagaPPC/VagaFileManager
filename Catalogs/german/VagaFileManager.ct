@@ -467,3 +467,30 @@ Nur diese Datei
 MSG_OPENWITH_SAVE_FAILED
 Das Piktogramm von %s kann nicht gespeichert werden.
 ;
+MSG_MENU_ICONSIZE
+Größe
+;
+MSG_MENU_BARS
+Leisten
+;
+MSG_BAR_PATH
+Pfadleiste anzeigen
+;
+MSG_BAR_TOOLS
+Schaltflächenleiste anzeigen
+;
+MSG_BAR_FILTER
+Filterleiste anzeigen
+;
+MSG_BAR_STATUS
+Statusleiste anzeigen
+;
+MSG_MENU_SPLIT
+Teilen
+;
+MSG_BTN_CLEAR_FILTER
+Filter leeren
+;
+MSG_ABOUT_DONATE
+Spenden:
+;

@@ -790,7 +790,9 @@ void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win)
     else
         gViewFilter = VIEW_FILTER_ALL_FILES;
     IIntuition->SetGadgetAttrs((struct Gadget*)listGad, win, NULL, FILEBROWSER_ViewMode, gViewMode, TAG_DONE);
-    if (gViewMode == FBVM_ICONS)
+    if (!toggleGad)
+        ;   /* barra del percorso nascosta: nessun pulsante da aggiornare */
+    else if (gViewMode == FBVM_ICONS)
         IIntuition->SetGadgetAttrs((struct Gadget*)toggleGad, win, NULL,
             BUTTON_RenderImage, (ULONG)gBtnImg[IMG_DETAILS],
             BUTTON_SelectImage, (ULONG)gBtnImgSel[IMG_DETAILS],
@@ -820,6 +822,148 @@ static Object *MakeAboutLabel(CONST_STRPTR text, ULONG style)
         TAG_DONE);
 }
 
+/* Link della finestra About: testo sottolineato, senza bordo, che si
+   puo' premere. */
+#define GID_ABOUT_MAIL    9001
+#define GID_ABOUT_DONATE  9002
+#define ABOUT_MAIL_URL    "mailto:vagappc@yahoo.it"
+#define ABOUT_DONATE_URL  "https://ko-fi.com/vagappc"
+#define ABOUT_LOGO_FILE   "PROGDIR:icons/vagappc.iff"
+#define ABOUT_LOGO_PNG    "PROGDIR:icons/vagappc.png"   /* stessi pixel, ripiego */
+
+/* Immagine mostrata come pulsante di sola lettura (BUTTON_RenderImage),
+   come le icone delle barre.  button.gadget non libera l'immagine: chi
+   chiama la libera dopo aver distrutto la finestra. */
+static Object *MakeImageLabel(Object *img)
+{
+    if (!img) return NULL;
+    return IIntuition->NewObject(NULL, "button.gadget",
+        GA_ReadOnly, TRUE,
+        BUTTON_RenderImage, (ULONG)img,
+        BUTTON_BevelStyle, BVS_NONE,
+        BUTTON_Transparent, TRUE,
+        TAG_DONE);
+}
+
+/* Carica il logo: prima l'IFF, poi la copia PNG.  Un'immagine che si
+   carica ma resta 0x0 conta come non caricata. */
+static Object *LoadAboutLogo(struct Screen *scr)
+{
+    static CONST_STRPTR files[2] = { ABOUT_LOGO_FILE, ABOUT_LOGO_PNG };
+    int i;
+
+    if (!scr) return NULL;
+    for (i = 0; i < 2; i++)
+    {
+        ULONG w = 0, h = 0;
+        Object *img = IIntuition->NewObject(NULL, "bitmap.image",
+            BITMAP_SourceFile, (ULONG)files[i],
+            BITMAP_Screen, (ULONG)scr,
+            TAG_DONE);
+        if (img)
+        {
+            IIntuition->GetAttr(IA_Width, img, &w);
+            IIntuition->GetAttr(IA_Height, img, &h);
+        }
+        DBG("about logo: '%s' -> %p %lux%lu", files[i], (void *)img,
+            (unsigned long)w, (unsigned long)h);
+        if (img && w > 0 && h > 0) return img;
+        if (img) IIntuition->DisposeObject(img);
+    }
+    return NULL;
+}
+
+static Object *MakeAboutLink(ULONG id, CONST_STRPTR text)
+{
+    return IIntuition->NewObject(NULL, "button.gadget",
+        GA_ID, id,
+        GA_RelVerify, TRUE,
+        GA_Underscore, 0,
+        GA_Text, (ULONG)text,
+        BUTTON_BevelStyle, BVS_NONE,
+        BUTTON_Transparent, TRUE,
+        BUTTON_Justification, BCJ_CENTER,
+        BUTTON_SoftStyle, FSF_UNDERLINED,
+        TAG_DONE);
+}
+
+/* Riga centrata [icona] Etichetta link: solo il link e' sottolineato e
+   si puo' premere.  icon puo' essere NULL. */
+/* Libera gli oggetti non NULL di un elenco (righe non costruite). */
+static void DisposeObjects(Object **objs, int count)
+{
+    int i;
+    for (i = 0; i < count; i++)
+        if (objs[i]) IIntuition->DisposeObject(objs[i]);
+}
+
+/* Riga centrata tra due spaziatori: se il layout non si crea, i figli
+   (gia' creati) vengono liberati invece di restare persi. */
+static Object *MakeCenteredRow(Object *a, Object *b, Object *c, ULONG vertAlign)
+{
+    Object *kids[5];
+    Object *row;
+
+    kids[0] = IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE);
+    kids[1] = a;
+    kids[2] = b;
+    kids[3] = c;
+    kids[4] = IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE);
+
+    row = IIntuition->NewObject(NULL, "layout.gadget",
+        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+        LAYOUT_VertAlignment, vertAlign,
+        kids[0] ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)kids[0],
+        kids[0] ? CHILD_WeightedWidth : TAG_IGNORE, 100,
+        kids[1] ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)kids[1],
+        kids[1] ? CHILD_WeightedWidth : TAG_IGNORE, 0,
+        kids[2] ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)kids[2],
+        kids[2] ? CHILD_WeightedWidth : TAG_IGNORE, 0,
+        kids[3] ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)kids[3],
+        kids[3] ? CHILD_WeightedWidth : TAG_IGNORE, 0,
+        kids[4] ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)kids[4],
+        kids[4] ? CHILD_WeightedWidth : TAG_IGNORE, 100,
+        TAG_DONE);
+    if (!row) DisposeObjects(kids, 5);
+    return row;
+}
+
+static Object *MakeAboutLinkRow(Object *icon, CONST_STRPTR label,
+                                ULONG id, CONST_STRPTR link)
+{
+    return MakeCenteredRow(MakeImageLabel(icon),
+                           (label && label[0]) ? MakeAboutLabel(label, 0) : NULL,
+                           MakeAboutLink(id, link),
+                           LAYOUT_ALIGN_CENTER);
+}
+
+/* Apre un URL (http o mailto) con il browser o il programma di posta
+   dell'utente: prima il comando OpenURL di openurl.library (usa le sue
+   preferenze), poi il gestore URL: di AmigaOS 4.1. */
+static void OpenAboutLink(CONST_STRPTR url)
+{
+    char cmd[512];
+    LONG rc;
+    BPTR fh;
+
+    snprintf(cmd, sizeof(cmd), "OpenURL >NIL: \"%s\"", url);
+    rc = IDOS->SystemTags(cmd, SYS_Input, 0, SYS_Output, 0, TAG_DONE);
+    DBG("about link: '%s' rc=%ld", cmd, (long)rc);
+    if (rc == 0) return;
+
+    snprintf(cmd, sizeof(cmd), "URL:%s", url);
+    fh = IDOS->Open(cmd, MODE_OLDFILE);
+    DBG("about link: Open('%s') -> %p", cmd, (void *)fh);
+    if (fh)
+    {
+        IDOS->Close(fh);
+        return;
+    }
+
+    snprintf(cmd, sizeof(cmd), LS(MSG_OPENWITH_FAILED), url);
+    ShowMessage(LS(MSG_ERROR_TITLE), cmd);
+}
+
 void ShowAbout(struct Window *win)
 {
     Object *winObj = NULL;
@@ -832,12 +976,41 @@ void ShowAbout(struct Window *win)
     char verText[128];
     char rexxText[128];
     char thanksText[256];
+    char mailLabel[64];
+    CONST_STRPTR mailAddr;
     CONST_STRPTR thanksPtr;
+    Object *logo = NULL, *logoRow = NULL, *logoGad = NULL;
+    Object *mailIcon = NULL, *kofiIcon = NULL;
 
     snprintf(byText, sizeof(byText), "%s ", LS(MSG_ABOUT_BY));
     snprintf(suffixText, sizeof(suffixText), " %s", LS(MSG_ABOUT_AUTHOR_SUFFIX));
     snprintf(verText, sizeof(verText), LS(MSG_ABOUT_VERSION), VFM_VERSION_LONG);
     snprintf(rexxText, sizeof(rexxText), "ARexx: %s", gRexxPortName);
+    /* "Mail: indirizzo" (stringa localizzata): l'etichetta resta testo
+       normale, solo l'indirizzo diventa il link. */
+    {
+        CONST_STRPTR m = LS(MSG_ABOUT_MAIL);
+        CONST_STRPTR c = strchr(m, ':');
+        ULONG n = c ? (ULONG)(c - m + 1) : 0;
+        if (n >= sizeof(mailLabel)) n = sizeof(mailLabel) - 1;
+        memcpy(mailLabel, m, n);
+        mailLabel[n] = '\0';
+        mailAddr = c ? c + 1 : m;
+        while (*mailAddr == ' ') mailAddr++;
+    }
+
+    /* Immagine in cima: se il file manca la finestra appare senza. */
+    logo = LoadAboutLogo(scr);
+    logoGad = MakeImageLabel(logo);
+    /* logo centrato (altezza fissa = quella dell'immagine) */
+    if (logoGad)
+        logoRow = MakeCenteredRow(logoGad, NULL, NULL, LAYOUT_ALIGN_TOP);
+
+    if (scr)
+    {
+        mailIcon = LoadIconImage(scr, "mail");
+        kofiIcon = LoadIconImage(scr, "kofi");
+    }
 
     /* I cataloghi .catalog gia' installati possono essere precedenti
        all'aggiunta di AlfredONE: appendilo alla stringa localizzata. */
@@ -850,9 +1023,12 @@ void ShowAbout(struct Window *win)
 
     winObj = IIntuition->NewObject(NULL, "window.class",
         WA_Title, (ULONG)LS(MSG_APP_TITLE), WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE, WA_CloseGadget, TRUE,
-        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_InnerHeight, 210, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERMOUSE,
+        WA_SizeGadget, FALSE, WA_InnerWidth, 380, WA_PubScreen, (ULONG)scr, WINDOW_Position, WPOS_CENTERMOUSE,
         WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
+
+            logoRow ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)logoRow,
+            logoRow ? CHILD_WeightedHeight : TAG_IGNORE, 0,
 
             LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_APP_TITLE), FSF_BOLD),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
@@ -873,10 +1049,17 @@ void ShowAbout(struct Window *win)
                 LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE), CHILD_WeightedWidth, 100,
             TAG_DONE), CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
-            LAYOUT_AddChild, (ULONG)MakeAboutLabel(LS(MSG_ABOUT_MAIL), 0),
+            /* [busta AISS] Mail: indirizzo */
+            LAYOUT_AddChild, (ULONG)MakeAboutLinkRow(mailIcon,
+                mailLabel, GID_ABOUT_MAIL, mailAddr),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             LAYOUT_AddChild, (ULONG)MakeAboutLabel(thanksPtr, 0),
+                CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
+
+            /* [tazza Ko-fi] Dona: url */
+            LAYOUT_AddChild, (ULONG)MakeAboutLinkRow(kofiIcon,
+                LS(MSG_ABOUT_DONATE), GID_ABOUT_DONATE, ABOUT_DONATE_URL),
                 CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
             LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
@@ -905,7 +1088,14 @@ void ShowAbout(struct Window *win)
                         switch (res & WMHI_CLASSMASK)
                         {
                             case WMHI_CLOSEWINDOW: done = TRUE; break;
-                            case WMHI_GADGETUP: done = TRUE; break;
+                            case WMHI_GADGETUP:
+                                switch (res & WMHI_GADGETMASK)
+                                {
+                                    case GID_ABOUT_MAIL:   OpenAboutLink(ABOUT_MAIL_URL); break;
+                                    case GID_ABOUT_DONATE: OpenAboutLink(ABOUT_DONATE_URL); break;
+                                    default: done = TRUE; break;   /* OK */
+                                }
+                                break;
                             default: break;
                         }
                     }
@@ -914,6 +1104,11 @@ void ShowAbout(struct Window *win)
         }
         IIntuition->DisposeObject(winObj);
     }
+
+    /* le immagini dei pulsanti di sola lettura non sono della finestra */
+    if (logo) IIntuition->DisposeObject(logo);
+    if (mailIcon) IIntuition->DisposeObject(mailIcon);
+    if (kofiIcon) IIntuition->DisposeObject(kofiIcon);
 }
 
 /* ===== Segnalibri ===== */
@@ -1159,6 +1354,24 @@ static void AddMenuSeparator(struct TagItem *tags, int *n)
 
 /* Crea un albero menuclass (T_ROOT) dalla lista di tag mpNewMenu.
    NULL se la costruzione fallisce. */
+/* Sottomenu "Vista barra": una voce con spunta per ogni barra del
+   pannello.  Usato nel menu Vista e nel menu contestuale degli spazi
+   vuoti; la spunta di quest'ultimo e' riallineata da SyncContextMenus(). */
+static void AddBarsSubmenu(struct TagItem *tags, int *n)
+{
+    AddMenuItem(tags, n, LS(MSG_MENU_BARS), 0, NULL, MIMG_SETTINGS, FALSE, FALSE, FALSE);
+    AddMenuTag(tags, n, NM_SubItems, SI_BEGIN);
+    AddMenuItem(tags, n, LS(MSG_BAR_PATH), MENU_BAR_PATH, NULL, -1,
+                TRUE, BarVisible(BAR_PATH), FALSE);
+    AddMenuItem(tags, n, LS(MSG_BAR_TOOLS), MENU_BAR_TOOLS, NULL, -1,
+                TRUE, BarVisible(BAR_TOOLS), FALSE);
+    AddMenuItem(tags, n, LS(MSG_BAR_FILTER), MENU_BAR_FILTER, NULL, -1,
+                TRUE, BarVisible(BAR_FILTER), FALSE);
+    AddMenuItem(tags, n, LS(MSG_BAR_STATUS), MENU_BAR_STATUS, NULL, -1,
+                TRUE, BarVisible(BAR_STATUS), FALSE);
+    AddMenuTag(tags, n, NM_SubItems, SI_END);
+}
+
 static Object *NewMenuTree(struct TagItem *tags)
 {
     struct mpNewMenu nm;
@@ -1191,37 +1404,37 @@ void BuildMenu(void)
     /* Program */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_PROGRAM));
     AddMenuItem(tags, &n, LS(MSG_MENU_NEWWINDOW), MENU_NEWWINDOW, "N", MIMG_NEW, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_MENU_INFO), MENU_INFO, "I", MIMG_INFO, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_INFO), MENU_INFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_QUIT), MENU_QUIT, "E", MIMG_QUIT, FALSE, FALSE, FALSE);
 
     /* Edit */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
-    AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_NEWWIN), MENU_OPEN, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_NEWWIN), MENU_OPEN, "Shift+Return", MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_OPEN_WITH), MENU_OPEN_WITH, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
-    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, "Ctrl+N", MIMG_FOLDER, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_TEXTFILE), MENU_NEW_TEXTFILE, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_END);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_SELECT_ALL), MENU_SELECT_ALL, "A", MIMG_SELECTALL, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_INVERT_SELECTION), MENU_INVERT_SELECTION, NULL, MIMG_INVERT, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_MENU_DESELECT_ALL), MENU_DESELECT_ALL, NULL, MIMG_UNSELECTALL, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_DESELECT_ALL), MENU_DESELECT_ALL, "Esc", MIMG_UNSELECTALL, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_DUPLICATE), MENU_DUPLICATE, NULL, MIMG_DUPLICATE, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_COPY), MENU_COPY, NULL, MIMG_COPY, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_CUT), MENU_CUT, NULL, MIMG_CUT, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_PASTE), MENU_PASTE, NULL, MIMG_PASTE, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_RENAME), MENU_RENAME, "F2", MIMG_RENAME, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_DELETE), MENU_DELETE, "Del", MIMG_DELETE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_DUPLICATE), MENU_DUPLICATE, "D", MIMG_DUPLICATE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_COPY), MENU_COPY, "C", MIMG_COPY, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_CUT), MENU_CUT, "X", MIMG_CUT, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_PASTE), MENU_PASTE, "V", MIMG_PASTE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_INFO), MENU_FILEINFO, "I", MIMG_INFO, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_SHELL), MENU_SHELL, NULL, MIMG_SHELL, FALSE, FALSE, FALSE);
 
     /* View */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_VIEW));
-    AddMenuItem(tags, &n, LS(MSG_COL_SIZE), 0, NULL, MIMG_ICONS, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_ICONSIZE), 0, NULL, MIMG_ICONS, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
     AddMenuItem(tags, &n, "Auto", MENU_ICON_SIZE_AUTO, NULL, -1,
                 TRUE, (gIconSize == 0), FALSE);
@@ -1234,9 +1447,14 @@ void BuildMenu(void)
     AddMenuItem(tags, &n, "96 x 96", MENU_ICON_SIZE_96, NULL, -1,
                 TRUE, (gIconSize == 96), FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_END);
+    AddBarsSubmenu(tags, &n);
     AddMenuSeparator(tags, &n);
-    AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, "F5", MIMG_REFRESH, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_BTN_ICONS), MENU_TOGGLE_VIEW, NULL, MIMG_ICONS, FALSE, FALSE, FALSE);
+    /* Dividi: spuntata in vista doppia.  Serve anche quando la barra dei
+       pulsanti (che contiene il pulsante Dividi) e' nascosta. */
+    AddMenuItem(tags, &n, LS(MSG_MENU_SPLIT), MENU_SPLIT, NULL, -1,
+                TRUE, (gPanes[1].listGad != NULL), FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_SHOWINFO), MENU_VIEW_SHOWINFO, NULL, MIMG_SHOWINFO,
                 TRUE, gShowInfoFiles ? TRUE : FALSE, (gViewMode == FBVM_ICONS));
@@ -1335,14 +1553,14 @@ static void AddCtxItemEntries(struct TagItem *tags, int *n, BOOL withOpenWith)
     if (withOpenWith)
         AddMenuItem(tags, n, LS(MSG_MENU_OPEN_WITH), MENU_OPEN_WITH, NULL, MIMG_OPEN, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, n);
-    AddMenuItem(tags, n, LS(MSG_RENAME), MENU_RENAME, NULL, MIMG_RENAME, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, n, LS(MSG_DELETE), MENU_DELETE, NULL, MIMG_DELETE, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, n, LS(MSG_DUPLICATE), MENU_DUPLICATE, NULL, MIMG_DUPLICATE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_RENAME), MENU_RENAME, "F2", MIMG_RENAME, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_DELETE), MENU_DELETE, "Del", MIMG_DELETE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_DUPLICATE), MENU_DUPLICATE, "D", MIMG_DUPLICATE, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, n);
-    AddMenuItem(tags, n, LS(MSG_COPY), MENU_COPY, NULL, MIMG_COPY, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, n, LS(MSG_CUT), MENU_CUT, NULL, MIMG_CUT, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_COPY), MENU_COPY, "C", MIMG_COPY, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_CUT), MENU_CUT, "X", MIMG_CUT, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, n);
-    AddMenuItem(tags, n, LS(MSG_INFO), MENU_FILEINFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, n, LS(MSG_INFO), MENU_FILEINFO, "I", MIMG_INFO, FALSE, FALSE, FALSE);
     AddMenuItem(tags, n, LS(MSG_CALC_SIZE), MENU_CALCSIZE, NULL, MIMG_SIZE, FALSE, FALSE, FALSE);
     AddCtxViewEntries(tags, n);
     AddMenuTag(tags, n, TAG_DONE, 0);
@@ -1396,14 +1614,15 @@ void BuildContextMenus(void)
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_EDIT));
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW), 0, NULL, MIMG_NEW, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_BEGIN);
-    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_MENU_NEW_DRAWER), MENU_NEW_DRAWER, "Ctrl+N", MIMG_FOLDER, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_MENU_NEW_TEXTFILE), MENU_NEW_TEXTFILE, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
     AddMenuTag(tags, &n, NM_SubItems, SI_END);
-    AddMenuItem(tags, &n, LS(MSG_PASTE), MENU_PASTE, NULL, MIMG_PASTE, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_PASTE), MENU_PASTE, "V", MIMG_PASTE, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_SHELL), MENU_SHELL, NULL, MIMG_SHELL, FALSE, FALSE, FALSE);
-    AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
+    AddMenuItem(tags, &n, LS(MSG_BTN_REFRESH), MENU_REFRESH, "F5", MIMG_REFRESH, FALSE, FALSE, FALSE);
     AddCtxViewEntries(tags, &n);
+    AddBarsSubmenu(tags, &n);
     AddMenuTag(tags, &n, TAG_DONE, 0);
     mEmpty = NewMenuTree(tags);
 
@@ -1457,6 +1676,13 @@ void SyncContextMenus(void)
         if (!menus[i]) continue;
         SetCtxChecked(menus[i], MENU_VIEW_ICONS, gViewFilter == VIEW_FILTER_ICONS_ONLY);
         SetCtxChecked(menus[i], MENU_VIEW_ALLFILES, gViewFilter == VIEW_FILTER_ALL_FILES);
+    }
+    if (gCtxMenuEmpty)
+    {
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_PATH,   BarVisible(BAR_PATH));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_TOOLS,  BarVisible(BAR_TOOLS));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_FILTER, BarVisible(BAR_FILTER));
+        SetCtxChecked(gCtxMenuEmpty, MENU_BAR_STATUS, BarVisible(BAR_STATUS));
     }
 }
 

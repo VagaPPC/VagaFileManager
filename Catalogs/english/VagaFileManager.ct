@@ -467,3 +467,30 @@ Only this file
 MSG_OPENWITH_SAVE_FAILED
 Cannot save the icon of %s.
 ;
+MSG_MENU_ICONSIZE
+Size
+;
+MSG_MENU_BARS
+Bars
+;
+MSG_BAR_PATH
+Show path bar
+;
+MSG_BAR_TOOLS
+Show button bar
+;
+MSG_BAR_FILTER
+Show filter bar
+;
+MSG_BAR_STATUS
+Show status bar
+;
+MSG_MENU_SPLIT
+Split
+;
+MSG_BTN_CLEAR_FILTER
+Clear filter
+;
+MSG_ABOUT_DONATE
+Donate:
+;

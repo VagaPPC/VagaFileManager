@@ -467,3 +467,30 @@ Solo este archivo
 MSG_OPENWITH_SAVE_FAILED
 No se puede guardar el icono de %s.
 ;
+MSG_MENU_ICONSIZE
+Tamaño
+;
+MSG_MENU_BARS
+Barras
+;
+MSG_BAR_PATH
+Mostrar barra de ruta
+;
+MSG_BAR_TOOLS
+Mostrar barra de botones
+;
+MSG_BAR_FILTER
+Mostrar barra de filtro
+;
+MSG_BAR_STATUS
+Mostrar barra de estado
+;
+MSG_MENU_SPLIT
+Dividir
+;
+MSG_BTN_CLEAR_FILTER
+Borrar filtro
+;
+MSG_ABOUT_DONATE
+Donar:
+;

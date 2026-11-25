@@ -146,7 +146,8 @@ CONST_STRPTR gIconNames[IMG_COUNT] =
     "arrowup", "open", "refresh", "home", "arrowleft", "arrowright",
     "drawers", "listview",
     "rename", "delete", "duplicate", "copy", "cut", "paste", "info",
-    "filter", "sortingandgrouping", "filesize", "shell", "split"
+    "filter", "sortingandgrouping", "filesize", "shell", "split",
+    "clearlister"
 };
 
 Object *gBtnImg[IMG_COUNT];
@@ -496,6 +497,9 @@ static void ParsePrefs(CONST_STRPTR file,
                 prefs->height = atoi(line + 7);
             else if (!inPath && !inVolume && !strncmp(line, "Split=", 6))
                 prefs->split = atoi(line + 6) ? 1 : 0;
+            else if (!inPath && !inVolume && !strncmp(line, "HiddenBars=", 11))
+                prefs->hiddenBars = (ULONG)atoi(line + 11) &
+                                    (BAR_PATH | BAR_TOOLS | BAR_FILTER | BAR_STATUS);
         }
         IDOS->Close(fh);
     }
@@ -636,6 +640,7 @@ void SavePrefs(void)
         diskPrefs.width  = gPrefs.width;
         diskPrefs.height = gPrefs.height;
         diskPrefs.split  = gPrefs.split;
+        diskPrefs.hiddenBars = gPrefs.hiddenBars;
 
         /* La geometria vale per il volume su cui l'istanza e' stata
            aperta, non per l'ultima cartella visitata. */
@@ -671,6 +676,7 @@ void SavePrefs(void)
         IDOS->FPrintf(fh, "Width=%ld\n",  (long)wp->width);
         IDOS->FPrintf(fh, "Height=%ld\n", (long)wp->height);
         IDOS->FPrintf(fh, "Split=%ld\n",  (long)wp->split);
+        IDOS->FPrintf(fh, "HiddenBars=%ld\n", (long)wp->hiddenBars);
 
         for (i = 0; i < vaCount; i++)
         {
@@ -710,7 +716,7 @@ static Object *CreatePaneUI(int p)
 {
     struct Pane *pn = &gPanes[p];
     ULONG off = (ULONG)p * PANE_ID_OFFSET;
-    Object *pathRow, *toolRow, *filterRow;
+    Object *pathRow = NULL, *toolRow = NULL, *filterRow = NULL;
 
     pn->colInfo = IListBrowser->AllocLBColumnInfo(NUM_COLS,
         LBCIA_Column, COL_ICON, LBCIA_Title, (ULONG)"", LBCIA_Width, 20,
@@ -726,6 +732,16 @@ static Object *CreatePaneUI(int p)
             LBCIA_Sortable, TRUE, LBCIA_AutoSort, TRUE, LBCIA_SortArrow, TRUE, LBCIA_CompareHook, (ULONG)&gSortHooks[p],
         TAG_DONE);
 
+    /* Le barre nascoste (Vista > Vista barra) non vengono create: i loro
+       gadget restano NULL e il resto del codice li tratta come assenti.
+       Nessun gadget esiste fuori dal layout, quindi nessun aggiornamento
+       puo' disegnarlo in una posizione vecchia. */
+    pn->pathGad = pn->statusGad = pn->filterGad = pn->toggleGad = NULL;
+    pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
+    pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
+    pn->sizeGad = NULL;
+
+    if (BarVisible(BAR_PATH))
     pn->pathGad = IIntuition->NewObject(NULL, "string.gadget",
         GA_ID, GID_PATH + off, GA_RelVerify, TRUE, GA_TabCycle, FALSE,
         STRINGA_MaxChars, PATH_MAX_LEN - 1, STRINGA_TextVal, (ULONG)pn->pathBuffer,
@@ -736,10 +752,12 @@ static Object *CreatePaneUI(int p)
        and every file operation would act on a different path from the one
        shown in the list. */
 
+    if (BarVisible(BAR_STATUS))
     pn->statusGad = IIntuition->NewObject(NULL, "button.gadget",
         GA_ID, GID_STATUS + off, GA_ReadOnly, TRUE, GA_Text, (ULONG)LS(MSG_STATUS_EMPTY),
         GA_Underscore, 0, BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE, TAG_DONE);
 
+    if (BarVisible(BAR_FILTER))
     pn->filterGad = IIntuition->NewObject(NULL, "string.gadget",
         GA_ID, GID_FILTER + off, GA_RelVerify, TRUE, GA_TabCycle, FALSE,
         STRINGA_MaxChars, NAME_MAX_LEN - 1,
@@ -762,12 +780,14 @@ static Object *CreatePaneUI(int p)
         FILEBROWSER_HiddenColumns, (1UL << COL_TYPE) | (1UL << COL_SIZE) | (1UL << COL_DATE) | (1UL << COL_COMMENT),
         TAG_DONE);
 
+    /* barra del percorso */
+    if (BarVisible(BAR_PATH))
+    {
     pn->toggleGad = MakeIconButton(GID_TOGGLE_VIEW + off,
         (pn->viewMode == FBVM_ICONS) ? gBtnImg[IMG_DETAILS] : gBtnImg[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? gBtnImgSel[IMG_DETAILS] : gBtnImgSel[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? LS(MSG_BTN_DETAILS) : LS(MSG_BTN_ICONS));
 
-    /* barra del percorso */
     pathRow = IIntuition->NewObject(NULL, "layout.gadget",
         LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_HOME + off, gBtnImg[IMG_HOME], gBtnImgSel[IMG_HOME], LS(MSG_BTN_HOME)), CHILD_WeightedWidth, 0,
@@ -777,8 +797,10 @@ static Object *CreatePaneUI(int p)
         LAYOUT_AddChild, (ULONG)MakeIconButton(GID_REFRESH + off, gBtnImg[IMG_REFRESH], gBtnImgSel[IMG_REFRESH], LS(MSG_BTN_REFRESH)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)pn->pathGad, CHILD_WeightedWidth, 100,
         TAG_DONE);
+    }
 
     /* barra operazioni; "Calcola dimensione" e "Dividi" */
+    if (BarVisible(BAR_TOOLS))
     {
         Object *btnRename = MakeIconButton(GID_RENAME + off, gBtnImg[IMG_RENAME], gBtnImgSel[IMG_RENAME], LS(MSG_RENAME));
         Object *btnDelete = MakeIconButton(GID_DELETE + off, gBtnImg[IMG_DELETE], gBtnImgSel[IMG_DELETE], LS(MSG_DELETE));
@@ -825,25 +847,36 @@ static Object *CreatePaneUI(int p)
             TAG_DONE);
     }
 
+    if (BarVisible(BAR_FILTER))
     {
         Object *filterLabel = IIntuition->NewObject(NULL, "button.gadget",
             GA_ReadOnly, TRUE, GA_Underscore, 0, GA_Text, (ULONG)LS(MSG_FILTER),
             BUTTON_BevelStyle, BVS_NONE, BUTTON_Transparent, TRUE, TAG_DONE);
 
+        /* Filtro: [svuota] [testo] */
         filterRow = IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
             LAYOUT_AddChild, (ULONG)filterLabel, CHILD_WeightedWidth, 0,
+            LAYOUT_AddChild, (ULONG)MakeIconButton(GID_CLEAR_FILTER + off,
+                gBtnImg[IMG_CLEARFILTER], gBtnImgSel[IMG_CLEARFILTER],
+                LS(MSG_BTN_CLEAR_FILTER)), CHILD_WeightedWidth, 0,
             LAYOUT_AddChild, (ULONG)pn->filterGad, CHILD_WeightedWidth, 100,
             TAG_DONE);
     }
 
+    /* Le barre assenti vengono saltate: sia LAYOUT_AddChild sia il suo
+       CHILD_WeightedHeight diventano TAG_IGNORE. */
     pn->paneLayout = IIntuition->NewObject(NULL, "layout.gadget",
         LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
-        LAYOUT_AddChild, (ULONG)pathRow, CHILD_WeightedHeight, 0,
-        LAYOUT_AddChild, (ULONG)toolRow, CHILD_WeightedHeight, 0,
+        pathRow ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)pathRow,
+        pathRow ? CHILD_WeightedHeight : TAG_IGNORE, 0,
+        toolRow ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)toolRow,
+        toolRow ? CHILD_WeightedHeight : TAG_IGNORE, 0,
         LAYOUT_AddChild, (ULONG)pn->listGad, CHILD_WeightedHeight, 100,
-        LAYOUT_AddChild, (ULONG)filterRow, CHILD_WeightedHeight, 0,
-        LAYOUT_AddChild, (ULONG)pn->statusGad, CHILD_WeightedHeight, 0,
+        filterRow ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)filterRow,
+        filterRow ? CHILD_WeightedHeight : TAG_IGNORE, 0,
+        pn->statusGad ? LAYOUT_AddChild : TAG_IGNORE, (ULONG)pn->statusGad,
+        pn->statusGad ? CHILD_WeightedHeight : TAG_IGNORE, 0,
         TAG_DONE);
 
     return pn->paneLayout;
@@ -938,6 +971,119 @@ static void HideTopBar(struct Window *win)
 /* attiva (o chiude) il secondo pannello */
 static void UpdateTopBar(struct Window *win);
 static void UpdatePaneMarkers(struct Window *win);
+
+/* Vista > Vista barra: ricostruisce i pannelli aperti con le sole barre
+   visibili (layout.gadget non sa nascondere un figlio).  Il nuovo layout
+   prende il posto del vecchio con CHILD_ReplaceObject, che distrugge il
+   vecchio; la lista dei nodi appartiene al pannello e viene riletta. */
+static void RebuildPaneBars(struct Window *win)
+{
+    int p, save = gActivePane;
+
+    if (!win || !gPanesRow || !gMainWinObj) return;
+
+    gCtxMenuBlocked = TRUE;
+    for (p = 0; p < 2; p++)
+    {
+        struct Pane *pn = &gPanes[p];
+        Object *oldLayout = pn->paneLayout;
+        struct ColumnInfo *oldCol = pn->colInfo;
+        struct lmModifyChild mod;
+        struct TagItem attrs[2];
+        Object *newLayout;
+
+        if (!oldLayout) continue;
+
+        /* una barra del filtro nascosta non deve lasciare la lista filtrata
+           senza che si veda perche' */
+        if (!BarVisible(BAR_FILTER))
+        {
+            pn->filterBuffer[0] = '\0';
+            pn->filterApplied[0] = '\0';
+            pn->filterSeen[0] = '\0';
+        }
+
+        /* CreatePaneUI scrive i gadget nel pannello: si salvano quelli
+           vecchi per tornare indietro se la costruzione fallisce (poca
+           memoria), invece di lasciare il pannello a meta'. */
+        struct
+        {
+            Object *paneLayout, *listGad, *pathGad, *statusGad, *filterGad, *toggleGad;
+            Object *btnRename, *btnDelete, *btnDuplicate, *btnCopy, *btnCut, *btnPaste, *btnInfo, *sizeGad;
+            struct ColumnInfo *colInfo;
+        } old;
+        old.paneLayout = pn->paneLayout; old.listGad = pn->listGad;
+        old.pathGad = pn->pathGad; old.statusGad = pn->statusGad;
+        old.filterGad = pn->filterGad; old.toggleGad = pn->toggleGad;
+        old.btnRename = pn->btnRename; old.btnDelete = pn->btnDelete;
+        old.btnDuplicate = pn->btnDuplicate; old.btnCopy = pn->btnCopy;
+        old.btnCut = pn->btnCut; old.btnPaste = pn->btnPaste;
+        old.btnInfo = pn->btnInfo; old.sizeGad = pn->sizeGad;
+        old.colInfo = pn->colInfo;
+
+        /* i nodi restano al pannello: staccarli dal vecchio gadget */
+        if (pn->listGad)
+            IIntuition->SetAttrs(pn->listGad, LISTBROWSER_Labels, ~0, TAG_DONE);
+
+        newLayout = CreatePaneUI(p);
+        if (!newLayout)
+        {
+            DBG("bars: cannot rebuild pane %d", p);
+            if (pn->colInfo && pn->colInfo != oldCol)
+                IListBrowser->FreeLBColumnInfo(pn->colInfo);
+            pn->paneLayout = old.paneLayout;
+            pn->colInfo    = old.colInfo;
+            pn->listGad    = old.listGad;
+            pn->pathGad    = old.pathGad;
+            pn->statusGad  = old.statusGad;
+            pn->filterGad  = old.filterGad;
+            pn->toggleGad  = old.toggleGad;
+            pn->btnRename  = old.btnRename;
+            pn->btnDelete  = old.btnDelete;
+            pn->btnDuplicate = old.btnDuplicate;
+            pn->btnCopy    = old.btnCopy;
+            pn->btnCut     = old.btnCut;
+            pn->btnPaste   = old.btnPaste;
+            pn->btnInfo    = old.btnInfo;
+            pn->sizeGad    = old.sizeGad;
+            if (pn->listGad)
+                IIntuition->SetGadgetAttrs((struct Gadget *)pn->listGad, win, NULL,
+                    LISTBROWSER_Labels, (ULONG)&pn->fileList, TAG_DONE);
+            continue;
+        }
+
+        attrs[0].ti_Tag  = CHILD_ReplaceObject;
+        attrs[0].ti_Data = (ULONG)newLayout;
+        attrs[1].ti_Tag  = TAG_DONE;
+        attrs[1].ti_Data = 0;
+        memset(&mod, 0, sizeof(mod));
+        mod.MethodID       = LM_MODIFYCHILD;
+        mod.lm_Window      = win;
+        mod.lm_Object      = oldLayout;
+        mod.lm_ObjectAttrs = attrs;
+        IIntuition->IDoMethodA(gPanesRow, (Msg)&mod);
+
+        if (oldCol) IListBrowser->FreeLBColumnInfo(oldCol);
+    }
+
+    IIntuition->IDoMethod(gMainWinObj, WM_RETHINK);
+
+    for (p = 0; p < 2; p++)
+    {
+        struct Pane *pn = &gPanes[p];
+        if (!pn->listGad) continue;
+        gActivePane = p;
+        LoadPath(pn->pathBuffer, pn->listGad, pn->pathGad, pn->statusGad, win, &pn->fileList);
+        UpdateStatus(pn->listGad, pn->statusGad, win);
+    }
+    gActivePane = save;
+    /* LoadPath ha messo nel titolo il percorso dell'ultimo pannello letto */
+    if (gPanes[save].listGad)
+        UpdateWindowTitle(win, gPanes[save].pathBuffer);
+    UpdatePaneMarkers(win);
+    gCtxMenuBlocked = FALSE;
+    DBG("bars: hidden mask %lu", (unsigned long)gPrefs.hiddenBars);
+}
 static void RefreshAfterSelection(Object *listGad, struct Window *win);
 static void ClearOtherPaneSelection(int gp, struct Window *win);
 
@@ -950,6 +1096,8 @@ static void ToggleSplit(struct Window *win, Object *winObj)
     gCtxMenuBlocked = TRUE;
     ToggleSplitPanes(win, winObj);
     gCtxMenuBlocked = FALSE;
+    /* spunta di Vista > Dividi */
+    UpdateMenu();
 }
 
 static void ToggleSplitPanes(struct Window *win, Object *winObj)
@@ -1115,11 +1263,13 @@ static uint32 KeyIDCMPHook(struct Hook *hook, APTR window, struct IntuiMessage *
             (code & ~IECODE_UP_PREFIX) == RAWKEY_TAB)
             gTabSwitchRequest = TRUE;
     }
+    /* Ctrl+I produce anch'esso il carattere 9: non e' TAB */
     else if (msg && msg->Class == IDCMP_VANILLAKEY && msg->Code == 9 &&
              !(msg->Qualifier & (IEQUALIFIER_LCOMMAND |
                                  IEQUALIFIER_RCOMMAND |
                                  IEQUALIFIER_LALT |
                                  IEQUALIFIER_RALT |
+                                 IEQUALIFIER_CONTROL |
                                  IEQUALIFIER_REPEAT)))
     {
         gTabSwitchRequest = TRUE;
@@ -2484,7 +2634,7 @@ static void UpdateAllStatuses(struct Window *win)
     int q, save = gActivePane;
     for (q = 0; q < 2; q++)
     {
-        if (!gPanes[q].listGad || !gPanes[q].statusGad) continue;
+        if (!gPanes[q].listGad) continue;
         gActivePane = q;
         UpdateStatus(gPanes[q].listGad, gPanes[q].statusGad, win);
     }
@@ -2795,13 +2945,119 @@ static BOOL HandlePaneKey(int which, ULONG qual, struct Window *win)
     return TRUE;
 }
 
+/* Scorciatoie da tastiera che corrispondono a voci di menu (la
+   combinazione e' mostrata accanto alla voce): stessa azione del menu,
+   sul pannello attivo. */
+static void DoKeyCommand(ULONG id, struct Window *win)
+{
+    int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+    struct Pane *pn = &gPanes[gp];
+    struct List *fl = &pn->fileList;
+
+    if (!win || !pn->listGad) return;
+
+    switch (id)
+    {
+        case MENU_COPY:      DoCopySelected(fl); UpdateAllStatuses(win); break;
+        case MENU_CUT:       DoCutSelected(fl); UpdateAllStatuses(win); break;
+        case MENU_PASTE:     DoPaste(pn->listGad, pn->pathGad, pn->statusGad, win, fl);
+                             UpdateAllStatuses(win); break;
+        case MENU_RENAME:    DoRenameSelected(pn->listGad, pn->pathGad, pn->statusGad, win, fl); break;
+        case MENU_DUPLICATE: DoDuplicateSelected(pn->listGad, pn->pathGad, pn->statusGad, win, fl); break;
+        case MENU_FILEINFO:  DoInfo(fl, win); break;
+        case MENU_NEW_DRAWER: DoNewDrawer(pn->listGad, pn->pathGad, pn->statusGad, win, fl); break;
+        case MENU_SELECT_ALL:
+            SelectAllEntries(fl);
+            RefreshAfterSelection(pn->listGad, win);
+            UpdateStatus(pn->listGad, pn->statusGad, win);
+            break;
+        case MENU_REFRESH:
+            LoadPath(pn->pathBuffer, pn->listGad, pn->pathGad, pn->statusGad, win, fl);
+            break;
+        default: break;
+    }
+}
+
+/* Ctrl+F / Ctrl+L: attiva il campo filtro o percorso del pannello attivo
+   (niente se la barra e' nascosta). */
+static void ActivatePaneField(BOOL filter)
+{
+    int gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+    Object *gad = filter ? gPanes[gp].filterGad : gPanes[gp].pathGad;
+    struct wmActivateGadget m;
+
+    if (!gad || !gMainWinObj) return;
+    m.MethodID = WM_ACTIVATEGADGET;
+    m.wma_Object = (struct Gadget *)gad;
+    IIntuition->IDoMethodA(gMainWinObj, (Msg)&m);
+}
+
 static void HandleVanillaKey(ULONG key, struct Window *win)
 {
     ULONG qual = KeyQualifiers();
 
+    if (qual & IEQUALIFIER_REPEAT)
+    {
+        /* tenendo premuto un tasto si continua solo a scorrere/selezionare */
+        if (qual & (IEQUALIFIER_CONTROL | IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND))
+            return;
+    }
+
+    /* Amiga+tasto.  C/V/X/A/D/I sono scorciatoie di menu (Intuition le
+       trasforma in una scelta di menu e disegna il simbolo Amiga accanto
+       alla voce); qui arrivano solo se il menu non le ha prese, per
+       esempio con Amiga sinistro.  F e L non hanno una voce di menu. */
+    if ((qual & (IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND)) &&
+        !(qual & (IEQUALIFIER_LALT | IEQUALIFIER_RALT)))
+    {
+        switch (tolower((int)key))
+        {
+            case 'c': DoKeyCommand(MENU_COPY, win); break;
+            case 'v': DoKeyCommand(MENU_PASTE, win); break;
+            case 'x': DoKeyCommand(MENU_CUT, win); break;
+            case 'a': DoKeyCommand(MENU_SELECT_ALL, win); break;
+            case 'd': DoKeyCommand(MENU_DUPLICATE, win); break;
+            case 'i': DoKeyCommand(MENU_FILEINFO, win); break;
+            case 'f': ActivatePaneField(TRUE); break;
+            case 'l': ActivatePaneField(FALSE); break;
+            default: break;
+        }
+        return;
+    }
+
     if (qual & (IEQUALIFIER_LCOMMAND | IEQUALIFIER_RCOMMAND |
                 IEQUALIFIER_LALT | IEQUALIFIER_RALT))
         return;
+
+    /* Ctrl+lettera: con VANILLAKEY arriva il carattere di controllo
+       (Ctrl+A = 1 ... Ctrl+Z = 26), quindi Ctrl+I non va confuso con TAB */
+    if (qual & IEQUALIFIER_CONTROL)
+    {
+        int letter = 0;
+        BOOL handled = TRUE;
+
+        /* Backspace (8) e Return (13) arrivano come Ctrl+H e Ctrl+M: non
+           sono lettere.  Ctrl+I e Ctrl+TAB danno entrambi 9 e non si
+           distinguono: vale come Ctrl+I.  I tasti non gestiti qui (Return,
+           Backspace, Del, Esc) proseguono come senza Ctrl. */
+        if (key >= 1 && key <= 26 && key != 8 && key != 13)
+            letter = 'a' + (int)key - 1;
+        else if (isalpha((int)key)) letter = tolower((int)key);
+        switch (letter)
+        {
+            case 'c': DoKeyCommand(MENU_COPY, win); break;
+            case 'v': DoKeyCommand(MENU_PASTE, win); break;
+            case 'x': DoKeyCommand(MENU_CUT, win); break;
+            case 'a': DoKeyCommand(MENU_SELECT_ALL, win); break;
+            case 'd': DoKeyCommand(MENU_DUPLICATE, win); break;
+            case 'i': DoKeyCommand(MENU_FILEINFO, win); break;
+            case 'n': DoKeyCommand(MENU_NEW_DRAWER, win); break;
+            case 'f': ActivatePaneField(TRUE); break;
+            case 'l': ActivatePaneField(FALSE); break;
+            default: handled = FALSE; break;
+        }
+        if (handled) return;
+    }
 
     /* con IDCMP_VANILLAKEY Return/Enter, Backspace e Del arrivano qui */
     if (key == 13) { HandlePaneKey(PANEKEY_ENTER, qual, win); return; }
@@ -2870,8 +3126,16 @@ static void HandleRawKey(ULONG key, struct Window *win)
             break;
 
         case RAWKEY_TAB:
-            if (!(qual & IEQUALIFIER_REPEAT))
+            if (!(qual & (IEQUALIFIER_REPEAT | IEQUALIFIER_CONTROL)))
                 gTabSwitchRequest = TRUE;
+            break;
+
+        case RAWKEY_F2:
+            if (!(qual & IEQUALIFIER_REPEAT)) DoKeyCommand(MENU_RENAME, win);
+            break;
+
+        case RAWKEY_F5:
+            if (!(qual & IEQUALIFIER_REPEAT)) DoKeyCommand(MENU_REFRESH, win);
             break;
 
         default:
@@ -3531,6 +3795,11 @@ int main(int argc, char **argv)
                                                 RefreshPaneAfterFilter(gp, windows[WID_MAIN]);
                                                 break;
                                             }
+                                            case GID_CLEAR_FILTER:
+                                                /* svuota il campo e mostra di nuovo tutto */
+                                                ClearPaneFilter(gp, windows[WID_MAIN]);
+                                                RefreshPaneAfterFilter(gp, windows[WID_MAIN]);
+                                                break;
                                             case GID_BACK: GoUp(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_FORWARD: GoForward(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                             case GID_OPEN: TryOpenSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl,TRUE); break;
@@ -3663,6 +3932,37 @@ int main(int argc, char **argv)
                                                 case MENU_VIEW_ICONS: gViewFilter = VIEW_FILTER_ICONS_ONLY; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_VIEW_ALLFILES: gViewFilter = VIEW_FILTER_ALL_FILES; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_VIEW_SHOWINFO: gShowInfoFiles = !gShowInfoFiles; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); needStatus=TRUE; break;
+                                                case MENU_SPLIT:
+                                                    ToggleSplit(windows[WID_MAIN], gMainWinObj);
+                                                    /* il pannello 1 puo' essere sparito */
+                                                    gp = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
+                                                    listGad   = gPanes[gp].listGad;
+                                                    pathGad   = gPanes[gp].pathGad;
+                                                    statusGad = gPanes[gp].statusGad;
+                                                    toggleGad = gPanes[gp].toggleGad;
+                                                    fl        = &gPanes[gp].fileList;
+                                                    needStatus = TRUE;
+                                                    break;
+                                                case MENU_BAR_PATH:
+                                                case MENU_BAR_TOOLS:
+                                                case MENU_BAR_FILTER:
+                                                case MENU_BAR_STATUS:
+                                                {
+                                                    ULONG bit = (menuID == MENU_BAR_PATH)   ? BAR_PATH :
+                                                                (menuID == MENU_BAR_TOOLS)  ? BAR_TOOLS :
+                                                                (menuID == MENU_BAR_FILTER) ? BAR_FILTER : BAR_STATUS;
+                                                    gPrefs.hiddenBars ^= bit;
+                                                    RebuildPaneBars(windows[WID_MAIN]);
+                                                    /* i gadget sono nuovi: i puntatori presi
+                                                       all'inizio del menu non valgono piu' */
+                                                    listGad   = gPanes[gp].listGad;
+                                                    pathGad   = gPanes[gp].pathGad;
+                                                    statusGad = gPanes[gp].statusGad;
+                                                    toggleGad = gPanes[gp].toggleGad;
+                                                    UpdateMenu();
+                                                    SavePrefs();
+                                                    break;
+                                                }
                                                 case MENU_SORT_TYPE: gSortMode = SORT_BY_TYPE; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_SORT_NAME: gSortMode = SORT_BY_NAME; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
                                                 case MENU_SORT_DATE: gSortMode = SORT_BY_DATE; LoadPath(gPathBuffer,listGad,pathGad,statusGad,windows[WID_MAIN],fl); UpdateMenu(); break;
