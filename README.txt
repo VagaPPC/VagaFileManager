@@ -172,6 +172,18 @@ Python / ARexx addons:
   With the optional prefix CHECK=<0|1>:<label>| a checkbox is shown under
   the text field and the reply becomes <index>|<0|1>|<text>.  Find and
   Grep use it for "Include subfolders".
+- Forms with several fields: the channel command FORM <file> shows a
+  window described by the file (one line each):
+    TITLE <title>
+    FIELD <id>|TEXT|<label>|<value>
+    FIELD <id>|PASSWORD|<label>|<value>      (shown as asterisks)
+    FIELD <id>|CHECK|<label>|<0|1>
+    FIELD <id>|CHOICE|<label>|<item1;item2;...>|<index>
+    INFO <text>
+    BUTTONS <button1>|<button2>|...           (up to 6)
+  The reply is the button pressed (0 = window closed); the values are
+  written to <file>.out as BUTTON=<n> and one <id>=<value> line per field.
+  SambaMount uses it.
   or, without ARexx, launch VFM in dialog mode:
     VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
     VagaFileManager --dialog "@<spec-file>"
@@ -200,6 +212,15 @@ Python / ARexx addons:
   the result with C:gzip, producing a `.tar.gz` archive.  It also offers
   Add / Overwrite / Cancel; Add decompresses the existing archive, appends
   the new entries and compresses it again.
+- `Plugins/SambaMount.py` mounts an SMB2/3 share (Samba, Windows, NAS)
+  with smb2-handler (smb2fs package, needs filesysbox.library 54.4+).  One
+  form asks device, host, share, user, password, volume, read only and
+  guest; the DOSDriver can stay temporary (T:) or be saved in
+  DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved DOSDriver keeps the
+  password in plain text).  The plugin checks that the share answers
+  before VFM opens it.  The last values, password excluded, are kept in
+  ENVARC:SambaMount.prefs.  Unmounting is not available (AmigaOS has no
+  DISMOUNT for this handler).
 - All three archive add-ons use the VFM progress window with the total
   file count.  Its close button interrupts the compression after a
   confirmation: the archiver gets CTRL-C and a window without close button

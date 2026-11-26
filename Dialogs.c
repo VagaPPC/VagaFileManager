@@ -27,6 +27,8 @@
 #include "VagaFileManager.h"
 #include <proto/checkbox.h>
 #include <gadgets/checkbox.h>
+#include <proto/chooser.h>
+#include <gadgets/chooser.h>
 
 static BOOL IconFileExists(CONST_STRPTR path);
 static BOOL TbimagesAvailable(void);
@@ -550,6 +552,357 @@ LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
         }
         IIntuition->DisposeObject(winObj);
     }
+    return result;
+}
+
+/* ===== Modulo a piu' campi (comando FORM dei plugin) =====
+   Il plugin descrive il modulo in un file di testo (una riga per voce):
+     TITLE <titolo>
+     FIELD <id>|TEXT|<etichetta>|<valore>
+     FIELD <id>|PASSWORD|<etichetta>|<valore>      (asterischi)
+     FIELD <id>|CHECK|<etichetta>|<0|1>
+     FIELD <id>|CHOICE|<etichetta>|<voce1;voce2;...>|<indice>
+     INFO <testo>                                   (riga di solo testo)
+     BUTTONS <pulsante1>|<pulsante2>|...            (massimo 6)
+   Alla chiusura scrive <file>.out: BUTTON=<n> (0 = finestra chiusa) e una
+   riga <id>=<valore> per campo; ritorna n, -1 se il file non si legge. */
+
+#define FORM_MAX_ITEMS   16
+#define FORM_MAX_CHOICES 8
+#define GID_FORM_FIELD   3000
+#define GID_FORM_BTN     3100
+
+enum { FI_TEXT, FI_PASSWORD, FI_CHECK, FI_CHOICE, FI_INFO };
+
+struct FormItem
+{
+    int    type;
+    char   id[32];
+    char   label[80];
+    char   value[256];
+    char   choiceBuf[256];
+    STRPTR choices[FORM_MAX_CHOICES + 1];
+    ULONG  choiceIdx;
+    Object *gad;
+};
+
+struct FormSpec
+{
+    char title[128];
+    char buttons[6][64];
+    LONG nButtons;
+    LONG nItems;
+    struct FormItem items[FORM_MAX_ITEMS];
+};
+
+/* Copia il campo fino a '|' (o fine riga) e restituisce il resto. */
+static char *FormNextField(char *s, char *out, ULONG outSize)
+{
+    char *sep = s ? strchr(s, '|') : NULL;
+    ULONG n;
+    if (!s) { if (outSize) out[0] = '\0'; return NULL; }
+    n = sep ? (ULONG)(sep - s) : (ULONG)strlen(s);
+    if (n >= outSize) n = outSize - 1;
+    memcpy(out, s, n);
+    out[n] = '\0';
+    return sep ? sep + 1 : NULL;
+}
+
+static BOOL ParseFormSpec(CONST_STRPTR path, struct FormSpec *fs)
+{
+    BPTR fh;
+    char line[600];
+
+    memset(fs, 0, sizeof(*fs));
+    strcpy(fs->title, "VFM");
+    fh = IDOS->Open(path, MODE_OLDFILE);
+    if (!fh) return FALSE;
+
+    while (IDOS->FGets(fh, line, sizeof(line)))
+    {
+        ULONG l = strlen(line);
+        while (l > 0 && (line[l - 1] == '\n' || line[l - 1] == '\r')) line[--l] = '\0';
+
+        if (!strncmp(line, "TITLE ", 6))
+        {
+            strncpy(fs->title, line + 6, sizeof(fs->title) - 1);
+        }
+        else if (!strncmp(line, "BUTTONS ", 8))
+        {
+            char *s = line + 8;
+            while (s && *s && fs->nButtons < 6)
+            {
+                s = FormNextField(s, fs->buttons[fs->nButtons], sizeof(fs->buttons[0]));
+                fs->nButtons++;
+            }
+        }
+        else if (!strncmp(line, "INFO ", 5) && fs->nItems < FORM_MAX_ITEMS)
+        {
+            struct FormItem *it = &fs->items[fs->nItems++];
+            it->type = FI_INFO;
+            strncpy(it->label, line + 5, sizeof(it->label) - 1);
+        }
+        else if (!strncmp(line, "FIELD ", 6) && fs->nItems < FORM_MAX_ITEMS)
+        {
+            struct FormItem *it = &fs->items[fs->nItems];
+            char type[16];
+            char *s = line + 6;
+
+            s = FormNextField(s, it->id, sizeof(it->id));
+            s = FormNextField(s, type, sizeof(type));
+            s = FormNextField(s, it->label, sizeof(it->label));
+            if (!it->id[0]) continue;
+
+            if (!IUtility->Stricmp(type, "TEXT")) it->type = FI_TEXT;
+            else if (!IUtility->Stricmp(type, "PASSWORD")) it->type = FI_PASSWORD;
+            else if (!IUtility->Stricmp(type, "CHECK")) it->type = FI_CHECK;
+            else if (!IUtility->Stricmp(type, "CHOICE")) it->type = FI_CHOICE;
+            else continue;
+
+            if (it->type == FI_CHOICE)
+            {
+                char idx[16];
+                char *c;
+                int n = 0;
+                s = FormNextField(s, it->choiceBuf, sizeof(it->choiceBuf));
+                FormNextField(s, idx, sizeof(idx));
+                it->choiceIdx = (ULONG)atoi(idx);
+                c = it->choiceBuf;
+                while (c && *c && n < FORM_MAX_CHOICES)
+                {
+                    char *semi = strchr(c, ';');
+                    it->choices[n++] = c;
+                    if (semi) { *semi = '\0'; c = semi + 1; } else c = NULL;
+                }
+                it->choices[n] = NULL;
+                if (n == 0) continue;
+                if (it->choiceIdx >= (ULONG)n) it->choiceIdx = 0;
+            }
+            else
+                FormNextField(s, it->value, sizeof(it->value));
+            fs->nItems++;
+        }
+    }
+    IDOS->Close(fh);
+
+    if (fs->nButtons == 0)
+    {
+        strcpy(fs->buttons[0], "OK");
+        fs->nButtons = 1;
+    }
+    return TRUE;
+}
+
+/* Etichetta di sola lettura allineata a destra, larga 'width' pixel. */
+static Object *MakeFormLabel(CONST_STRPTR text, BOOL right)
+{
+    return IIntuition->NewObject(NULL, "button.gadget",
+        GA_ReadOnly, TRUE,
+        GA_Underscore, 0,
+        GA_Text, (ULONG)text,
+        BUTTON_BevelStyle, BVS_NONE,
+        BUTTON_Transparent, TRUE,
+        BUTTON_Justification, right ? BCJ_RIGHT : BCJ_LEFT,
+        TAG_DONE);
+}
+
+LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
+{
+    struct FormSpec *fs;
+    struct Screen *scr;
+    Object *winObj = NULL, *root, *btnRow;
+    struct Window *win;
+    struct TagItem rowTags[32];
+    ULONG labelW = 0, sig = 0;
+    LONG i, result = 0;
+    BOOL done = FALSE;
+    BPTR fh;
+
+    fs = (struct FormSpec *)IExec->AllocVecTags(sizeof(*fs), AVT_Type, MEMF_PRIVATE,
+                                                AVT_ClearWithValue, 0, TAG_DONE);
+    if (!fs) return -1;
+    if (!ParseFormSpec(specPath, fs))
+    {
+        LOGERR("FORM: cannot read '%s'", specPath);
+        IExec->FreeVec(fs);
+        return -1;
+    }
+
+    /* colonna delle etichette larga quanto la piu' lunga */
+    scr = IIntuition->LockPubScreen(NULL);
+    for (i = 0; i < fs->nItems; i++)
+    {
+        struct FormItem *it = &fs->items[i];
+        if (scr && (it->type == FI_TEXT || it->type == FI_PASSWORD || it->type == FI_CHOICE))
+        {
+            ULONG w = IGraphics->TextLength(&scr->RastPort, it->label, strlen(it->label));
+            if (w > labelW) labelW = w;
+        }
+    }
+    labelW += 16;
+
+    root = IIntuition->NewObject(NULL, "layout.gadget",
+        LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
+        TAG_DONE);
+
+    for (i = 0; i < fs->nItems && root; i++)
+    {
+        struct FormItem *it = &fs->items[i];
+        Object *row = NULL;
+
+        switch (it->type)
+        {
+            case FI_INFO:
+                row = MakeFormLabel(it->label, FALSE);
+                break;
+
+            case FI_CHECK:
+                it->gad = IIntuition->NewObject(ICheckBox->CHECKBOX_GetClass(), NULL,
+                    GA_ID, GID_FORM_FIELD + i, GA_RelVerify, TRUE,
+                    GA_Text, (ULONG)it->label,
+                    CHECKBOX_Checked, (it->value[0] == '1') ? TRUE : FALSE,
+                    TAG_DONE);
+                row = IIntuition->NewObject(NULL, "layout.gadget",
+                    LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+                    LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE),
+                        CHILD_MinWidth, labelW, CHILD_MaxWidth, labelW,
+                    LAYOUT_AddChild, (ULONG)it->gad, CHILD_WeightedWidth, 100,
+                    TAG_DONE);
+                break;
+
+            case FI_CHOICE:
+                it->gad = IIntuition->NewObject(IChooser->CHOOSER_GetClass(), NULL,
+                    GA_ID, GID_FORM_FIELD + i, GA_RelVerify, TRUE,
+                    CHOOSER_PopUp, TRUE,
+                    CHOOSER_LabelArray, (ULONG)it->choices,
+                    CHOOSER_Selected, it->choiceIdx,
+                    TAG_DONE);
+                /* fall through: stessa riga etichetta + gadget */
+            case FI_TEXT:
+            case FI_PASSWORD:
+                if (it->type != FI_CHOICE)
+                    it->gad = IIntuition->NewObject(NULL, "string.gadget",
+                        GA_ID, GID_FORM_FIELD + i, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
+                        STRINGA_MaxChars, sizeof(it->value) - 1,
+                        STRINGA_TextVal, (ULONG)it->value,
+                        it->type == FI_PASSWORD ? STRINGA_HookType : TAG_IGNORE, SHK_PASSWORD,
+                        TAG_DONE);
+                row = IIntuition->NewObject(NULL, "layout.gadget",
+                    LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
+                    LAYOUT_AddChild, (ULONG)MakeFormLabel(it->label, TRUE),
+                        CHILD_MinWidth, labelW, CHILD_MaxWidth, labelW,
+                    LAYOUT_AddChild, (ULONG)it->gad, CHILD_WeightedWidth, 100,
+                    TAG_DONE);
+                break;
+        }
+        if (row)
+            IIntuition->SetAttrs(root, LAYOUT_AddChild, (ULONG)row, CHILD_WeightedHeight, 0, TAG_DONE);
+    }
+
+    /* pulsanti */
+    {
+        int n = 0;
+        rowTags[n].ti_Tag = LAYOUT_Orientation; rowTags[n++].ti_Data = LAYOUT_ORIENT_HORIZ;
+        rowTags[n].ti_Tag = LAYOUT_EvenSize;    rowTags[n++].ti_Data = TRUE;
+        for (i = 0; i < fs->nButtons; i++)
+        {
+            rowTags[n].ti_Tag = LAYOUT_AddChild;
+            rowTags[n++].ti_Data = (ULONG)IIntuition->NewObject(NULL, "button.gadget",
+                GA_ID, (ULONG)(GID_FORM_BTN + i), GA_RelVerify, TRUE,
+                GA_Text, (ULONG)fs->buttons[i], TAG_DONE);
+            rowTags[n].ti_Tag = CHILD_WeightedWidth; rowTags[n++].ti_Data = 0;
+        }
+        rowTags[n].ti_Tag = TAG_DONE; rowTags[n].ti_Data = 0;
+        btnRow = IIntuition->NewObjectA(NULL, "layout.gadget", rowTags);
+        if (root && btnRow)
+            IIntuition->SetAttrs(root, LAYOUT_AddChild, (ULONG)btnRow, CHILD_WeightedHeight, 0, TAG_DONE);
+    }
+
+    if (root)
+        winObj = IIntuition->NewObject(NULL, "window.class",
+            WA_Title, (ULONG)fs->title,
+            WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
+            WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
+            WA_InnerWidth, 460,
+            WA_PubScreen, (ULONG)scr,
+            WINDOW_Position, WPOS_CENTERMOUSE,
+            WINDOW_Layout, (ULONG)root,
+            TAG_DONE);
+    if (scr) IIntuition->UnlockPubScreen(NULL, scr);
+
+    win = winObj ? (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN) : NULL;
+    if (!win)
+    {
+        LOGERR("FORM: cannot open the window for '%s'", specPath);
+        if (winObj) IIntuition->DisposeObject(winObj);
+        else if (root) IIntuition->DisposeObject(root);
+        IExec->FreeVec(fs);
+        return -1;
+    }
+
+    IIntuition->GetAttr(WINDOW_SigMask, winObj, &sig);
+    while (!done)
+    {
+        ULONG wait = IExec->Wait(sig | SIGBREAKF_CTRL_C);
+        ULONG res; WORD code = 0;
+        if (wait & SIGBREAKF_CTRL_C) break;
+        while ((res = IIntuition->IDoMethod(winObj, WM_HANDLEINPUT, &code)) != WMHI_LASTMSG)
+        {
+            switch (res & WMHI_CLASSMASK)
+            {
+                case WMHI_CLOSEWINDOW: done = TRUE; result = 0; break;
+                case WMHI_GADGETUP:
+                {
+                    ULONG id = res & WMHI_GADGETMASK;
+                    /* solo i pulsanti chiudono il modulo: Invio in un campo
+                       passa al successivo (GA_TabCycle) */
+                    if (id >= GID_FORM_BTN && id < GID_FORM_BTN + (ULONG)fs->nButtons)
+                    {
+                        result = (LONG)(id - GID_FORM_BTN) + 1;
+                        done = TRUE;
+                    }
+                    break;
+                }
+                default: break;
+            }
+        }
+    }
+
+    /* valori, anche se annullato (il plugin decide dal pulsante) */
+    fh = IDOS->Open(replyPath, MODE_NEWFILE);
+    if (fh)
+    {
+        IDOS->FPrintf(fh, "BUTTON=%ld\n", (long)result);
+        for (i = 0; i < fs->nItems; i++)
+        {
+            struct FormItem *it = &fs->items[i];
+            ULONG v = 0;
+            STRPTR t = NULL;
+            if (!it->gad) continue;
+            switch (it->type)
+            {
+                case FI_TEXT:
+                case FI_PASSWORD:
+                    IIntuition->GetAttr(STRINGA_TextVal, it->gad, (ULONG *)&t);
+                    IDOS->FPrintf(fh, "%s=%s\n", it->id, t ? t : (STRPTR)"");
+                    break;
+                case FI_CHECK:
+                    IIntuition->GetAttr(CHECKBOX_Checked, it->gad, &v);
+                    IDOS->FPrintf(fh, "%s=%ld\n", it->id, (long)(v ? 1 : 0));
+                    break;
+                case FI_CHOICE:
+                    IIntuition->GetAttr(CHOOSER_Selected, it->gad, &v);
+                    IDOS->FPrintf(fh, "%s=%ld\n", it->id, (long)v);
+                    break;
+            }
+        }
+        IDOS->Close(fh);
+    }
+    else
+        LOGERR("FORM: cannot write '%s'", replyPath);
+
+    IIntuition->DisposeObject(winObj);
+    IExec->FreeVec(fs);
     return result;
 }
 

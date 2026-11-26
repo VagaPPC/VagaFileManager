@@ -564,6 +564,7 @@ void ProgressOpen(struct Window *win, ULONG total);
 void ProgressClose(void);
 void ProgressSetButtons(BOOL on);
 void ProgressSetText(CONST_STRPTR text);
+LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath);
 void FreeProgressBarClass(void);
 
 /* ---- Azioni su selezione e appunti ---- */

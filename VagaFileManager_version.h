@@ -14,7 +14,7 @@
 /* Versione applicazione e numero di build.
    Incrementare VFM_BUILD ad ogni build/rilascio. */
 #define VFM_VERSION       "1.1"
-#define VFM_BUILD         90
+#define VFM_BUILD         91
 #define VFM_VERSION_DATE  "25.11.2026"
 
 /* Versione del protocollo dei comandi (porta ARexx e canale plugin),

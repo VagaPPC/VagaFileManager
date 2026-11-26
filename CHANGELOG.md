@@ -3,6 +3,19 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 91 - 2026-11-25
+
+- New SambaMount plugin: mounts a shared folder of a Samba server,
+  Windows PC or NAS (SMB2/3, needs smb2fs and filesysbox.library 54.4 or
+  newer).  One window asks device, server, share, user, password, volume
+  name, read only and guest access.  The mount can be temporary or saved
+  in DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved one keeps the
+  password in plain text).  VFM checks that the share answers without
+  freezing and then opens it.  The last values, except the password, are
+  remembered.
+- Plugins can show a window with several fields (text, password, check
+  boxes and choices) through the new FORM command; see README.txt.
+
 ## 1.1 build 90 - 2026-11-25
 
 - LHA and GZIP plugins: the progress window no longer shows disabled

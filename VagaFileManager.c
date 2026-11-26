@@ -2082,7 +2082,7 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             "CD <path> | OPEN [name] | UP | FORWARD | REFRESH | REVEAL <path> | "
             "SELECT [ADD] <pattern> | SELECT NONE | "
             "VIEW ICONS|ALLFILES | SORT TYPE|NAME|DATE|SIZE | MODE ICONS|DETAILS | SPLIT | "
-            "DIALOG [CHECK=0|1:<label>|]<title>|<prompt>|<text>|<buttons> | ASK <prompt> | STATUS [text] | "
+            "DIALOG [CHECK=0|1:<label>|]<title>|<prompt>|<text>|<buttons> | FORM <file> | ASK <prompt> | STATUS [text] | "
             "PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal] | PROGRESS TEXT [message] | PROGRESS CLOSE | "
             "NEW | SCRIPT <file> | QUIT");
     }
@@ -2331,6 +2331,26 @@ static void ExecuteRexxCommand(struct RexxMsg *msg, int gp, struct Window *win)
             }
         }
     }
+    else if (!IUtility->Stricmp(cmd, "FORM"))
+    {
+        /* FORM <file>: modulo a piu' campi descritto nel file; i valori
+           vanno in <file>.out, il risultato e' il pulsante premuto */
+        char reply[PATH_MAX_LEN];
+        LONG n;
+        snprintf(reply, sizeof(reply), "%s.out", args);
+        n = args[0] ? ShowFormFile(args, reply) : -1;
+        if (n < 0)
+        {
+            msg->rm_Result1 = RC_ERROR;
+            RexxSetResult(msg, "Cannot read the form");
+        }
+        else
+        {
+            char b[16];
+            snprintf(b, sizeof(b), "%ld", (long)n);
+            RexxSetResult(msg, b);
+        }
+    }
     else if (!IUtility->Stricmp(cmd, "REVEAL"))
     {
         if (!args[0])
@@ -2534,7 +2554,7 @@ static void ExecutePluginCommand(CONST_STRPTR cmd, int gp, struct Window *win,
 static BOOL PluginCommandNeedsPane(CONST_STRPTR cmd)
 {
     static const char *const neutral[] = {
-        "HELP", "VERSION", "PROTOCOL", "QUIT", "NEW", "SPLIT", "ASK", "DIALOG",
+        "HELP", "VERSION", "PROTOCOL", "QUIT", "NEW", "SPLIT", "ASK", "DIALOG", "FORM",
         "PROGRESS", "SCRIPT", NULL
     };
     char word[32];
