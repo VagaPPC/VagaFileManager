@@ -213,14 +213,19 @@ Python / ARexx addons:
   Add / Overwrite / Cancel; Add decompresses the existing archive, appends
   the new entries and compresses it again.
 - `Plugins/SambaMount.py` mounts an SMB2/3 share (Samba, Windows, NAS)
-  with smb2-handler (smb2fs package, needs filesysbox.library 54.4+).  One
-  form asks device, host, share, user, password, volume, read only and
-  guest; the DOSDriver can stay temporary (T:) or be saved in
-  DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved DOSDriver keeps the
-  password in plain text).  The plugin checks that the share answers
-  before VFM opens it.  The last values, password excluded, are kept in
-  ENVARC:SambaMount.prefs.  Unmounting is not available (AmigaOS has no
-  DISMOUNT for this handler).
+  with smb2-handler (smb2fs package, needs filesysbox.library 54.4+).  It
+  starts by asking one thing at a time: the server (found on the local
+  network with NetBIOS, or typed: computers with NetBIOS turned off
+  cannot be found), then the share (listed by the server, SMB 2.0/2.1;
+  user and password are asked first if the server wants them), then user
+  and password.  A form, already filled in, shows host, share, user,
+  password, read only, guest and where to save the DOSDriver: temporary
+  (T:), DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved DOSDriver
+  keeps the password in plain text); Browse... asks again.  The device
+  takes the name of the share (Archivio -> Archivio:).  The plugin checks
+  that the share answers before VFM opens it.  Long lists come in pages.
+  Nothing is remembered between two runs.  Unmounting is not available
+  (AmigaOS has no DISMOUNT for this handler).
 - All three archive add-ons use the VFM progress window with the total
   file count.  Its close button interrupts the compression after a
   confirmation: the archiver gets CTRL-C and a window without close button

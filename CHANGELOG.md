@@ -7,12 +7,14 @@ User-visible changes are recorded here for every build.  The version in
 
 - New SambaMount plugin: mounts a shared folder of a Samba server,
   Windows PC or NAS (SMB2/3, needs smb2fs and filesysbox.library 54.4 or
-  newer).  One window asks device, server, share, user, password, volume
-  name, read only and guest access.  The mount can be temporary or saved
-  in DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved one keeps the
-  password in plain text).  VFM checks that the share answers without
-  freezing and then opens it.  The last values, except the password, are
-  remembered.
+  newer).  It looks for the computers on the network and lets you choose
+  the server, then one of its shares, then asks user and password (a
+  name or address can also be typed).  A last window, already filled in,
+  lets you check everything, choose read only or guest access, and keep
+  the mount temporary or save it in DEVS:DOSDrivers or
+  SYS:Storage/DOSDrivers (a saved one keeps the password in plain text).
+  The device takes the name of the share (Archivio -> Archivio:).  VFM
+  checks that the share answers without freezing and then opens it.
 - Plugins can show a window with several fields (text, password, check
   boxes and choices) through the new FORM command; see README.txt.
 
