@@ -3,6 +3,14 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 93 - 2026-11-26
+
+- In list mode every other row has a darker background, like the
+  Workbench.
+- SambaMount: after the first one, its windows open where the previous
+  one was instead of moving towards the button just pressed.  Plugins
+  get this with the new PLACE LAST line of the FORM command.
+
 ## 1.1 build 91 - 2026-11-25
 
 - New SambaMount plugin: mounts a shared folder of a Samba server,

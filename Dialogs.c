@@ -564,6 +564,7 @@ LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
      FIELD <id>|CHOICE|<etichetta>|<voce1;voce2;...>|<indice>
      INFO <testo>                                   (riga di solo testo)
      BUTTONS <pulsante1>|<pulsante2>|...            (massimo 6)
+     PLACE LAST                                     (dove stava l'ultimo FORM)
    Alla chiusura scrive <file>.out: BUTTON=<n> (0 = finestra chiusa) e una
    riga <id>=<valore> per campo; ritorna n, -1 se il file non si legge. */
 
@@ -592,8 +593,15 @@ struct FormSpec
     char buttons[6][64];
     LONG nButtons;
     LONG nItems;
+    BOOL placeLast;
     struct FormItem items[FORM_MAX_ITEMS];
 };
+
+/* Posizione dell'ultimo FORM chiuso: con PLACE LAST il successivo si apre
+   li' invece che sotto il mouse (un plugin che fa piu' domande di fila non
+   sposta le finestre verso il pulsante premuto).  -1 = nessun FORM. */
+static LONG gFormLastLeft = -1;
+static LONG gFormLastTop = -1;
 
 /* Copia il campo fino a '|' (o fine riga) e restituisce il resto. */
 static char *FormNextField(char *s, char *out, ULONG outSize)
@@ -635,6 +643,10 @@ static BOOL ParseFormSpec(CONST_STRPTR path, struct FormSpec *fs)
                 s = FormNextField(s, fs->buttons[fs->nButtons], sizeof(fs->buttons[0]));
                 fs->nButtons++;
             }
+        }
+        else if (!strncmp(line, "PLACE ", 6))
+        {
+            if (!IUtility->Stricmp(line + 6, "LAST")) fs->placeLast = TRUE;
         }
         else if (!strncmp(line, "INFO ", 5) && fs->nItems < FORM_MAX_ITEMS)
         {
@@ -819,15 +831,23 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
     }
 
     if (root)
+    {
+        /* PLACE LAST: stesso angolo dell'ultimo FORM (tutti larghi 460);
+           WA_AutoAdjust lo riporta nello schermo se e' piu' alto. */
+        BOOL atLast = fs->placeLast && gFormLastLeft >= 0;
         winObj = IIntuition->NewObject(NULL, "window.class",
             WA_Title, (ULONG)fs->title,
             WA_Activate, TRUE, WA_DepthGadget, TRUE, WA_DragBar, TRUE,
             WA_CloseGadget, TRUE, WA_SizeGadget, FALSE,
             WA_InnerWidth, 460,
             WA_PubScreen, (ULONG)scr,
-            WINDOW_Position, WPOS_CENTERMOUSE,
+            WA_AutoAdjust, TRUE,
+            atLast ? WA_Left : TAG_IGNORE, (ULONG)gFormLastLeft,
+            atLast ? WA_Top : TAG_IGNORE, (ULONG)gFormLastTop,
+            atLast ? TAG_IGNORE : WINDOW_Position, WPOS_CENTERMOUSE,
             WINDOW_Layout, (ULONG)root,
             TAG_DONE);
+    }
     if (scr) IIntuition->UnlockPubScreen(NULL, scr);
 
     win = winObj ? (struct Window *)IIntuition->IDoMethod(winObj, WM_OPEN) : NULL;
@@ -901,6 +921,8 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
     else
         LOGERR("FORM: cannot write '%s'", replyPath);
 
+    gFormLastLeft = win->LeftEdge;
+    gFormLastTop = win->TopEdge;
     IIntuition->DisposeObject(winObj);
     IExec->FreeVec(fs);
     return result;

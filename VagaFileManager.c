@@ -851,6 +851,9 @@ static Object *CreatePaneUI(int p)
         LISTBROWSER_ColumnTitles, TRUE, LISTBROWSER_TitleClickable, TRUE,
         LISTBROWSER_ShowSelected, TRUE, LISTBROWSER_MultiSelect, TRUE,
         LISTBROWSER_AllowNoSelection, TRUE,
+        /* righe alternate come nel Workbench (listbrowser 53.18+; le
+           versioni precedenti ignorano il tag) */
+        LISTBROWSER_Striping, LBS_ROWS,
         FILEBROWSER_ViewMode, pn->viewMode, FILEBROWSER_IconSize, pn->iconSize,
         FILEBROWSER_IconHook, (ULONG)&gIconHooks[p],
         FILEBROWSER_HiddenColumns, (1UL << COL_TYPE) | (1UL << COL_SIZE) | (1UL << COL_DATE) | (1UL << COL_COMMENT),

@@ -181,9 +181,13 @@ Python / ARexx addons:
     FIELD <id>|CHOICE|<label>|<item1;item2;...>|<index>
     INFO <text>
     BUTTONS <button1>|<button2>|...           (up to 6)
+    PLACE LAST                                (open where the last form was)
   The reply is the button pressed (0 = window closed); the values are
   written to <file>.out as BUTTON=<n> and one <id>=<value> line per field.
-  SambaMount uses it.
+  Without PLACE LAST the window opens under the mouse pointer; with it,
+  at the position of the last form closed (build 92 or newer; older
+  builds ignore the line), so a plugin asking several questions in a row
+  does not move its windows.  SambaMount uses it.
   or, without ARexx, launch VFM in dialog mode:
     VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
     VagaFileManager --dialog "@<spec-file>"

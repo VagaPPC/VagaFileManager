@@ -950,9 +950,20 @@ def choose(title, labels):
         return None
 
 
+FORM_SHOWN = False
+
+
 def run_form(lines):
-    """Show a FORM; returns the values with BUTTON, or None on error."""
+    """Show a FORM; returns the values with BUTTON, or None on error.
+    The first window opens under the mouse; the next ones open where the
+    previous one was (PLACE LAST, VFM build 92), instead of following the
+    pointer towards the button just pressed."""
+    global FORM_SHOWN
+
     spec = os.path.join(G.PLUGIN_DIR, 'sambamount.form')
+    if FORM_SHOWN:
+        lines = lines + ['PLACE LAST']
+    FORM_SHOWN = True
     try:
         f = open(spec, 'w')
         f.write('\n'.join(lines) + '\n')
