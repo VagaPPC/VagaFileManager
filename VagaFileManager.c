@@ -127,6 +127,7 @@ LONG gBookmarkCount = 0;
 struct VFMWindowTag gWinTag;
 
 char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
+char gPluginIcons[MAX_PLUGINS][32];
 LONG gPluginCount = 0;
 
 static struct MsgPort *gRexxPort = NULL;
@@ -249,6 +250,16 @@ static void ReadDebugToolType(int argc, char **argv)
             gDebugLog = (IIcon->MatchToolValue(v, "FALSE") || IIcon->MatchToolValue(v, "NO") ||
                          IIcon->MatchToolValue(v, "OFF") || IIcon->MatchToolValue(v, "0"))
                         ? FALSE : TRUE;
+    }
+    {
+        /* NETHANDLERS=smb2-handler: volumi di rete, dove i file
+           senza .info hanno l'icona standard (vuoto = nessuno) */
+        STRPTR v = IIcon->FindToolType((STRPTR *)dob->do_ToolTypes, "NETHANDLERS");
+        if (v)
+        {
+            strncpy(gNetHandlers, v, sizeof(gNetHandlers) - 1);
+            gNetHandlers[sizeof(gNetHandlers) - 1] = '\0';
+        }
     }
     IIcon->FreeDiskObject(dob);
 }
@@ -1721,6 +1732,34 @@ void RunPlugin(CONST_STRPTR path)
     }
 }
 
+/* Legge dall'inizio del plugin la riga "VFM-Icon: <nome>" (in un commento
+   Python o ARexx): il nome dell'icona AISS da mostrare nel menu Script. */
+static void ReadPluginIcon(CONST_STRPTR path, STRPTR out, ULONG outSize)
+{
+    char buf[2048];
+    BPTR fh;
+    LONG len;
+    char *p;
+
+    out[0] = '\0';
+    fh = IDOS->Open(path, MODE_OLDFILE);
+    if (!fh) return;
+    len = IDOS->Read(fh, buf, sizeof(buf) - 1);
+    IDOS->Close(fh);
+    if (len <= 0) return;
+    buf[len] = '\0';
+    p = strstr(buf, "VFM-Icon:");
+    if (!p) return;
+    p += 9;
+    while (*p == ' ' || *p == '\t') p++;
+    len = 0;
+    while (len < (LONG)outSize - 1 &&
+           ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+            (*p >= '0' && *p <= '9') || *p == '_' || *p == '-'))
+        out[len++] = *p++;
+    out[len] = '\0';
+}
+
 void ScanPlugins(void)
 {
     APTR ctx;
@@ -1760,6 +1799,11 @@ void ScanPlugins(void)
                 strcpy(gPlugins[j + 1], gPlugins[j]);
             strcpy(gPlugins[j + 1], tmp);
         }
+    }
+    {
+        LONG i;
+        for (i = 0; i < gPluginCount; i++)
+            ReadPluginIcon(gPlugins[i], gPluginIcons[i], sizeof(gPluginIcons[i]));
     }
     DBG("plugins found: %ld", (long)gPluginCount);
 }

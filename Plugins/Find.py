@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
 # VagaFileManager plugin: Find
+# VFM-Icon: find   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Recursive search by file name, done entirely by the plugin:

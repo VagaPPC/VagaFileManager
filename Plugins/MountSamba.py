@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
-# VagaFileManager plugin: SambaMount
+# VagaFileManager plugin: MountSamba
+# VFM-Icon: network   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Mounts an SMB2/3 (Samba, Windows, NAS) share with smb2-handler:
@@ -35,9 +36,9 @@
 #   URL/A,USER,PASSWORD,VOLUME,READONLY/S,NOPASSWORDREQ/S
 # URL: smb://[<domain>;][<user>[:<password>]@]<host>[:<port>]/<share>/<path>
 #
-# The channel, log and message helpers come from Grep.py (same drawer).
-# The plugin receives the usual arguments (see Grep.py), argv[5] being the
-# plugin session directory.
+# The plugin is complete by itself: the channel, log and message helpers
+# are the same as in Grep.py.  It receives the usual arguments (see
+# Grep.py), argv[5] being the plugin session directory.
 # ---------------------------------------------------------------------------
 
 import binascii
@@ -50,27 +51,203 @@ import struct
 import sys
 import time
 
-import Grep as G
 
-G.LOG = 'T:SambaMount.log'
-G.TITLE = 'SambaMount'
+# ===== Shared helpers =====
+# The same code is in MountSamba.py, MountSSH.py and MountNFS.py: each
+# plugin is complete by itself and needs no other file.
 
-log = G.log
-message = G.message
+# ----- from Grep.py -----
+
+
+try:
+    import amiga
+except ImportError:
+    amiga = None
+
+
+try:
+    import asl
+except ImportError:
+    asl = None
+
+
+START_PATH = sys.argv[2] if len(sys.argv) > 2 else ''
+
+
+VFM = sys.argv[3] if len(sys.argv) > 3 else ''
+
+
+DROP_PORT = sys.argv[4] if len(sys.argv) > 4 else ''
+
+
+PLUGIN_DIR = sys.argv[5] if len(sys.argv) > 5 else ''
+
+
+DEBUG = len(sys.argv) > 6 and sys.argv[6].upper() == 'DEBUG'
+
+
+_seq = 0
+
+
+def log(text, error=False):
+    """Append a diagnostic line to LOG (best effort)."""
+    if not (DEBUG or error):
+        return
+    try:
+        f = open(LOG, 'a')
+        f.write(('ERROR: ' if error else '') + text + '\n')
+        f.close()
+    except Exception:
+        pass
+
+
+def message(text, error=True):
+    """Show a message with ASL (if available) and log it."""
+    log('message: ' + text, error)
+    if asl is not None:
+        try:
+            asl.MessageBox(TITLE, text, 'OK')
+        except Exception:
+            pass
+
+
+def run_command(cmd):
+    """Run a Shell command and wait; None if it cannot start."""
+    if amiga is not None:
+        try:
+            return amiga.system(cmd)
+        except Exception:
+            log('amiga.system exception')
+    try:
+        return os.system(cmd)
+    except Exception:
+        return None
+
+
+def send_channel(command, timeout=50):
+    """Send one command through the plugin file channel.
+
+    Returns (rc, result) or None if the channel is unavailable.
+    """
+    global _seq
+
+    if not PLUGIN_DIR or not DROP_PORT or not VFM:
+        return None
+
+    command = command.replace('\n', ' ').strip()
+    if not command:
+        return (None, '')
+
+    _seq += 1
+    pid = 0
+    try:
+        pid = os.getpid()
+    except Exception:
+        pass
+
+    ident = '%d_%d_%d' % (pid, int(time.time() * 1000) % 100000000, _seq)
+    req = os.path.join(PLUGIN_DIR, 'req_' + ident + '.txt')
+    rep = os.path.join(PLUGIN_DIR, 'rep_' + ident + '.txt')
+
+    try:
+        f = open(req, 'w')
+        f.write(command + '\n')
+        f.close()
+    except IOError:
+        log('channel: cannot write ' + req)
+        return None
+
+    rc = run_command('"%s" --notify "%s"' % (VFM, DROP_PORT))
+    log('channel notify: rc=%s' % rc)
+
+    answer = None
+    for attempt in range(timeout):
+        try:
+            f = open(rep, 'r')
+            answer = f.read()
+            f.close()
+            if '|' in answer:
+                break
+        except IOError:
+            answer = None
+        time.sleep(0.1)
+
+    try:
+        os.remove(req)
+    except OSError:
+        pass
+    try:
+        os.remove(rep)
+    except OSError:
+        pass
+
+    if answer is None or '|' not in answer:
+        log('channel: no reply for ' + command)
+        return None
+
+    rc, sep, result = answer.partition('|')
+    try:
+        log('channel: rc=%s result=%r' % (rc, result))
+        return (int(rc), result)
+    except ValueError:
+        log('channel: bad reply %r' % answer)
+        return None
+
+
+PROGRESS_OK = None
+
+
+def progress_open(nocancel=False):
+    """Open the VFM progress window (indeterminate)."""
+    global PROGRESS_OK
+
+    prefix = 'NOCANCEL ' if nocancel else ''
+    result = send_channel('PROGRESS %s0 0' % prefix, 6000)
+    if result is None or result[0] != 0:
+        PROGRESS_OK = False
+        return True
+
+    PROGRESS_OK = True
+    return result[1].strip() != '1'
+
+
+def progress_update(done=0, total=0, nocancel=False):
+    """Update the progress window.  False means Cancel was pressed."""
+    if not PROGRESS_OK:
+        return True
+
+    prefix = 'NOCANCEL ' if nocancel else ''
+    result = send_channel('PROGRESS %s%d %d' % (prefix, done, total), 6000)
+    if result is None or result[0] != 0:
+        return True
+    return result[1].strip() != '1'
+
+
+def progress_close():
+    global PROGRESS_OK
+
+    if PROGRESS_OK:
+        send_channel('PROGRESS CLOSE', 600)
+    PROGRESS_OK = None
+
+
+LOG = 'T:MountSamba.log'
+TITLE = 'MountSamba'
+
 
 HANDLER = 'L:smb2-handler'
 SAVE_CHOICES = ['No', 'DEVS:DOSDrivers', 'SYS:Storage/DOSDrivers']
-CONNECT_TIMEOUT = 120      # seconds: smb2-handler may ask for a password
-TEMP_DRAWER = 'T:SambaMount'
+CONNECT_TIMEOUT = 120      # seconds: the handler may ask for a password
+TEMP_DRAWER = 'T:MountSamba'
 
 try:
     _PID = os.getpid()
 except Exception:
     _PID = int(time.time()) & 0xffff
 
-CHECK_SCRIPT = 'T:VFM_SambaMount_check_%d.script' % _PID
-CHECK_DONE = 'T:VFM_SambaMount_check_%d.txt' % _PID
-CHECK_OUT = 'T:VFM_SambaMount_out_%d.txt' % _PID
+CHECK_SCRIPT = 'T:VFM_Mount_check_%d.script' % _PID
+CHECK_DONE = 'T:VFM_Mount_check_%d.txt' % _PID
+CHECK_OUT = 'T:VFM_Mount_out_%d.txt' % _PID
 
 DISCOVER_TIME = 3.0        # seconds spent listening for NetBIOS answers
 SMB_TIMEOUT = 10           # seconds for each network operation
@@ -859,11 +1036,11 @@ def check_requirements():
         missing.append('L:smb2-handler (smb2fs package)')
     # C:Version returns 0 if the library is at least 54.4, 5 if older and
     # an error if it is not found.
-    rc = G.run_command('C:Version >NIL: filesysbox.library 54 4')
+    rc = run_command('C:Version >NIL: filesysbox.library 54 4')
     if rc != 0:
         missing.append('filesysbox.library 54.4 or newer')
     if missing:
-        message('SambaMount needs:\n\n  ' + '\n  '.join(missing) +
+        message('MountSamba needs:\n\n  ' + '\n  '.join(missing) +
                 '\n\nInstall smb2fs and filesysbox, then try again.')
         return False
     return True
@@ -888,7 +1065,7 @@ def ask_parameters(current, password):
     the window was closed or Cancel was pressed.  The password is kept
     only in memory, so it is not lost when Browse shows the form again."""
     lines = [
-        'TITLE SambaMount',
+        'TITLE MountSamba',
         'FIELD host|TEXT|Host:|%s' % clean(current['host']),
         'FIELD share|TEXT|Share:|%s' % clean(current['share']),
         'FIELD user|TEXT|User:|%s' % clean(current['user']),
@@ -916,9 +1093,13 @@ def choice_label(text):
     return text
 
 
-def choose(title, labels):
+def choose(title, labels, found=None):
     """Let the user pick one of the labels; returns its index or None.
-    The FORM chooser holds 8 entries, so longer lists come in pages."""
+    The FORM chooser holds 8 entries, so longer lists come in pages.
+    FOUND is the number shown as "found" (default: all the labels; less
+    when the last label is an action like "Type a name...")."""
+    if found is None:
+        found = len(labels)
     page = 0
     pages = (len(labels) + CHOICES_PER_PAGE - 1) // CHOICES_PER_PAGE
     while True:
@@ -927,9 +1108,9 @@ def choose(title, labels):
         more = page + 1 < pages
         if more:
             items.append('More...')
-        info = '%d found.' % len(labels)
+        info = '%d found.' % found
         if pages > 1:
-            info = '%d found (page %d of %d).' % (len(labels), page + 1, pages)
+            info = '%d found (page %d of %d).' % (found, page + 1, pages)
         values = run_form([
             'TITLE ' + title,
             'FIELD pick|CHOICE|Choose:|%s|0' % ';'.join(items),
@@ -960,7 +1141,7 @@ def run_form(lines):
     pointer towards the button just pressed."""
     global FORM_SHOWN
 
-    spec = os.path.join(G.PLUGIN_DIR, 'sambamount.form')
+    spec = os.path.join(PLUGIN_DIR, 'plugin.form')
     if FORM_SHOWN:
         lines = lines + ['PLACE LAST']
     FORM_SHOWN = True
@@ -972,7 +1153,7 @@ def run_form(lines):
         message('Cannot write the form file:\n' + spec)
         return None
 
-    result = G.send_channel('FORM ' + spec, 600)
+    result = send_channel('FORM ' + spec, 600)
     if result is None or result[0] != 0:
         message('The FORM command is not available.\n'
                 'This plugin needs VagaFileManager 1.1 build 91 or newer.')
@@ -1027,7 +1208,7 @@ def device_in_use(name):
     C:Assign EXISTS only looks at the DOS list: it does not access the
     device, so no 'insert volume' requester can appear.
     """
-    rc = G.run_command('C:Assign >NIL: %s: EXISTS' % name)
+    rc = run_command('C:Assign >NIL: %s: EXISTS' % name)
     return rc == 0
 
 
@@ -1106,7 +1287,7 @@ def copy_icon(path):
     """Give a saved DOSDriver the default DOSDriver icon, if there is one."""
     for src in ('ENV:Sys/def_dosdriver.info', 'ENVARC:Sys/def_dosdriver.info'):
         if os.path.exists(src):
-            rc = G.run_command('C:Copy >NIL: "%s" TO "%s.info"' % (src, path))
+            rc = run_command('C:Copy >NIL: "%s" TO "%s.info"' % (src, path))
             if rc == 0:
                 return
     log('no default DOSDriver icon found for ' + path)
@@ -1133,7 +1314,7 @@ def mount(values, name):
 
     # Mounted like the Workbench does with DEVS:DOSDrivers: the device
     # name comes from the file name (FROM expects a MountList instead).
-    rc = G.run_command('C:Mount >%s "%s"' % (CHECK_OUT, path))
+    rc = run_command('C:Mount >%s "%s"' % (CHECK_OUT, path))
     output = read_text(CHECK_OUT)
     remove_files(CHECK_OUT)
     if rc != 0:
@@ -1196,9 +1377,9 @@ def wait_share(name):
     except IOError:
         return 'Cannot write ' + CHECK_SCRIPT
 
-    G.progress_open(False)
-    G.send_channel('PROGRESS TEXT Connecting to %s: ...' % name, 600)
-    G.run_command('RUN >NIL: C:Execute ' + CHECK_SCRIPT)
+    progress_open(False)
+    send_channel('PROGRESS TEXT Connecting to %s: ...' % name, 600)
+    run_command('RUN >NIL: C:Execute ' + CHECK_SCRIPT)
 
     answer = None
     start = time.time()
@@ -1207,10 +1388,10 @@ def wait_share(name):
         answer = read_text(CHECK_DONE)
         if answer:
             break
-        if not G.progress_update(0, 0):
+        if not progress_update(0, 0):
             answer = 'CANCEL'
             break
-    G.progress_close()
+    progress_close()
 
     reason = read_text(CHECK_OUT)
     remove_files(CHECK_SCRIPT, CHECK_DONE, CHECK_OUT)
@@ -1229,10 +1410,12 @@ def wait_share(name):
 def busy(text):
     """Progress window without buttons: the network calls cannot be
     interrupted, but each one has a time limit."""
-    result = G.send_channel('PROGRESS NOCANCEL NOBUTTONS INDET 0 0', 6000)
-    G.PROGRESS_OK = result is not None and result[0] == 0
-    if G.PROGRESS_OK:
-        G.send_channel('PROGRESS TEXT ' + text, 600)
+    global PROGRESS_OK
+
+    result = send_channel('PROGRESS NOCANCEL NOBUTTONS INDET 0 0', 6000)
+    PROGRESS_OK = result is not None and result[0] == 0
+    if PROGRESS_OK:
+        send_channel('PROGRESS TEXT ' + text, 600)
 
 
 TYPE_NAME = 'Type a name or address...'
@@ -1267,7 +1450,7 @@ def pick_server():
         except Exception:
             error = str(sys.exc_info()[1])
     finally:
-        G.progress_close()
+        progress_close()
     if error:
         log('server search failed: %s' % error, True)
     if not servers:
@@ -1276,7 +1459,7 @@ def pick_server():
                 'be found: type their name or address.', False)
         return ask_host()
     labels = ['%s (%s)' % (n, ip) for n, ip in servers] + [TYPE_NAME]
-    index = choose('Servers', labels)
+    index = choose('Servers', labels, len(servers))
     if index is None:
         return None
     if index == len(servers):
@@ -1318,7 +1501,7 @@ def fetch_shares(host, login):
         except Exception:
             return None, SMBError('Network error: %s' % sys.exc_info()[1])
     finally:
-        G.progress_close()
+        progress_close()
 
 
 def pick_share(host, login):
@@ -1382,9 +1565,9 @@ def browse(values):
 # ===== Main =====
 
 def main():
-    log('start path=%s channel=%s' % (G.START_PATH, G.PLUGIN_DIR))
+    log('start path=%s channel=%s' % (START_PATH, PLUGIN_DIR))
 
-    if not G.PLUGIN_DIR or not G.DROP_PORT:
+    if not PLUGIN_DIR or not DROP_PORT:
         message('The plugin command channel is not available.')
         return
     if not check_requirements():
@@ -1440,9 +1623,28 @@ def main():
         return
 
     log('mounted %s:' % name)
-    G.send_channel('CD %s:' % name)
+    send_channel('CD %s:' % name)
+
+
+def run_safely(entry):
+    """Run the plugin; an unexpected error is written to the log and
+    shown, instead of the plugin vanishing without a word."""
+    try:
+        entry()
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        text = ''.join(traceback.format_exception(*sys.exc_info()))
+        log('unexpected error:\n' + text, True)
+        try:
+            progress_close()
+        except Exception:
+            pass
+        last = text.strip().split('\n')[-1]
+        message('Unexpected error (details in %s):\n\n%s' % (LOG, last))
 
 
 if __name__ == '__main__':
-    main()
+    run_safely(main)
     sys.exit(0)

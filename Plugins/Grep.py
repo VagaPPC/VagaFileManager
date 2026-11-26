@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
 # VagaFileManager plugin: Grep
+# VFM-Icon: search   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Recursive grep inside text files, with a ProAction/ReAction result list.

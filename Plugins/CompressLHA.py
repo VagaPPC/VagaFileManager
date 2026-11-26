@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
 # VagaFileManager plugin: CompressLHA
+# VFM-Icon: archiveadd   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Creates an LHA archive from the files selected in the active pane.

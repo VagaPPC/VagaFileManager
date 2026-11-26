@@ -3,6 +3,28 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 97 - 2026-11-26
+
+- Network drawers (Samba) open much faster: VFM no longer opens every
+  file to choose its icon.  Files without an icon get the icon of their
+  type from the name (picture, archive, sound...), in full colour.  The
+  NETHANDLERS ToolType of the VagaFileManager icon lists the network
+  handlers this applies to (smb2-handler by default).
+- The Scripts menu shows an AISS image (from tbimages:) next to each
+  bundled plugin; plugins choose it with a "VFM-Icon:" line.
+- Plugin forms can have a file field with a file requester button.
+- SambaMount is now called MountSamba, next to the new plugins below.
+  Each Mount plugin works by itself, without the other plugin files.
+- New MountSSH plugin: finds the SSH servers on the network and mounts
+  one with ssh2-handler; the volume is named <server>-<user>.
+- New MountFTP plugin: finds the FTP and SFTP servers on the network and
+  opens one as SFTP:<site> with SFTPHandler, adding the site to its list.
+- New MountNFS plugin: finds the NFS servers and lists their exports.  It
+  needs an nfs-handler that works on AmigaOS 4 (the one on Aminet is for
+  68k and does not).
+- The Mount plugins show the missing handler with its download link, and
+  any unexpected error instead of closing without a word.
+
 ## 1.1 build 93 - 2026-11-26
 
 - In list mode every other row has a darker background, like the

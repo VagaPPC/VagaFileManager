@@ -446,9 +446,142 @@ static struct DirEntryInfo *GetDirScratch(void)
     return gDirScratch;
 }
 
+/* Nomi (senza ".info") dei file .info della cartella letta: dicono quali
+   voci hanno un'icona senza un accesso al disco per ogni file. */
+typedef char InfoName[NAME_MAX_LEN];
+static InfoName *gInfoScratch = NULL;
+
+static InfoName *GetInfoScratch(void)
+{
+    if (!gInfoScratch)
+        gInfoScratch = (InfoName *)IExec->AllocVecTags(
+            MAX_ENTRIES * sizeof(InfoName), AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    return gInfoScratch;
+}
+
+static int CompareInfoNames(const void *a, const void *b)
+{
+    return (int)IUtility->Stricmp((CONST_STRPTR)a, (CONST_STRPTR)b);
+}
+
 void FreeDirectoryScratch(void)
 {
     if (gDirScratch) { IExec->FreeVec(gDirScratch); gDirScratch = NULL; }
+    if (gInfoScratch) { IExec->FreeVec(gInfoScratch); gInfoScratch = NULL; }
+}
+
+/* Handler dei volumi di rete (tooltype NETHANDLERS, nomi separati da '|'):
+   su questi volumi i file senza .info hanno l'icona standard invece di
+   quella di DefIcons, che dovrebbe aprire e leggere ogni file. */
+char gNetHandlers[256] = "smb2-handler";
+
+static BOOL IsNetHandler(CONST_STRPTR handler)
+{
+    CONST_STRPTR s = gNetHandlers;
+    CONST_STRPTR name = IDOS->FilePart(handler);
+    while (*s)
+    {
+        char item[64];
+        ULONG n = 0;
+        while (*s == '|' || *s == ' ') s++;
+        while (*s && *s != '|' && n < sizeof(item) - 1) item[n++] = *s++;
+        while (n > 0 && item[n - 1] == ' ') n--;
+        item[n] = '\0';
+        if (n > 0 && !IUtility->Stricmp(item, name)) return TRUE;
+    }
+    return FALSE;
+}
+
+/* Icona di un file senza .info su un volume di rete, scelta dal nome:
+   l'estensione indica l'icona di default di DefIcons (ENV:Sys/def_<tipo>),
+   senza aprire il file.  GetIconTags carica l'icona con tutti i suoi
+   colori (PNG/glow); se il tipo non c'e', l'icona di default del progetto
+   o del cassetto. */
+static const struct { CONST_STRPTR ext; CONST_STRPTR type; CONST_STRPTR alt; } gExtIcons[] =
+{
+    { "jpg", "jpeg", "picture" },  { "jpeg", "jpeg", "picture" },
+    { "png", "png", "picture" },   { "gif", "gif", "picture" },
+    { "bmp", "bmp", "picture" },   { "tif", "tiff", "picture" },
+    { "tiff", "tiff", "picture" }, { "iff", "ilbm", "picture" },
+    { "ilbm", "ilbm", "picture" }, { "webp", "picture", NULL },
+    { "mp3", "mp3", "sound" },     { "wav", "wav", "sound" },
+    { "ogg", "sound", NULL },      { "flac", "sound", NULL },
+    { "aiff", "sound", NULL },     { "8svx", "8svx", "sound" },
+    { "mod", "mod", "sound" },
+    { "mpg", "mpeg", "video" },    { "mpeg", "mpeg", "video" },
+    { "avi", "avi", "video" },     { "mov", "mov", "video" },
+    { "mp4", "video", "mpeg" },    { "mkv", "video", "mpeg" },
+    { "lha", "lha", "lharc" },     { "lzh", "lha", "lharc" },
+    { "lzx", "lzx", NULL },        { "zip", "zip", NULL },
+    { "gz", "gzip", NULL },        { "tgz", "gzip", NULL },
+    { "adf", "adf", NULL },        { "adz", "adz", NULL },
+    { "dms", "dms", NULL },
+    { "txt", "ascii", "text" },    { "text", "ascii", "text" },
+    { "doc", "doc", "ascii" },     { "pdf", "pdf", NULL },
+    { "html", "html", NULL },      { "htm", "html", NULL },
+    { "guide", "guide", NULL },    { "rexx", "rexx", "script" },
+    { "c", "c", "ascii" },         { "h", "c", "ascii" },
+    { NULL, NULL, NULL }
+};
+
+static struct DiskObject *NetDefaultIcon(CONST_STRPTR name, BOOL isDir)
+{
+    struct DiskObject *d = NULL;
+    CONST_STRPTR ext = isDir ? NULL : strrchr(name, '.');
+    int i;
+
+    if (ext && ext[1])
+    {
+        for (i = 0; gExtIcons[i].ext; i++)
+        {
+            if (IUtility->Stricmp(ext + 1, gExtIcons[i].ext)) continue;
+            d = IIcon->GetIconTags(NULL, ICONGETA_GetDefaultName, (ULONG)gExtIcons[i].type, TAG_DONE);
+            if (!d && gExtIcons[i].alt)
+                d = IIcon->GetIconTags(NULL, ICONGETA_GetDefaultName, (ULONG)gExtIcons[i].alt, TAG_DONE);
+            break;
+        }
+    }
+    if (!d)
+        d = IIcon->GetIconTags(NULL, ICONGETA_GetDefaultType, isDir ? WBDRAWER : WBPROJECT, TAG_DONE);
+    return d;
+}
+
+/* TRUE se la cartella sta su un device gestito da un handler di rete. */
+static BOOL IsNetworkDrawer(CONST_STRPTR drawer)
+{
+    char dev[NAME_MAX_LEN];
+    char handler[256];
+    BPTR lock;
+    LONG ok;
+    ULONG len;
+    struct DosList *dl;
+
+    if (!gNetHandlers[0] || !drawer || !drawer[0]) return FALSE;
+    lock = IDOS->Lock(drawer, SHARED_LOCK);
+    if (!lock) return FALSE;
+    ok = IDOS->DevNameFromLock(lock, dev, sizeof(dev), DN_DEVICEONLY);
+    IDOS->UnLock(lock);
+    if (!ok) return FALSE;
+    len = strlen(dev);
+    if (len > 0 && dev[len - 1] == ':') dev[--len] = '\0';
+    if (len == 0) return FALSE;
+
+    handler[0] = '\0';
+    dl = IDOS->LockDosList(LDF_DEVICES | LDF_READ);
+    dl = IDOS->FindDosEntry(dl, dev, LDF_DEVICES);
+    if (dl && dl->dol_misc.dol_handler.dol_Handler)
+    {
+        UBYTE *b = (UBYTE *)BADDR(dl->dol_misc.dol_handler.dol_Handler);
+        if (b)
+        {
+            ULONG n = b[0];
+            if (n > sizeof(handler) - 1) n = sizeof(handler) - 1;
+            IExec->CopyMem(b + 1, handler, n);
+            handler[n] = '\0';
+        }
+    }
+    IDOS->UnLockDosList(LDF_DEVICES | LDF_READ);
+    return handler[0] ? IsNetHandler(handler) : FALSE;
 }
 
 /* TRUE se il pattern contiene una wildcard (Amiga o *). */
@@ -548,6 +681,7 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
     struct ExamineData *ed;
     struct DirEntryInfo *entries;
     LONG count = 0, i;
+    BOOL netVolume = FALSE;
 
     FreeEntries(list);
 
@@ -597,6 +731,10 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
     }
     else
     {
+        InfoName *infoNames = GetInfoScratch();
+        LONG nInfo = 0;
+
+        netVolume = IsNetworkDrawer(drawer);
         context = IDOS->ObtainDirContextTags(EX_StringNameInput, (ULONG)drawer,
                                              EX_DataFields, EXF_NAME | EXF_SIZE | EXF_DATE | EXF_TYPE | EXF_COMMENT,
                                              TAG_END);
@@ -604,27 +742,25 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         {
             while (count < MAX_ENTRIES && (ed = IDOS->ExamineDir(context)) != NULL)
             {
-                char fullPath[PATH_MAX_LEN];
-                BOOL hasInfo, isInfo;
+                BOOL isInfo;
 
                 isInfo = PathIsInfo(ed->Name);
+                /* ricorda il nome di ogni .info (anche quelli non mostrati):
+                   dopo serve a sapere quali voci hanno un'icona */
+                if (isInfo && infoNames && nInfo < MAX_ENTRIES)
+                {
+                    ULONG n = strlen(ed->Name) - 5;
+                    if (n >= NAME_MAX_LEN) n = NAME_MAX_LEN - 1;
+                    memcpy(infoNames[nInfo], ed->Name, n);
+                    infoNames[nInfo][n] = '\0';
+                    nInfo++;
+                }
                 /* i .info si mostrano solo nella vista a lista, e solo se
                    l'utente ha attivato "Mostra file info" */
                 if (isInfo && (!gShowInfoFiles || gViewMode == FBVM_ICONS))
                     continue;
 
                 if (!EntryMatchesFilter(ed->Name)) continue;
-
-                strncpy(fullPath, drawer, sizeof(fullPath) - 1);
-                fullPath[sizeof(fullPath) - 1] = '\0';
-                if (!IDOS->AddPart(fullPath, ed->Name, sizeof(fullPath))) continue;
-
-                hasInfo = HasInfoFile(fullPath);
-                /* filtro "per icone": mostra solo le voci (file O cassetti)
-                   che hanno un'icona associata (<nome>.info).  Il caso
-                   "nessuna icona nella cartella" e' gestito a monte. */
-                if (gViewFilter == VIEW_FILTER_ICONS_ONLY && !hasInfo && !isInfo)
-                    continue;
 
                 strncpy(entries[count].name, ed->Name, NAME_MAX_LEN - 1);
                 entries[count].name[NAME_MAX_LEN - 1] = '\0';
@@ -640,13 +776,46 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
                 else
                     entries[count].comment[0] = '\0';
                 entries[count].isDir = EXD_IS_DIRECTORY(ed) ? TRUE : FALSE;
-                entries[count].hasInfo = hasInfo;
+                entries[count].hasInfo = FALSE;
                 entries[count].fileSize = ed->FileSize;
                 entries[count].dateStamp = ed->Date;
                 entries[count].typeRank = TypeRankEx(ed);
                 count++;
             }
             IDOS->ReleaseDirContext(context);
+        }
+
+        /* Quali voci hanno un'icona: dai nomi dei .info gia' letti, senza
+           un accesso al disco per ogni file (prezioso sui dischi di rete). */
+        if (infoNames && nInfo > 1)
+            qsort(infoNames, nInfo, sizeof(InfoName), CompareInfoNames);
+        {
+            LONG keep = 0;
+            for (i = 0; i < count; i++)
+            {
+                BOOL isInfo = PathIsInfo(entries[i].name);
+                BOOL hasInfo;
+                if (infoNames)
+                    hasInfo = (nInfo > 0 && bsearch(entries[i].name, infoNames, nInfo,
+                                                    sizeof(InfoName), CompareInfoNames)) ? TRUE : FALSE;
+                else
+                {
+                    char fullPath[PATH_MAX_LEN];
+                    strncpy(fullPath, drawer, sizeof(fullPath) - 1);
+                    fullPath[sizeof(fullPath) - 1] = '\0';
+                    hasInfo = IDOS->AddPart(fullPath, entries[i].name, sizeof(fullPath))
+                              ? HasInfoFile(fullPath) : FALSE;
+                }
+                /* filtro "per icone": mostra solo le voci (file O cassetti)
+                   che hanno un'icona associata (<nome>.info).  Il caso
+                   "nessuna icona nella cartella" e' gestito a monte. */
+                if (gViewFilter == VIEW_FILTER_ICONS_ONLY && !hasInfo && !isInfo)
+                    continue;
+                if (keep != i) entries[keep] = entries[i];
+                entries[keep].hasInfo = hasInfo;
+                keep++;
+            }
+            count = keep;
         }
     }
 
@@ -679,6 +848,12 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         /* Carica l'icona; se il file .info e' appena stato riscritto (es. dopo
            aver modificato i tooltype nella finestra Informazioni) puo' essere
            temporaneamente non disponibile: riprova un paio di volte. */
+        if (netVolume && !entries[i].hasInfo && !PathIsInfo(entries[i].name))
+        {
+            /* volume di rete: icona dal nome, DefIcons leggerebbe il file */
+            gIcons[gEntryCount] = NetDefaultIcon(entries[i].name, entries[i].isDir);
+        }
+        else
         {
             int tries;
             gIcons[gEntryCount] = NULL;

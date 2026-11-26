@@ -429,6 +429,9 @@ extern Object *gMenuImg[MIMG_COUNT];
 extern struct VFMWindowTag gWinTag;
 
 extern char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
+/* Icona AISS di ogni plugin (riga "VFM-Icon: <nome>" nel file), vuota se
+   non dichiarata: il menu Script la carica solo da tbimages:<nome>. */
+extern char gPluginIcons[MAX_PLUGINS][32];
 extern LONG gPluginCount;
 extern char gRexxPortName[64];
 
@@ -453,6 +456,7 @@ extern Object *gMainWinObj;
 void DBG(CONST_STRPTR fmt, ...);      /* solo con il ToolType DEBUG */
 void LOGERR(CONST_STRPTR fmt, ...);   /* errori: scritti sempre */
 extern BOOL gDebugLog;
+extern char gNetHandlers[256];
 
 /* ---- Directory, voci e percorsi ---- */
 uint32 IconHookFunc(struct Hook *hook, APTR gadget, APTR node);

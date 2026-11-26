@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
 # VagaFileManager plugin: CompressLZX
+# VFM-Icon: archiveadd   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Creates an LZX archive from the files selected in the active pane.

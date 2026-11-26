@@ -1,6 +1,7 @@
 #!python
 # ---------------------------------------------------------------------------
 # VagaFileManager plugin: CompressGZIP
+# VFM-Icon: archiveadd   (AISS image in tbimages:, shown in the Scripts menu)
 # ---------------------------------------------------------------------------
 #
 # Creates a gzip archive from the files selected in the active pane.

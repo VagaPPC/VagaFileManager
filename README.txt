@@ -19,6 +19,7 @@ Features
 - Workbench Replacement: the WB2VFM commodity seamlessly intercepts and replaces standard Workbench windows; a double-click on the empty desktop background opens a VFM window on RAM:, or on the path given by the DESKTOPPATH ToolType of the WB2VFM icon (for example DESKTOPPATH=Work:).
 - Workbench Emulation (View > Workbench emulation): hides every bar, turns off the context menus (the right mouse button shows the menu bar) and opens drawers in new windows on double-click or Return, like the Workbench.  The setting is saved; turning it off brings back the bars chosen in View > Bars.
 - Logs: VFM (T:VagaFileManager.log), WB2VFM (T:WB2VFM.log) and the bundled plugins (T:<plugin>.log) write only errors.  Set the DEBUG ToolType of the VagaFileManager icon (or of the WB2VFM icon) to TRUE to log every step; it ships as DEBUG=FALSE.
+- Network volumes: on devices whose handler is listed in the NETHANDLERS ToolType of the VagaFileManager icon (names separated by '|', for example smb2-handler|ssh2-handler|nfs-handler|sftp-handler; default smb2-handler) files without an icon get the default icon of their type chosen from the name extension (ENV:Sys/def_jpeg, def_lha, def_mp3...; the project or drawer icon when there is none) instead of the one DefIcons finds by reading the file, so VFM does not have to open and read every file of a remote drawer.  The VagaFileManager icon ships with NETHANDLERS=smb2-handler.  An empty NETHANDLERS= turns this off.  On all volumes VFM learns which files have an icon from the drawer listing itself, without one disk access per file.
 - Scripting & Extensibility:
 - Built-in ARexx port.
 - Python plugin support (Work In Progress).
@@ -133,6 +134,12 @@ Keyboard:
 
 Python / ARexx addons:
 - Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
+- A plugin can show an AISS image in the Scripts menu with a comment line
+  near its start: "VFM-Icon: <name>" (e.g. "# VFM-Icon: network").  The
+  image is loaded only from tbimages:<name>; without AISS, or if the image
+  is missing, the usual script image is used.  The bundled plugins use
+  archiveadd (Compress*), find, search (Grep), network (MountSamba),
+  connectremote (MountSSH), connectserver (MountNFS) and ftp (MountFTP).
 - VFM passes six arguments to Python addons:
     C:Python "<script>" "<arexx-port>" "<path>" "<vfm-executable>" \
              "<drop-port>" "<plugin-channel-dir>"
@@ -179,6 +186,8 @@ Python / ARexx addons:
     FIELD <id>|PASSWORD|<label>|<value>      (shown as asterisks)
     FIELD <id>|CHECK|<label>|<0|1>
     FIELD <id>|CHOICE|<label>|<item1;item2;...>|<index>
+    FIELD <id>|FILE|<label>|<path>            (with a file requester button,
+                                               build 94 or newer)
     INFO <text>
     BUTTONS <button1>|<button2>|...           (up to 6)
     PLACE LAST                                (open where the last form was)
@@ -187,7 +196,7 @@ Python / ARexx addons:
   Without PLACE LAST the window opens under the mouse pointer; with it,
   at the position of the last form closed (build 92 or newer; older
   builds ignore the line), so a plugin asking several questions in a row
-  does not move its windows.  SambaMount uses it.
+  does not move its windows.  MountSamba uses it.
   or, without ARexx, launch VFM in dialog mode:
     VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
     VagaFileManager --dialog "@<spec-file>"
@@ -216,7 +225,7 @@ Python / ARexx addons:
   the result with C:gzip, producing a `.tar.gz` archive.  It also offers
   Add / Overwrite / Cancel; Add decompresses the existing archive, appends
   the new entries and compresses it again.
-- `Plugins/SambaMount.py` mounts an SMB2/3 share (Samba, Windows, NAS)
+- `Plugins/MountSamba.py` mounts an SMB2/3 share (Samba, Windows, NAS)
   with smb2-handler (smb2fs package, needs filesysbox.library 54.4+).  It
   starts by asking one thing at a time: the server (found on the local
   network with NetBIOS, or typed: computers with NetBIOS turned off
@@ -230,6 +239,48 @@ Python / ARexx addons:
   that the share answers before VFM opens it.  Long lists come in pages.
   Nothing is remembered between two runs.  Unmounting is not available
   (AmigaOS has no DISMOUNT for this handler).
+- `Plugins/MountSSH.py` mounts the files of an SSH server (SFTP) with
+  ssh2-handler (Enhancer Software; needs filesysbox.library 54.4+ and
+  AmiSSL v4).  It starts by looking for the computers of the local
+  network with the SSH port (22) open, showing their name and server
+  version (a name, address and port can also be typed).  Then one form
+  asks user, password, key file, remote folder, read only and where to
+  keep the DOSDriver: temporary (T:), DEVS:DOSDrivers or
+  SYS:Storage/DOSDrivers; the key file has a file requester button
+  (VFM build 94 or newer) and Browse... chooses the server again.  The
+  remote folder starts as /; ~ is the home of the user on the server
+  (/root for root, /home/<user> for the others).  With an
+  empty password ssh2-handler asks it when it connects, so it is not
+  written in the DOSDriver.  The server name is its short DNS name
+  (reverse lookup: gundam.vagappc.net -> gundam), else the typed name or
+  the NetBIOS name.  The device takes the name of the server
+  (basebianca:, or SSH_<last number>: for an address without a name) and
+  the volume is named <server>-<user>, e.g. basebianca-vagappc, which
+  VFM opens after the mount.
+- `Plugins/MountNFS.py` mounts an NFSv3 export with nfs-handler
+  (https://aminet.net/package/comm/net/nfs-handler_rs, needs
+  filesysbox.library 54.3+; if they are missing the plugin says so and
+  gives the download link).  It looks for the computers of the local
+  network with the NFS port (2049) open, then asks the chosen server for
+  its exports (like showmount -e); a server or a path can also be typed.
+  A form, already filled in, shows server, export, volume name, UID, GID,
+  read only and where to keep the DOSDriver.  The volume (and the device)
+  is named after the export (/exp/archivio -> archivio:).  NFS has no
+  password: the server must export with the "insecure" option (TrueNAS:
+  "Allow non-root mount").
+- `Plugins/MountFTP.py` opens an FTP or SFTP site with SFTPHandler
+  (https://os4depot.net/?function=showfile&file=driver/handler/sftphandler.lha;
+  needs filesysbox.library 54.8+, clib4.library and, for SFTP, AmiSSL; if
+  they are missing the plugin says so and gives the link).  It looks for
+  the computers of the local network with the SFTP (22) or FTP (21) port
+  open, showing name, protocol and server version (a name can also be
+  typed).  A form, already filled in, shows site name (proposed as
+  <server>-<user>), protocol, server, port, user, password, start folder,
+  key file (with a file requester) and "Keep the site after a restart".
+  The site is added to ENV:SFTPHandler/sites.xml (and ENVARC: to keep it)
+  as sftphprefs writes it, leaving the other sites alone; SFTP: is
+  mounted if needed and VFM opens SFTP:<site>.  With an empty password
+  sftp-handler asks it when it connects; a saved one is in plain text.
 - All three archive add-ons use the VFM progress window with the total
   file count.  Its close button interrupts the compression after a
   confirmation: the archiver gets CTRL-C and a window without close button

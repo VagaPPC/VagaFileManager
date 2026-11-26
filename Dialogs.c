@@ -29,6 +29,8 @@
 #include <gadgets/checkbox.h>
 #include <proto/chooser.h>
 #include <gadgets/chooser.h>
+#include <proto/getfile.h>
+#include <gadgets/getfile.h>
 
 static BOOL IconFileExists(CONST_STRPTR path);
 static BOOL TbimagesAvailable(void);
@@ -562,6 +564,7 @@ LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
      FIELD <id>|PASSWORD|<etichetta>|<valore>      (asterischi)
      FIELD <id>|CHECK|<etichetta>|<0|1>
      FIELD <id>|CHOICE|<etichetta>|<voce1;voce2;...>|<indice>
+     FIELD <id>|FILE|<etichetta>|<percorso>         (con file requester)
      INFO <testo>                                   (riga di solo testo)
      BUTTONS <pulsante1>|<pulsante2>|...            (massimo 6)
      PLACE LAST                                     (dove stava l'ultimo FORM)
@@ -573,7 +576,7 @@ LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
 #define GID_FORM_FIELD   3000
 #define GID_FORM_BTN     3100
 
-enum { FI_TEXT, FI_PASSWORD, FI_CHECK, FI_CHOICE, FI_INFO };
+enum { FI_TEXT, FI_PASSWORD, FI_CHECK, FI_CHOICE, FI_INFO, FI_FILE };
 
 struct FormItem
 {
@@ -669,6 +672,7 @@ static BOOL ParseFormSpec(CONST_STRPTR path, struct FormSpec *fs)
             else if (!IUtility->Stricmp(type, "PASSWORD")) it->type = FI_PASSWORD;
             else if (!IUtility->Stricmp(type, "CHECK")) it->type = FI_CHECK;
             else if (!IUtility->Stricmp(type, "CHOICE")) it->type = FI_CHOICE;
+            else if (!IUtility->Stricmp(type, "FILE")) it->type = FI_FILE;
             else continue;
 
             if (it->type == FI_CHOICE)
@@ -745,7 +749,8 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
     for (i = 0; i < fs->nItems; i++)
     {
         struct FormItem *it = &fs->items[i];
-        if (scr && (it->type == FI_TEXT || it->type == FI_PASSWORD || it->type == FI_CHOICE))
+        if (scr && (it->type == FI_TEXT || it->type == FI_PASSWORD || it->type == FI_CHOICE ||
+                    it->type == FI_FILE))
         {
             ULONG w = IGraphics->TextLength(&scr->RastPort, it->label, strlen(it->label));
             if (w > labelW) labelW = w;
@@ -790,9 +795,19 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
                     CHOOSER_Selected, it->choiceIdx,
                     TAG_DONE);
                 /* fall through: stessa riga etichetta + gadget */
+            case FI_FILE:
+                /* campo modificabile con il pulsante del file requester */
+                if (it->type == FI_FILE)
+                    it->gad = IIntuition->NewObject(IGetFile->GETFILE_GetClass(), NULL,
+                        GA_ID, GID_FORM_FIELD + i, GA_RelVerify, TRUE,
+                        GETFILE_TitleText, (ULONG)it->label,
+                        GETFILE_FullFile, (ULONG)it->value,
+                        GETFILE_ReadOnly, FALSE,
+                        TAG_DONE);
+                /* fall through */
             case FI_TEXT:
             case FI_PASSWORD:
-                if (it->type != FI_CHOICE)
+                if (it->type != FI_CHOICE && it->type != FI_FILE)
                     it->gad = IIntuition->NewObject(NULL, "string.gadget",
                         GA_ID, GID_FORM_FIELD + i, GA_RelVerify, TRUE, GA_TabCycle, TRUE,
                         STRINGA_MaxChars, sizeof(it->value) - 1,
@@ -881,6 +896,12 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
                         result = (LONG)(id - GID_FORM_BTN) + 1;
                         done = TRUE;
                     }
+                    else if (id >= GID_FORM_FIELD && id < GID_FORM_FIELD + (ULONG)fs->nItems &&
+                             fs->items[id - GID_FORM_FIELD].type == FI_FILE)
+                    {
+                        /* pulsante del campo FILE: apre il file requester */
+                        IIntuition->IDoMethod(fs->items[id - GID_FORM_FIELD].gad, GFILE_REQUEST, win);
+                    }
                     break;
                 }
                 default: break;
@@ -913,6 +934,10 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
                 case FI_CHOICE:
                     IIntuition->GetAttr(CHOOSER_Selected, it->gad, &v);
                     IDOS->FPrintf(fh, "%s=%ld\n", it->id, (long)v);
+                    break;
+                case FI_FILE:
+                    IIntuition->GetAttr(GETFILE_FullFile, it->gad, (ULONG *)&t);
+                    IDOS->FPrintf(fh, "%s=%s\n", it->id, t ? t : (STRPTR)"");
                     break;
             }
         }
@@ -1737,9 +1762,37 @@ static CONST_STRPTR gMenuImgAiss[MIMG_COUNT] =
 
 /* ===== Menu ===== */
 
+/* Icone AISS dei plugin, caricate solo da tbimages: (nessuna copia
+   locale): una per nome, tenute fino a FreeMenuImages. */
+#define PLUGIN_IMG_MAX 32
+static struct { char name[32]; Object *img; } gPluginImg[PLUGIN_IMG_MAX];
+static struct Screen *gMenuScreen = NULL;
+
+static Object *PluginMenuImage(CONST_STRPTR name)
+{
+    char path[64];
+    int i;
+
+    if (!name || !name[0] || !gMenuScreen) return NULL;
+    for (i = 0; i < PLUGIN_IMG_MAX && gPluginImg[i].name[0]; i++)
+        if (!IUtility->Stricmp(gPluginImg[i].name, name)) return gPluginImg[i].img;
+    if (i >= PLUGIN_IMG_MAX || !TbimagesAvailable()) return NULL;
+    snprintf(path, sizeof(path), "tbimages:%s", name);
+    strncpy(gPluginImg[i].name, name, sizeof(gPluginImg[i].name) - 1);
+    gPluginImg[i].img = NULL;
+    if (IconFileExists(path))
+        gPluginImg[i].img = IIntuition->NewObject(NULL, "bitmap.image",
+            BITMAP_SourceFile, (ULONG)path,
+            BITMAP_Screen, (ULONG)gMenuScreen,
+            BITMAP_Masking, TRUE,
+            TAG_DONE);
+    return gPluginImg[i].img;   /* NULL: si usa l'icona degli script */
+}
+
 void LoadMenuImages(struct Screen *scr)
 {
     int i;
+    gMenuScreen = scr;
     for (i = 0; i < MIMG_COUNT; i++)
     {
         char path[300];
@@ -1768,6 +1821,13 @@ void FreeMenuImages(void)
     {
         if (gMenuImg[i]) { IIntuition->DisposeObject(gMenuImg[i]); gMenuImg[i] = NULL; }
     }
+    for (i = 0; i < PLUGIN_IMG_MAX; i++)
+    {
+        if (gPluginImg[i].img) IIntuition->DisposeObject(gPluginImg[i].img);
+        gPluginImg[i].img = NULL;
+        gPluginImg[i].name[0] = '\0';
+    }
+    gMenuScreen = NULL;
 }
 
 /* ---- costruzione del menu con menuclass (icone AISS) ---- */
@@ -1954,7 +2014,20 @@ void BuildMenu(void)
     /* Script */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_SCRIPT));
     for (j = 0; j < gPluginCount; j++)
-        AddMenuItem(tags, &n, FilePart(gPlugins[j]), MENU_SCRIPT_BASE + j, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
+    {
+        Object *img = PluginMenuImage(gPluginIcons[j]);
+        if (img)
+        {
+            /* icona AISS dichiarata dal plugin (VFM-Icon:) */
+            AddMenuTag(tags, &n, NM_Item, (ULONG)FilePart(gPlugins[j]));
+            AddMenuTag(tags, &n, MA_EmbeddedKey, FALSE);
+            AddMenuTag(tags, &n, MA_ID, MENU_SCRIPT_BASE + j);
+            AddMenuTag(tags, &n, MA_Image, (ULONG)img);
+            AddMenuTag(tags, &n, MA_FreeImage, FALSE);
+        }
+        else
+            AddMenuItem(tags, &n, FilePart(gPlugins[j]), MENU_SCRIPT_BASE + j, NULL, MIMG_SCRIPT, FALSE, FALSE, FALSE);
+    }
     if (gPluginCount > 0) AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_SCRIPT_REFRESH), MENU_SCRIPT_REFRESH, NULL, MIMG_REFRESH, FALSE, FALSE, FALSE);
     AddMenuItem(tags, &n, LS(MSG_SCRIPT_OPENDIR), MENU_SCRIPT_OPENDIR, NULL, MIMG_FOLDER, FALSE, FALSE, FALSE);
