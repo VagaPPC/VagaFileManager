@@ -11,7 +11,8 @@ DIST    = VFM
 #  -O3                  inline, loop/vector optimization, CSE ecc.
 #  -fomit-frame-pointer libera un registro (backtrace piu' poveri)
 #  -fno-strict-aliasing i cast BOOPSI/ReAction violano lo strict aliasing
-CFLAGS  = -O3 -fomit-frame-pointer -fno-strict-aliasing
+# -Os: about a quarter less code than -O3, no visible speed difference
+CFLAGS  = -Os -fomit-frame-pointer -fno-strict-aliasing
 
 LANG = english italian french german polish spanish greek
 

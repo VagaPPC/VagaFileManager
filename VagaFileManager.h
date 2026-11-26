@@ -343,6 +343,21 @@ enum
    qui sotto mantengono compatibili i nomi storici: si riferiscono sempre al
    pannello attivo (gPanes[gActivePane]).  Prima di usare una funzione che
    lavora sul pannello, impostare gActivePane. */
+/* Dati delle voci di un pannello: allocati solo quando il pannello mostra
+   una cartella (il secondo solo con la vista divisa), liberati quando il
+   pannello si chiude.  Si usano con PaneArrays(p) o con le macro gNames... */
+struct PaneData
+{
+    struct DiskObject *icons[MAX_ENTRIES];
+    BOOL        isDir[MAX_ENTRIES];
+    char        names[MAX_ENTRIES][NAME_MAX_LEN];
+    char        comment[MAX_ENTRIES][COMMENT_MAX_LEN];
+    int64       fileSize[MAX_ENTRIES];
+    struct DateStamp dateStamp[MAX_ENTRIES];
+    uint32      typeRank[MAX_ENTRIES];
+    char        forwardStack[MAX_HISTORY][PATH_MAX_LEN];
+};
+
 struct Pane
 {
     struct List fileList;
@@ -360,17 +375,10 @@ struct Pane
     ULONG       filterChangeTicks;
     char        winTitle[PATH_MAX_LEN];
     LONG        entryCount;
-    struct DiskObject *icons[MAX_ENTRIES];
-    BOOL        isDir[MAX_ENTRIES];
-    char        names[MAX_ENTRIES][NAME_MAX_LEN];
-    char        comment[MAX_ENTRIES][COMMENT_MAX_LEN];
-    int64       fileSize[MAX_ENTRIES];
-    struct DateStamp dateStamp[MAX_ENTRIES];
-    uint32      typeRank[MAX_ENTRIES];
+    struct PaneData *data;          /* NULL finche' non serve */
     ULONG       viewFilter, sortMode, viewMode;
     ULONG       showInfoFiles;
     ULONG       iconSize;           /* 0 = automatic, else fixed image box */
-    char        forwardStack[MAX_HISTORY][PATH_MAX_LEN];
     LONG        forwardCount;
     ULONG       lastRefreshTicks;
 
@@ -383,13 +391,17 @@ struct Pane
 extern struct Pane gPanes[2];
 extern int gActivePane;
 
-#define gIcons        (gPanes[gActivePane].icons)
-#define gIsDir        (gPanes[gActivePane].isDir)
-#define gNames        (gPanes[gActivePane].names)
-#define gComment      (gPanes[gActivePane].comment)
-#define gFileSize     (gPanes[gActivePane].fileSize)
-#define gDateStamp    (gPanes[gActivePane].dateStamp)
-#define gTypeRank     (gPanes[gActivePane].typeRank)
+struct PaneData *PaneArrays(int p);   /* alloca al primo uso, mai NULL */
+BOOL AllocPaneArrays(int p);
+void FreePaneArrays(int p);
+
+#define gIcons        (PaneArrays(gActivePane)->icons)
+#define gIsDir        (PaneArrays(gActivePane)->isDir)
+#define gNames        (PaneArrays(gActivePane)->names)
+#define gComment      (PaneArrays(gActivePane)->comment)
+#define gFileSize     (PaneArrays(gActivePane)->fileSize)
+#define gDateStamp    (PaneArrays(gActivePane)->dateStamp)
+#define gTypeRank     (PaneArrays(gActivePane)->typeRank)
 #define gEntryCount   (gPanes[gActivePane].entryCount)
 #define gPathBuffer   (gPanes[gActivePane].pathBuffer)
 #define gFilterText   (gPanes[gActivePane].filterBuffer)
@@ -399,7 +411,7 @@ extern int gActivePane;
 #define gShowInfoFiles (gPanes[gActivePane].showInfoFiles)
 #define gIconSize     (gPanes[gActivePane].iconSize)
 #define gWinTitle     (gPanes[gActivePane].winTitle)
-#define gForwardStack (gPanes[gActivePane].forwardStack)
+#define gForwardStack (PaneArrays(gActivePane)->forwardStack)
 #define gForwardCount (gPanes[gActivePane].forwardCount)
 #define gNotify       (gPanes[gActivePane].notify)
 #define gNotifyActive (gPanes[gActivePane].notifyActive)
@@ -409,7 +421,10 @@ extern int gActivePane;
 extern struct Hook gSortHooks[2];
 extern struct Hook gIconRenderHooks[2];
 
-extern char gClipboard[MAX_CLIPBOARD][PATH_MAX_LEN];
+/* Appunti: allocati e ingranditi solo quando servono (ClipboardReserve). */
+extern char (*gClipboard)[PATH_MAX_LEN];
+BOOL ClipboardReserve(LONG count);
+void FreeClipboard(void);
 extern LONG gClipboardCount;
 extern ULONG gClipboardMode;
 

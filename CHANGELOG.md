@@ -3,6 +3,13 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 98 - 2026-11-26
+
+- VFM needs much less memory: about 1.6 MB less for each open window.
+  The second pane takes memory only while the split view is open, and
+  the clipboard and the per-drawer settings use only what they hold.
+- The program file is smaller (332 KB instead of 395 KB).
+
 ## 1.1 build 97 - 2026-11-26
 
 - Network drawers (Samba) open much faster: VFM no longer opens every

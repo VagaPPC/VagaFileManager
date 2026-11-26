@@ -379,6 +379,68 @@ BOOL IsRootPath(CONST_STRPTR path)
             strcmp(path, LS(MSG_ROOT_ASSIGNS)) == 0);
 }
 
+/* ===== Dati delle voci dei pannelli ===== */
+
+BOOL AllocPaneArrays(int p)
+{
+    if (!gPanes[p].data)
+        gPanes[p].data = (struct PaneData *)IExec->AllocVecTags(sizeof(struct PaneData),
+            AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+    return gPanes[p].data ? TRUE : FALSE;
+}
+
+/* Il primo pannello e' allocato all'avvio (se non riesce, VFM non parte);
+   il secondo al primo uso.  Se la memoria manca proprio in quel momento,
+   il secondo pannello usa i dati del primo invece di bloccare tutto. */
+struct PaneData *PaneArrays(int p)
+{
+    if (!gPanes[p].data && !AllocPaneArrays(p))
+    {
+        LOGERR("no memory for the entries of pane %ld", (long)p);
+        if (p != 0) return PaneArrays(0);
+    }
+    return gPanes[p].data;
+}
+
+void FreePaneArrays(int p)
+{
+    if (gPanes[p].data) { IExec->FreeVec(gPanes[p].data); gPanes[p].data = NULL; }
+}
+
+/* ===== Appunti ===== */
+
+static LONG gClipCapacity = 0;
+
+/* Spazio per almeno 'count' percorsi negli appunti: cresce a blocchi di
+   16, fino a MAX_CLIPBOARD, conservando quelli gia' presenti. */
+BOOL ClipboardReserve(LONG count)
+{
+    char (*grown)[PATH_MAX_LEN];
+    LONG cap;
+
+    if (count <= gClipCapacity) return TRUE;
+    if (count > MAX_CLIPBOARD) return FALSE;
+    cap = (count + 15) & ~15;
+    if (cap > MAX_CLIPBOARD) cap = MAX_CLIPBOARD;
+    grown = (char (*)[PATH_MAX_LEN])IExec->AllocVecTags(cap * PATH_MAX_LEN,
+        AVT_Type, MEMF_PRIVATE, TAG_DONE);
+    if (!grown) return FALSE;
+    if (gClipboard)
+    {
+        IExec->CopyMem(gClipboard, grown, gClipCapacity * PATH_MAX_LEN);
+        IExec->FreeVec(gClipboard);
+    }
+    gClipboard = grown;
+    gClipCapacity = cap;
+    return TRUE;
+}
+
+void FreeClipboard(void)
+{
+    if (gClipboard) { IExec->FreeVec(gClipboard); gClipboard = NULL; }
+    gClipCapacity = 0;
+}
+
 void FreeEntries(struct List *list)
 {
     LONG i;
@@ -894,6 +956,8 @@ LONG ReadDirectory(CONST_STRPTR drawer, struct List *list)
         gEntryCount++;
     }
 
+    /* i buffer di lettura (oltre 700 KB) servono solo qui */
+    FreeDirectoryScratch();
     return gEntryCount;
 }
 

@@ -474,8 +474,8 @@ static BOOL PaneDrawerAt(int p, struct Window *win, WORD winX, WORD winY,
 
     IListBrowser->GetListBrowserNodeAttrs(nd, LBNA_UserData, &index,
         LBNA_Column, COL_NAME, LBNCA_Text, &name, TAG_DONE);
-    if (index >= (ULONG)pn->entryCount || !pn->isDir[index]) return FALSE;
-    if (!name || !name[0]) name = pn->names[index];
+    if (index >= (ULONG)pn->entryCount || !PaneArrays(p)->isDir[index]) return FALSE;
+    if (!name || !name[0]) name = PaneArrays(p)->names[index];
     if (!name || !name[0]) return FALSE;
 
     if (!BuildChildPath(pn->pathBuffer, name, out, outSize))

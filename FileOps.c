@@ -1325,6 +1325,7 @@ BOOL LoadSharedClipboard(void)
         lock = IDOS->Lock(line, SHARED_LOCK);
         if (!lock) continue;
         IDOS->UnLock(lock);
+        if (!ClipboardReserve(count + 1)) break;
         strncpy(gClipboard[count], line, PATH_MAX_LEN - 1);
         gClipboard[count][PATH_MAX_LEN - 1] = '\0';
         count++;
@@ -1355,6 +1356,7 @@ void DoCopySelected(struct List *list)
         {
             if (!BuildChildPath(gPathBuffer, name, full, sizeof(full))) continue;
         }
+        if (!ClipboardReserve(gClipboardCount + 1)) break;
         strncpy(gClipboard[gClipboardCount], full, PATH_MAX_LEN - 1);
         gClipboard[gClipboardCount][PATH_MAX_LEN - 1] = '\0';
         gClipboardCount++;

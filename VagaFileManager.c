@@ -66,7 +66,7 @@ struct Hook gIconRenderHooks[2];
 static struct Hook gIconHooks[2];
 
 /* ---- stato condiviso ---- */
-char gClipboard[MAX_CLIPBOARD][PATH_MAX_LEN];
+char (*gClipboard)[PATH_MAX_LEN] = NULL;
 LONG gClipboardCount = 0;
 ULONG gClipboardMode = CLIP_NONE;
 
@@ -290,8 +290,11 @@ static void PaneInit(int p, CONST_STRPTR path)
     }
     pn->winTitle[0] = '\0';
     pn->entryCount = 0;
-    memset(pn->icons, 0, sizeof(pn->icons));
-    memset(pn->isDir, 0, sizeof(pn->isDir));
+    if (pn->data)
+    {
+        memset(pn->data->icons, 0, sizeof(pn->data->icons));
+        memset(pn->data->isDir, 0, sizeof(pn->data->isDir));
+    }
     pn->forwardCount = 0;
     pn->viewFilter = VIEW_FILTER_ICONS_ONLY;
     pn->sortMode = SORT_BY_TYPE;
@@ -330,8 +333,36 @@ struct VolumeGeom
     BOOL  hasPos;
 };
 
-static struct PathPrefs gPathPrefs[MAX_PATH_PREFS];
+/* Preferenze di vista per cartella: l'elenco cresce a blocchi di 16 (fino
+   a MAX_PATH_PREFS) invece di occupare sempre lo spazio per tutte. */
+static struct PathPrefs *gPathPrefs = NULL;
 static LONG gPathPrefsCount = 0;
+static LONG gPathPrefsCap = 0;
+
+/* Nuova voce azzerata in fondo all'elenco; NULL se piena o senza memoria. */
+static struct PathPrefs *PathPrefsAdd(struct PathPrefs **arr, LONG *count, LONG *cap)
+{
+    if (*count >= *cap)
+    {
+        LONG ncap;
+        struct PathPrefs *grown;
+        if (*cap >= MAX_PATH_PREFS) return NULL;
+        ncap = *cap + 16;
+        if (ncap > MAX_PATH_PREFS) ncap = MAX_PATH_PREFS;
+        grown = (struct PathPrefs *)IExec->AllocVecTags(ncap * sizeof(struct PathPrefs),
+            AVT_Type, MEMF_PRIVATE, TAG_DONE);
+        if (!grown) return NULL;
+        if (*arr)
+        {
+            IExec->CopyMem(*arr, grown, *count * sizeof(struct PathPrefs));
+            IExec->FreeVec(*arr);
+        }
+        *arr = grown;
+        *cap = ncap;
+    }
+    memset(&(*arr)[*count], 0, sizeof(struct PathPrefs));
+    return &(*arr)[(*count)++];
+}
 static struct VolumeGeom gVolumeGeom[MAX_VOLUME_GEOM];
 static LONG gVolumeGeomCount = 0;
 
@@ -475,7 +506,7 @@ static void ClampWindowGeom(void)
    altre istanze in esecuzione). */
 static void ParsePrefs(CONST_STRPTR file,
                        struct VFMPrefs *prefs,
-                       struct PathPrefs *paths, LONG *pathCount,
+                       struct PathPrefs **paths, LONG *pathCount, LONG *pathCap,
                        struct VolumeGeom *vols, LONG *volCount)
 {
     BPTR fh;
@@ -501,10 +532,9 @@ static void ParsePrefs(CONST_STRPTR file,
             {
                 inPath = TRUE; inVolume = FALSE;
                 cur = NULL; cvol = NULL;
-                if (*pathCount < MAX_PATH_PREFS)
+                cur = PathPrefsAdd(paths, pathCount, pathCap);
+                if (cur)
                 {
-                    cur = &paths[(*pathCount)++];
-                    memset(cur, 0, sizeof(*cur));
                     cur->viewMode      = FBVM_ICONS;
                     cur->viewFilter    = VIEW_FILTER_ICONS_ONLY;
                     cur->sortMode      = SORT_BY_TYPE;
@@ -583,9 +613,9 @@ static void ParsePrefs(CONST_STRPTR file,
     out = 0;
     for (i = 0; i < *pathCount; i++)
     {
-        if (paths[i].path[0])
+        if ((*paths)[i].path[0])
         {
-            if (out != i) paths[out] = paths[i];
+            if (out != i) (*paths)[out] = (*paths)[i];
             out++;
         }
     }
@@ -609,7 +639,7 @@ void LoadPrefs(void)
 {
     PrefsDefaults();
 
-    ParsePrefs(PREFS_FILE, &gPrefs, gPathPrefs, &gPathPrefsCount,
+    ParsePrefs(PREFS_FILE, &gPrefs, &gPathPrefs, &gPathPrefsCount, &gPathPrefsCap,
                gVolumeGeom, &gVolumeGeomCount);
 
     gWinInnerW = gPrefs.width;
@@ -666,9 +696,8 @@ void RememberPathPrefs(CONST_STRPTR path, ULONG view, ULONG filter, ULONG sort,
 
     if (!pp)
     {
-        if (gPathPrefsCount >= MAX_PATH_PREFS) return;
-        pp = &gPathPrefs[gPathPrefsCount++];
-        memset(pp, 0, sizeof(*pp));
+        pp = PathPrefsAdd(&gPathPrefs, &gPathPrefsCount, &gPathPrefsCap);
+        if (!pp) return;
         strncpy(pp->path, path, PATH_MAX_LEN - 1);
         pp->path[PATH_MAX_LEN - 1] = '\0';
     }
@@ -686,6 +715,7 @@ void SavePrefs(void)
     struct Window *win = NULL;
     struct VFMPrefs diskPrefs;
     struct PathPrefs *diskPaths = NULL;
+    LONG diskPathCap = 0;
     struct VolumeGeom *diskVols = NULL;
     LONG diskPathCount = 0, diskVolCount = 0;
     BOOL merged = FALSE;
@@ -708,17 +738,14 @@ void SavePrefs(void)
                           gPanes[1].sortMode, gPanes[1].showInfoFiles, gPanes[1].iconSize);
 
     /* Rilegge il file per fondere i dati di altre istanze in esecuzione. */
-    diskPaths = (struct PathPrefs *)IExec->AllocVecTags(
-        MAX_PATH_PREFS * sizeof(struct PathPrefs),
-        AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
     diskVols = (struct VolumeGeom *)IExec->AllocVecTags(
         MAX_VOLUME_GEOM * sizeof(struct VolumeGeom),
         AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
 
-    if (diskPaths && diskVols)
+    if (diskVols)
     {
         memset(&diskPrefs, 0, sizeof(diskPrefs));
-        ParsePrefs(PREFS_FILE, &diskPrefs, diskPaths, &diskPathCount,
+        ParsePrefs(PREFS_FILE, &diskPrefs, &diskPaths, &diskPathCount, &diskPathCap,
                    diskVols, &diskVolCount);
 
         /* I valori globali di questa istanza vincono. */
@@ -743,8 +770,11 @@ void SavePrefs(void)
                     break;
             if (j < diskPathCount)
                 diskPaths[j] = gPathPrefs[i];
-            else if (diskPathCount < MAX_PATH_PREFS)
-                diskPaths[diskPathCount++] = gPathPrefs[i];
+            else
+            {
+                struct PathPrefs *np = PathPrefsAdd(&diskPaths, &diskPathCount, &diskPathCap);
+                if (np) *np = gPathPrefs[i];
+            }
         }
 
         merged = TRUE;
@@ -1218,6 +1248,7 @@ static void ToggleSplitPanes(struct Window *win, Object *winObj)
         pn->btnRename = pn->btnDelete = pn->btnDuplicate = pn->btnCopy = NULL;
         pn->btnCut = pn->btnPaste = pn->btnInfo = NULL;
         if (pn->colInfo) { IListBrowser->FreeLBColumnInfo(pn->colInfo); pn->colInfo = NULL; }
+        FreePaneArrays(1);          /* il secondo pannello non c'e' piu' */
         gActivePane = 0;
         HideTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
@@ -2967,8 +2998,8 @@ static void SelectByLetter(unsigned char ch, struct Window *win)
 
     for (i = 0; i < pn->entryCount; i++)
     {
-        if (pn->names[i][0] &&
-            toupper((int)(unsigned char)pn->names[i][0]) == upper)
+        if (PaneArrays(gActivePane)->names[i][0] &&
+            toupper((int)(unsigned char)PaneArrays(gActivePane)->names[i][0]) == upper)
         {
             SelectPaneIndex(gActivePane, i, win);
             return;
@@ -3038,7 +3069,7 @@ static uint32 ContextMenuHookFunc(struct Hook *hook, struct Window *win, struct 
             if (hi.fbgia_Node)
             {
                 IListBrowser->GetListBrowserNodeAttrs(hi.fbgia_Node, LBNA_UserData, &index, TAG_DONE);
-                if (index < MAX_ENTRIES) isDir = gPanes[p].isDir[index];
+                if (index < MAX_ENTRIES) isDir = PaneArrays(p)->isDir[index];
             }
             menu = (!isDir && gCtxMenuFile) ? gCtxMenuFile : gCtxMenuItem;
         }
@@ -3567,9 +3598,10 @@ int main(int argc, char **argv)
        la posizione memorizzata: vengono centrate sul mouse. */
     if (centerMouse) gWinPosValid = FALSE;
 
-    gFbClass = MakeFileBrowserClass();
+    gFbClass = AllocPaneArrays(0) ? MakeFileBrowserClass() : NULL;
     if (!gFbClass)
     {
+        FreePaneArrays(0);
         if (gLoc.li_ILocale && gLoc.li_Catalog) gLoc.li_ILocale->CloseCatalog(gLoc.li_Catalog);
         if (gLocale) { IExec->DropInterface((struct Interface *)gLocale); gLocale = NULL; }
         if (gLocaleBase) { IExec->CloseLibrary(gLocaleBase); gLocaleBase = NULL; }
@@ -4382,6 +4414,7 @@ int main(int argc, char **argv)
         if (gPanes[p].notifyActive) { IDOS->EndNotify(&gPanes[p].notify); gPanes[p].notifyActive = FALSE; }
     }
     gActivePane = 0;
+    FreeClipboard();
 
     if (objects[OID_MAIN]) { IIntuition->DisposeObject(objects[OID_MAIN]); windows[WID_MAIN]=NULL; }
     if (gMenuRoot) { IIntuition->DisposeObject(gMenuRoot); gMenuRoot = NULL; }
@@ -4430,5 +4463,8 @@ int main(int argc, char **argv)
     FreeProgressBarClass();
     FreeDirectoryScratch();
     FreeCopyBuffer();
+    FreePaneArrays(0);
+    FreePaneArrays(1);
+    if (gPathPrefs) { IExec->FreeVec(gPathPrefs); gPathPrefs = NULL; }
     return RETURN_OK;
 }
