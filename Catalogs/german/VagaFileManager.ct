@@ -14,9 +14,6 @@ alle Dateien
 MSG_SORT_BY_TYPE
 Typ
 ;
-MSG_SORT_ALPHABETICAL
-Alphabetisch
-;
 MSG_SORT_BY_NAME
 Name
 ;
@@ -104,9 +101,6 @@ MSG_DELETE_CONFIRM_MANY
 MSG_DELETE_CONFIRM_TITLE
 Löschen bestätigen
 ;
-MSG_DELETE_FAILED
-Löschen nicht möglich:\n%s\n%s
-;
 MSG_DUPLICATE
 Duplizieren
 ;
@@ -179,41 +173,17 @@ Objekte: 0  |  Ausgewählt: 0
 MSG_BTN_ICONS
 Symbole
 ;
-MSG_BTN_DETAILS
-Details
-;
-MSG_BTN_UP
-Hoch
-;
 MSG_BTN_OPEN
 Öffnen
 ;
 MSG_BTN_REFRESH
 Aktualisieren
 ;
-MSG_BTN_HOME
-Start
-;
-MSG_LABEL_VIEW
-Ansicht:
-;
-MSG_LABEL_LIST
-Liste:
-;
 MSG_LABEL_PATH
 Pfad:
 ;
-MSG_DROP_NO_TARGET
-Kein gültiges Ablageziel gefunden.
-;
 MSG_COL_COMMENT
 Kommentar
-;
-MSG_BTN_BACK
-Zurück
-;
-MSG_BTN_FORWARD
-Vorwärts
 ;
 MSG_MENU_PROGRAM
 Programm
@@ -239,9 +209,6 @@ Lesezeichen
 MSG_MENU_ADDBOOKMARK
 Zu Lesezeichen hinzufügen
 ;
-MSG_BOOKMARK_ADDED
-Zu Lesezeichen hinzugefügt.
-;
 MSG_MENU_MANAGE
 Verwalten...
 ;
@@ -257,23 +224,11 @@ Sortieren nach
 MSG_ABOUT_VERSION
 Version %s
 ;
-MSG_ABOUT_AUTHOR
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL
-mail: vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE
-Freie Software: GNU General Public License v3 oder neuer
-;
 MSG_MOVE
 Verschieben
 ;
 MSG_PROG_TITLE
 Dateioperation
-;
-MSG_PROG_STATUS
-Kopiere...
 ;
 MSG_PROG_PAUSE
 Pause
@@ -299,14 +254,11 @@ Größe berechnen
 MSG_SIZE_TITLE
 Größe
 ;
-MSG_SIZE_SELECT_DIR
-Wählen Sie eine Schublade oder ein Volume.
-;
 MSG_SIZE_RESULT
 Größe: %s (%lld Bytes)   Dateien: %lld   Schubladen: %lld
 ;
 MSG_BTN_SPLIT_HINT
-Teilen / zweites Fenster schließen
+Teilen: Fenster in zwei Listen teilen (Tab: andere Liste)
 ;
 MSG_ABOUT_BY
 von
@@ -323,35 +275,14 @@ Mail: vagappc@yahoo.it
 MSG_ABOUT_THANKS
 Besonderer Dank: ldg72, Flash, Kaffeine, ACube und AlfredONE
 ;
-MSG_MENU_WBREPLACE
-Workbench ersetzen
-;
-MSG_MENU_WBRESTORE
-Workbench wiederherstellen
-;
 MSG_FIND_TITLE
 Datei suchen
-;
-MSG_FIND_NONE
-Keine Datei gefunden.
-;
-MSG_FIND_RESULTS
-Suchergebnisse
-;
-MSG_GREP_TITLE
-grep
-;
-MSG_GREP_NONE
-Keine Treffer in den ausgewählten Dateien.
-;
-MSG_GREP_RESULTS
-grep-Ergebnisse
 ;
 MSG_MENU_SHOWINFO
 Datei-Infos anzeigen
 ;
 MSG_BTN_SHELL_HINT
-Shell hier starten
+Shell: eine Shell in dieser Schublade öffnen
 ;
 MSG_MENU_SHELL
 Shell
@@ -489,7 +420,7 @@ MSG_MENU_SPLIT
 Teilen
 ;
 MSG_BTN_CLEAR_FILTER
-Filter leeren
+Filter leeren: wieder alle Dateien anzeigen
 ;
 MSG_ABOUT_DONATE
 Spenden:
@@ -502,4 +433,49 @@ Fehler beim Löschen von '%s':\n%s
 ;
 MSG_DELETE_ERROR_BUTTONS
 Wiederholen|Überspringen|Alle überspringen|Abbrechen
+;
+MSG_MENU_GUIDE
+Anleitung...
+;
+MSG_HINT_DETAILS
+Details: Dateien als Liste anzeigen
+;
+MSG_HINT_ICONS
+Symbole: Dateien als Symbole anzeigen
+;
+MSG_HINT_HOME
+Start: Geräte, Laufwerke und Zuweisungen
+;
+MSG_HINT_BACK
+Zurück: übergeordnete Schublade (Rücktaste)
+;
+MSG_HINT_FORWARD
+Vorwärts: zurück in die verlassene Schublade
+;
+MSG_HINT_REFRESH
+Aktualisieren: Schublade neu einlesen (F5)
+;
+MSG_HINT_RENAME
+Umbenennen: ausgewählten Eintrag umbenennen (F2)
+;
+MSG_HINT_DELETE
+Löschen: ausgewählte Einträge löschen (Entf)
+;
+MSG_HINT_DUPLICATE
+Duplizieren: Auswahl in diese Schublade kopieren (Amiga+D)
+;
+MSG_HINT_COPY
+Kopieren: Auswahl kopieren, dann Einfügen (Amiga+C)
+;
+MSG_HINT_CUT
+Ausschneiden: Auswahl verschieben, dann Einfügen (Amiga+X)
+;
+MSG_HINT_PASTE
+Einfügen: kopierte oder ausgeschnittene Einträge hierher (Amiga+V)
+;
+MSG_HINT_INFO
+Info: Schutzbits, Kommentar und ToolTypes (Amiga+I)
+;
+MSG_HINT_CALCSIZE
+Größe berechnen: Größe der ausgewählten Schublade oder des Laufwerks
 ;

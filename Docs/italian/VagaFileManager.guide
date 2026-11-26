@@ -1,0 +1,359 @@
+@database VagaFileManager.guide
+@$VER: VagaFileManager.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 o successiva
+@wordwrap
+
+@node main "VagaFileManager"
+@{b}VagaFileManager 1.1@{ub}
+
+Un file manager per AmigaOS 4.1, di VagaPPC.
+
+@{" Introduzione             " link intro}
+@{" Installazione            " link install}
+@{" La finestra              " link window}
+@{" Spostarsi tra i cassetti " link browse}
+@{" Viste e ordinamento      " link views}
+@{" Selezionare              " link select}
+@{" Lavorare con i file      " link files}
+@{" Trascinamento            " link dragdrop}
+@{" Vista divisa             " link split}
+@{" Preferiti                " link bookmarks}
+@{" Filtro rapido            " link filter}
+@{" Integrazione Workbench   " link workbench}
+@{" Cassetti di rete         " link network}
+@{" Plugin                   " link plugins}
+@{" Montare risorse di rete  " link mount}
+@{" Tastiera                 " link keys}
+@{" Menu                     " link menus}
+@{" ToolType e file          " link tooltypes}
+@{" Autore e licenza         " link author}
+@endnode
+
+@node intro "Introduzione"
+@{b}Introduzione@{ub}
+
+Il Workbench è nato ai tempi dei floppy.  Con i dischi di oggi, pieni di file, aprire una finestra per ogni cassetto, sistemare le icone e fissare le finestre fa perdere molto tempo.
+
+VagaFileManager (VFM) permette di muoversi tra tutti i file in una sola finestra, con le icone o con un elenco dettagliato, e con un secondo pannello per copiare e spostare i file, nello stile di Directory Opus.  Può anche prendere il posto delle finestre dei cassetti del Workbench.
+
+Le funzioni in più (archivi, ricerche, risorse di rete) sono plugin scritti in Python: vengono caricati solo quando li usi e si possono aggiungere o togliere senza toccare il programma.
+
+VFM usa ReAction e le immagini AISS, ed è tradotto in inglese, italiano, francese, tedesco, polacco, spagnolo e greco.
+@endnode
+
+@node install "Installazione"
+@{b}Installazione@{ub}
+
+Requisiti: AmigaOS 4.1.  Facoltativi: AISS (immagini della barra e dei menu da TBImages:), Python (per i plugin).
+
+Copia il cassetto VFM, con la sua icona VFM.info, dove preferisci, per esempio in SYS:Utilities.  Avvia VagaFileManager con un doppio clic.
+
+Lascia accanto al programma questi cassetti, perché VFM li cerca nel proprio cassetto (PROGDIR:):
+
+- Catalogs: le traduzioni.  VFM usa la lingua scelta nelle preferenze Locale.
+
+- icons: le immagini della barra dei pulsanti, usate quando AISS non è installato.
+
+- Plugins: i plugin elencati nel menu Script.
+
+- Docs: questa guida in tutte le lingue.
+
+Per usare VFM al posto delle finestre del Workbench avvia WB2VFM (vedi @{"Integrazione Workbench" link workbench}); per avviarlo a ogni accensione copia la sua icona in SYS:WBStartup.
+@endnode
+
+@node window "La finestra"
+@{b}La finestra@{ub}
+
+Dall'alto in basso una finestra di VFM contiene:
+
+- La @{b}barra del percorso@{ub}: il cassetto mostrato.  Puoi scrivere un percorso e premere Invio per andarci.
+
+- La @{b}barra dei pulsanti@{ub}: Icone/Dettagli, Home, Indietro, Avanti, Ricarica, poi Rinomina, Elimina, Duplica, Copia, Taglia, Incolla, Informazioni, Calcola dimensione, Shell e Dividi.  Lascia il mouse su un pulsante per vedere cosa fa e la sua scorciatoia da tastiera.
+
+- L'@{b}elenco@{ub} dei file e dei cassetti, con le icone o come elenco dettagliato.
+
+- La @{b}barra del filtro@{ub}: vedi @{"Filtro rapido" link filter}.
+
+- La @{b}barra di stato@{ub}: quante voci ci sono e quante sono selezionate.
+
+Ogni barra si può nascondere con @{b}Vista > Vista barra@{ub}.  Dimensione e posizione della finestra vengono ricordate per ogni volume.
+
+Ogni finestra di VFM è un programma a sé: @{b}Programma > Nuova...@{ub} (Amiga+N) ne apre un'altra, e chiuderne una non chiude le altre.
+@endnode
+
+@node browse "Spostarsi tra i cassetti"
+@{b}Spostarsi tra i cassetti@{ub}
+
+- Doppio clic su un cassetto per entrarci; doppio clic su un file per aprirlo, come sul Workbench.
+
+- @{b}Indietro@{ub} (o Backspace) va al cassetto superiore; @{b}Avanti@{ub} torna nei cassetti da cui sei uscito.
+
+- @{b}Home@{ub} mostra l'elenco di dispositivi, volumi e assegnazioni.  Da lì raggiungi qualsiasi disco.
+
+- @{b}Ricarica@{ub} (F5) rilegge il cassetto.  Di solito non serve: VFM aggiorna l'elenco da solo quando i file cambiano.
+
+- @{b}Modifica > Apri in nuova finestra@{ub} (Shift+Invio) apre il cassetto selezionato in una nuova finestra di VFM, vicino al puntatore del mouse.
+
+- Invio apre la voce selezionata; Shift+Invio la apre in una nuova finestra.
+
+Con @{b}Vista > Emulazione WB@{ub} il doppio clic apre i cassetti in nuove finestre, come il Workbench: vedi @{"Integrazione Workbench" link workbench}.
+@endnode
+
+@node views "Viste e ordinamento"
+@{b}Viste e ordinamento@{ub}
+
+Il pulsante @{b}Icone/Dettagli@{ub} (anche @{b}Vista > Icone@{ub}) passa da una vista all'altra:
+
+- @{b}Icone@{ub}: le icone dei file, come una finestra del Workbench.  @{b}Vista > Dimensione@{ub} sceglie la grandezza dei riquadri delle icone: Auto, 32, 48, 64 o 96 pixel.
+
+- @{b}Dettagli@{ub}: un elenco con icona, nome, tipo, dimensione, data e commento.  Una riga ogni due ha lo sfondo più scuro.  Fai clic sul titolo di una colonna per ordinare secondo quella colonna; un altro clic inverte l'ordine.
+
+@{b}Vista > Mostra per@{ub} sceglie quali file mostrare:
+
+- @{b}per icone@{ub}: solo i file che hanno un'icona, come il Workbench.
+
+- @{b}tutti file@{ub}: tutti i file, anche quelli senza icona.
+
+@{b}Vista > Mostra file info@{ub} mostra anche i file .info (solo nella vista Dettagli).
+
+@{b}Vista > Ordina per@{ub} ordina per tipo (prima i cassetti), nome, data o dimensione.
+
+VFM ricorda per ogni cassetto la vista, la grandezza delle icone, cosa mostrare e l'ordinamento.
+@endnode
+
+@node select "Selezionare"
+@{b}Selezionare@{ub}
+
+- Fai clic su una voce per selezionarla; Shift+clic aggiunge o toglie voci.
+
+- I tasti cursore spostano la selezione.  Nella vista Icone su e giù si spostano di una riga.
+
+- Scrivi una lettera per selezionare la voce successiva che comincia con quella lettera; premila ancora per passare alla seguente.  Scrivi in fretta più lettere per selezionare la prima voce il cui nome comincia con quel testo (per esempio st per Startup-Sequence).
+
+- @{b}Modifica > Seleziona tutto@{ub} (Amiga+A), @{b}Inverti selezione@{ub} e @{b}Annulla selezione@{ub} (Esc).
+
+La barra di stato mostra quante voci sono selezionate.
+@endnode
+
+@node files "Lavorare con i file"
+@{b}Lavorare con i file@{ub}
+
+I pulsanti, il menu @{b}Modifica@{ub} e il menu contestuale (tasto destro del mouse su una voce) agiscono sulle voci selezionate.
+
+- @{b}Copia@{ub} (Amiga+C) e @{b}Taglia@{ub} (Amiga+X) memorizzano le voci; @{b}Incolla@{ub} (Amiga+V) le copia o le sposta nel cassetto mostrato.  Puoi incollare anche in un'altra finestra di VFM.
+
+- @{b}Duplica@{ub} (Amiga+D) fa una copia nello stesso cassetto.
+
+- @{b}Rinomina@{ub} (F2) ed @{b}Elimina@{ub} (Canc) chiedono conferma.
+
+- @{b}Modifica > Nuovo@{ub} crea un cassetto (Ctrl+N) o un file di testo vuoto.
+
+- @{b}Informazioni@{ub} (Amiga+I) apre la finestra informazioni del Workbench: bit di protezione, commento, ToolType.
+
+- @{b}Calcola dimensione@{ub} conta dimensione, file e cassetti del cassetto o del volume selezionato.  Una barra animata mostra che sta lavorando; puoi metterlo in pausa o fermarlo.
+
+- @{b}Apri con...@{ub} apre un file con un programma a tua scelta.  Per un file senza icona propria VFM può rendere quel programma il predefinito per tutti i file dello stesso tipo, oppure solo per quel file.
+
+- @{b}Shell@{ub} apre una finestra Shell nel cassetto mostrato.
+
+Quando un file esiste già VFM chiede cosa fare: Sovrascrivi, Sovrascrivi tutti, Aggiorna (copia solo se il file è più recente), Aggiorna tutti, Rinomina o Salta.  Se un file non si può copiare o eliminare, viene mostrato l'errore del sistema (per esempio "oggetto in uso") con Riprova, Salta e Annulla.
+
+Le operazioni lunghe mostrano una finestra di avanzamento: puoi metterle in pausa e riprenderle più tardi, oppure annullarle.
+@endnode
+
+@node dragdrop "Trascinamento"
+@{b}Trascinamento@{ub}
+
+Trascina le voci selezionate con il mouse: le loro icone seguono il puntatore, e il punto in cui verrebbero lasciate viene evidenziato con un contorno.
+
+- Lasciate su un cassetto, sull'altro pannello, su un'altra finestra di VFM o su un cassetto del Workbench, le voci vengono copiate o spostate: VFM chiede Copia, Sposta o Annulla sotto il puntatore del mouse.
+
+- Lasciate su un altro programma (un editor di testo, una Shell, un selettore di file), il programma riceve i file come li riceverebbe dal Workbench.  Funziona solo con le finestre aperte dopo l'avvio di VFM; AmiDock, che di solito parte prima, non li riceve.
+
+- Lasciate dove non può succedere niente (per esempio nello stesso cassetto), non succede niente.
+@endnode
+
+@node split "Vista divisa"
+@{b}Vista divisa@{ub}
+
+Il pulsante @{b}Dividi@{ub} (o @{b}Vista > Dividi@{ub}) apre un secondo pannello accanto al primo, come in Directory Opus; premilo di nuovo per chiuderlo.
+
+- Il pannello attivo ha un contorno.  Fai clic su un pannello, o premi Tab, per renderlo attivo.
+
+- Puoi anche trascinare le voci da un pannello all'altro.
+
+Il secondo pannello occupa memoria solo mentre è aperto.
+@endnode
+
+@node bookmarks "Preferiti"
+@{b}Preferiti@{ub}
+
+@{b}Preferiti > Aggiungi a preferiti@{ub} memorizza il cassetto mostrato.  I preferiti sono elencati nel menu Preferiti e nel menu contestuale: scegline uno per andarci.
+
+@{b}Preferiti > Gestisci...@{ub} permette di rinominarli ed eliminarli.  Sono salvati in ENVARC:VagaFileManager.bookmarks e condivisi da tutte le finestre di VFM.
+@endnode
+
+@node filter "Filtro rapido"
+@{b}Filtro rapido@{ub}
+
+Scrivi nella barra del filtro, in fondo alla finestra: mentre scrivi, l'elenco mostra solo le voci il cui nome comincia con il testo scritto.  Maiuscole e minuscole sono uguali.
+
+Puoi usare i modelli AmigaDOS: #? o * per qualsiasi testo, ? per qualsiasi carattere, [a-c] per un intervallo, ~ per "non".  Per esempio *.lha mostra solo gli archivi LHA.
+
+Il pulsante accanto al campo svuota il filtro.
+@endnode
+
+@node workbench "Integrazione Workbench"
+@{b}Integrazione Workbench@{ub}
+
+@{b}WB2VFM@{ub} è una commodity che sostituisce le finestre dei cassetti del Workbench con VFM:
+
+- Quando apri un disco o un cassetto dal Workbench, al suo posto si apre una finestra di VFM.
+
+- Un doppio clic sullo sfondo vuoto della scrivania apre VFM su RAM:, o sul percorso indicato nel ToolType DESKTOPPATH dell'icona di WB2VFM (per esempio DESKTOPPATH=Work:).
+
+Avvia WB2VFM con un doppio clic, o mettilo in SYS:WBStartup per avviarlo a ogni accensione.  Compare in Exchange, dove puoi disattivarlo o chiuderlo.
+
+@{b}Vista > Emulazione WB@{ub} fa sembrare VFM una finestra del Workbench e la fa comportare come tale: le barre sono nascoste, il tasto destro del mouse mostra la barra dei menu invece dei menu contestuali, e i cassetti si aprono in nuove finestre con il doppio clic o con Invio.  Disattivala per riavere le barre scelte in Vista > Vista barra.
+@endnode
+
+@node network "Cassetti di rete"
+@{b}Cassetti di rete@{ub}
+
+Per scegliere l'icona di un file senza file .info, il sistema legge l'inizio del file.  Su una risorsa di rete vuol dire scaricare una parte di ogni file, e un cassetto può metterci molto ad aprirsi.
+
+Sui volumi degli handler elencati nel ToolType NETHANDLERS dell'icona di VagaFileManager, VFM sceglie invece l'icona dal nome (immagine, archivio, suono...), usando le icone predefinite del sistema, a colori pieni.  Il cassetto si apre subito.
+
+Il ToolType vale NETHANDLERS=smb2-handler in partenza.  Separa più handler con |, per esempio NETHANDLERS=smb2-handler|ssh2-handler.  Un NETHANDLERS= vuoto disattiva la funzione.
+@endnode
+
+@node plugins "Plugin"
+@{b}Plugin@{ub}
+
+I plugin si trovano nel cassetto Plugins e sono elencati nel menu @{b}Script@{ub}, con la loro immagine AISS quando è disponibile.  Agiscono sul pannello da cui vengono avviati.
+
+- @{b}Script > Apri cassetto plugin@{ub} apre il cassetto Plugins.
+
+- Per aggiungere un plugin copia il suo file .py o .rexx nel cassetto Plugins e scegli @{b}Script > Aggiorna elenco@{ub}.
+
+I plugin Python richiedono C:Python (o C:Python3).  Le finestre dei plugin sono in inglese.
+
+Plugin inclusi:
+
+- @{b}Find@{ub}: cerca i file per nome a partire dal cassetto mostrato, anche nelle sottocartelle.  Il nome può contenere caratteri jolly (#?, *, ?); senza, vengono trovati tutti i nomi che contengono il testo.  Scegli un risultato e VFM te lo mostra.
+
+- @{b}Grep@{ub}: cerca i file di testo che contengono una parola.
+
+- @{b}CompressLHA@{ub}, @{b}CompressLZX@{ub}, @{b}CompressGZIP@{ub}: comprimono i file selezionati in un archivio LHA, LZX o .tar.gz.  Nella vista divisa l'archivio va nel cassetto dell'altro pannello.  Se l'archivio esiste puoi aggiungere i file o sovrascriverlo.  La finestra di avanzamento può fermare il lavoro; un archivio lasciato a metà viene eliminato, o ripristinato com'era.
+
+- @{b}MountSamba@{ub}, @{b}MountSSH@{ub}, @{b}MountFTP@{ub}, @{b}MountNFS@{ub}: vedi @{"Montare risorse di rete" link mount}.
+
+Se un plugin non fa niente, guarda il suo log in T: (per esempio T:CompressLHA.log).
+
+Per scrivere i tuoi plugin leggi Docs/Developer.guide (in inglese).
+@endnode
+
+@node mount "Montare risorse di rete"
+@{b}Montare risorse di rete@{ub}
+
+I plugin Mount cercano i computer della rete locale, chiedono solo quello che serve, montano la risorsa e la aprono in VFM.  Se manca un handler lo dicono e mostrano dove scaricarlo.  Ogni plugin funziona da solo.
+
+@{b}MountSamba@{ub}: una cartella condivisa di un PC Windows, di un NAS o di un server Samba (SMB2/3).  Richiede smb2-handler (smb2fs) e filesysbox.library 54.4 o successiva.
+
+- Scegli il server (trovato con NetBIOS, o scritto a mano), poi la condivisione, poi scrivi utente e password.
+
+- Un modulo, già compilato, riassume tutto e chiede dove tenere il file di mount: temporaneo (T:), DEVS:DOSDrivers o SYS:Storage/DOSDrivers.  Un file salvato contiene la password in chiaro.
+
+- Il dispositivo prende il nome della condivisione, per esempio Archivio:.
+
+@{b}MountSSH@{ub}: i file di un server SSH (SFTP), con ssh2-handler (Enhancer Software; richiede AmiSSL).  Elenca i computer con la porta SSH aperta.  Il modulo chiede utente, password, file della chiave, cartella remota (/ in partenza; ~ è la home dell'utente) e sola lettura.  Con la password vuota l'handler la chiede al momento della connessione.  Il volume si chiama server-utente, per esempio basebianca-vagappc.
+
+@{b}MountFTP@{ub}: un sito FTP o SFTP con SFTPHandler (richiede filesysbox.library 54.8, clib4.library e, per SFTP, AmiSSL).  Il sito viene aggiunto all'elenco di SFTPHandler (ENV:SFTPHandler/sites.xml) senza toccare gli altri, e VFM apre SFTP:<sito>.  L'opzione "Keep the site after a restart" lo salva anche in ENVARC:.
+
+@{b}MountNFS@{ub}: un export NFS.  Elenca i server con la porta NFS aperta e i loro export.  Richiede un nfs-handler che funzioni su AmigaOS 4: quello su Aminet (comm/net/nfs-handler_rs) è per 68k e non funziona.
+
+AmigaOS non può smontare questi handler: un mount temporaneo sparisce al riavvio successivo.
+@endnode
+
+@node keys "Tastiera"
+@{b}Tastiera@{ub}
+
+Tasti cursore    spostano la selezione
+Lettera          voce successiva con quell'iniziale (ancora: la seguente)
+Invio            apre la voce selezionata
+Shift+Invio      apre in una nuova finestra
+Backspace        cassetto superiore
+Esc              annulla la selezione
+Tab              cambia pannello (vista divisa)
+F2               rinomina
+F5               ricarica
+Canc             elimina
+Help, F1         questa guida
+Ctrl+N           nuovo cassetto
+Amiga+N          nuova finestra
+Amiga+A          seleziona tutto
+Amiga+C/X/V      copia, taglia, incolla
+Amiga+D          duplica
+Amiga+I          informazioni
+Amiga+E          esci
+
+Le finestre di richiesta si aprono sotto il puntatore del mouse.
+@endnode
+
+@node menus "Menu"
+@{b}Menu@{ub}
+
+@{b}Programma@{ub}: Nuova... (un'altra finestra), Guida... (questa guida), Informazioni... (versione e autore), Esci.
+
+@{b}Modifica@{ub}: Apri in nuova finestra, Apri con..., Nuovo (cassetto, file di testo), Seleziona tutto, Inverti selezione, Annulla selezione, Rinomina, Elimina, Duplica, Copia, Taglia, Incolla, Informazioni, Calcola dimensione, Shell.
+
+@{b}Vista@{ub}: Dimensione (delle icone), Vista barra, Ricarica, Icone/Dettagli, Dividi, Emulazione WB, Mostra file info, Mostra per, Ordina per.
+
+@{b}Preferiti@{ub}: Aggiungi a preferiti, Gestisci..., e l'elenco dei preferiti.
+
+@{b}Script@{ub}: i plugin, Aggiorna elenco, Apri cassetto plugin.
+
+Il tasto destro del mouse su una voce apre un menu contestuale con i comandi per quella voce; su uno spazio vuoto, i comandi per il cassetto (Nuovo, Incolla, Shell, Ricarica, Mostra per, Preferiti, Vista barra).
+@endnode
+
+@node tooltypes "ToolType e file"
+@{b}ToolType e file@{ub}
+
+ToolType dell'icona di VagaFileManager:
+
+- @{b}NETHANDLERS@{ub}: vedi @{"Cassetti di rete" link network}.
+
+- @{b}DEBUG@{ub}: TRUE scrive nel log ogni passaggio, per aiutare a trovare un problema.  Normalmente FALSE: vengono scritti solo gli errori.
+
+ToolType dell'icona di WB2VFM:
+
+- @{b}DESKTOPPATH@{ub}: il cassetto aperto con un doppio clic sulla scrivania (RAM: in partenza).
+
+- @{b}DEBUG@{ub}: come sopra.
+
+File:
+
+- ENVARC:VagaFileManager.prefs: impostazioni e viste di ogni cassetto.
+
+- ENVARC:VagaFileManager.bookmarks: i preferiti.
+
+- T:VagaFileManager.log, T:WB2VFM.log, T:<plugin>.log: i log.
+@endnode
+
+@node author "Autore e licenza"
+@{b}Autore e licenza@{ub}
+
+VagaFileManager è scritto da VagaPPC (Benedetto Lorello), con l'aiuto di strumenti di intelligenza artificiale.
+
+Mail: vagappc@yahoo.it
+Codice sorgente: https://github.com/VagaPPC/VagaFileManager
+
+Ringraziamenti speciali: ldg72, Flash, Kaffeine, ACube e AlfredONE.
+
+VFM è gratuito.  Se ti piace, puoi sostenerlo con una donazione su Ko-fi: https://ko-fi.com/vagappc.  Il mio unico obiettivo è recuperare i soldi spesi per il progetto; se le donazioni dovessero superarli, l'eccedenza verrà girata ad altri progetti Amiga.
+
+VagaFileManager è software libero: puoi ridistribuirlo e/o modificarlo secondo i termini della GNU General Public License, versione 3 o successiva.  Non ha alcuna garanzia.  Il testo completo è nel file LICENSE.
+
+Suggerimenti e segnalazioni di errori sono benvenuti.
+@endnode

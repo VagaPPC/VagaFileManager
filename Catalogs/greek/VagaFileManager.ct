@@ -14,9 +14,6 @@ MSG_VIEW_ALL_FILES
 MSG_SORT_BY_TYPE
 τύπο
 ;
-MSG_SORT_ALPHABETICAL
-Αλφαβητικά
-;
 MSG_SORT_BY_NAME
 όνομα
 ;
@@ -104,9 +101,6 @@ MSG_DELETE_CONFIRM_MANY
 MSG_DELETE_CONFIRM_TITLE
 Επιβεβαίωση διαγραφής
 ;
-MSG_DELETE_FAILED
-Αδύνατη η διαγραφή:\n%s\n%s
-;
 MSG_DUPLICATE
 Αντίγραφο
 ;
@@ -179,41 +173,17 @@ MSG_STATUS_EMPTY
 MSG_BTN_ICONS
 Εικονίδια
 ;
-MSG_BTN_DETAILS
-Λεπτομέρειες
-;
-MSG_BTN_UP
-Πάνω
-;
 MSG_BTN_OPEN
 Άνοιγμα
 ;
 MSG_BTN_REFRESH
 Ανανέωση
 ;
-MSG_BTN_HOME
-Αρχική
-;
-MSG_LABEL_VIEW
-Προβολή:
-;
-MSG_LABEL_LIST
-Λίστα:
-;
 MSG_LABEL_PATH
 Διαδρομή:
 ;
-MSG_DROP_NO_TARGET
-Δεν βρέθηκε έγκυρος προορισμός απόθεσης.
-;
 MSG_COL_COMMENT
 Σχόλιο
-;
-MSG_BTN_BACK
-Πίσω
-;
-MSG_BTN_FORWARD
-Μπροστά
 ;
 MSG_MENU_PROGRAM
 Πρόγραμμα
@@ -239,9 +209,6 @@ MSG_MENU_BOOKMARKS
 MSG_MENU_ADDBOOKMARK
 Προσθήκη στα αγαπημένα
 ;
-MSG_BOOKMARK_ADDED
-Προστέθηκε στα αγαπημένα.
-;
 MSG_MENU_MANAGE
 Διαχείριση...
 ;
@@ -257,23 +224,11 @@ MSG_SORT
 MSG_ABOUT_VERSION
 Έκδοση %s
 ;
-MSG_ABOUT_AUTHOR
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL
-mail: vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE
-Ελεύθερο λογισμικό: GNU General Public License v3 ή νεότερη
-;
 MSG_MOVE
 Μετακίνηση
 ;
 MSG_PROG_TITLE
 Λειτουργία αρχείων
-;
-MSG_PROG_STATUS
-Αντιγραφή...
 ;
 MSG_PROG_PAUSE
 Παύση
@@ -299,14 +254,11 @@ MSG_CALC_SIZE
 MSG_SIZE_TITLE
 Μέγεθος
 ;
-MSG_SIZE_SELECT_DIR
-Επιλέξτε έναν φάκελο ή έναν τόμο.
-;
 MSG_SIZE_RESULT
 Μέγεθος: %s (%lld bytes)   Αρχεία: %lld   Φάκελοι: %lld
 ;
 MSG_BTN_SPLIT_HINT
-Διαίρεση / κλείσιμο δεύτερου πλαισίου
+Διαίρεση: χωρίζει το παράθυρο σε δύο λίστες (Tab: άλλη λίστα)
 ;
 MSG_ABOUT_BY
 από
@@ -323,35 +275,14 @@ Mail: vagappc@yahoo.it
 MSG_ABOUT_THANKS
 Ιδιαίτερες ευχαριστίες: ldg72, Flash, Kaffeine, ACube και AlfredONE
 ;
-MSG_MENU_WBREPLACE
-Αντικατάσταση Workbench
-;
-MSG_MENU_WBRESTORE
-Επαναφορά Workbench
-;
 MSG_FIND_TITLE
 Εύρεση αρχείου
-;
-MSG_FIND_NONE
-Δεν βρέθηκε κανένα αρχείο.
-;
-MSG_FIND_RESULTS
-Αποτελέσματα αναζήτησης
-;
-MSG_GREP_TITLE
-grep
-;
-MSG_GREP_NONE
-Καμία αντιστοιχία στα επιλεγμένα αρχεία.
-;
-MSG_GREP_RESULTS
-Αποτελέσματα grep
 ;
 MSG_MENU_SHOWINFO
 Εμφάνιση αρχείων info
 ;
 MSG_BTN_SHELL_HINT
-Άνοιγμα shell εδώ
+Shell: άνοιγμα Shell σε αυτόν τον φάκελο
 ;
 MSG_MENU_SHELL
 Shell
@@ -489,7 +420,7 @@ MSG_MENU_SPLIT
 Διαίρεση
 ;
 MSG_BTN_CLEAR_FILTER
-Καθαρισμός φίλτρου
+Καθαρισμός φίλτρου: εμφάνιση ξανά όλων των αρχείων
 ;
 MSG_ABOUT_DONATE
 Δωρεά:
@@ -502,4 +433,49 @@ MSG_DELETE_ERROR_BODY
 ;
 MSG_DELETE_ERROR_BUTTONS
 Επανάληψη|Παράλειψη|Παράλειψη όλων|Άκυρο
+;
+MSG_MENU_GUIDE
+Οδηγός...
+;
+MSG_HINT_DETAILS
+Λεπτομέρειες: τα αρχεία ως λίστα
+;
+MSG_HINT_ICONS
+Εικονίδια: τα αρχεία ως εικονίδια
+;
+MSG_HINT_HOME
+Αρχική: συσκευές, τόμοι και assign
+;
+MSG_HINT_BACK
+Πίσω: γονικός φάκελος (Backspace)
+;
+MSG_HINT_FORWARD
+Μπροστά: επιστροφή στον φάκελο που άφησες
+;
+MSG_HINT_REFRESH
+Ανανέωση: νέα ανάγνωση του φακέλου (F5)
+;
+MSG_HINT_RENAME
+Μετονομασία: μετονομασία του επιλεγμένου στοιχείου (F2)
+;
+MSG_HINT_DELETE
+Διαγραφή: διαγραφή των επιλεγμένων στοιχείων (Del)
+;
+MSG_HINT_DUPLICATE
+Αντίγραφο: αντίγραφο της επιλογής σε αυτόν τον φάκελο (Amiga+D)
+;
+MSG_HINT_COPY
+Αντιγραφή: αντιγραφή της επιλογής, μετά Επικόλληση (Amiga+C)
+;
+MSG_HINT_CUT
+Αποκοπή: μετακίνηση της επιλογής, μετά Επικόλληση (Amiga+X)
+;
+MSG_HINT_PASTE
+Επικόλληση: τα αντιγραμμένα ή αποκομμένα στοιχεία εδώ (Amiga+V)
+;
+MSG_HINT_INFO
+Πληροφορίες: bit προστασίας, σχόλιο και ToolTypes (Amiga+I)
+;
+MSG_HINT_CALCSIZE
+Υπολογισμός μεγέθους: μέγεθος του επιλεγμένου φακέλου ή τόμου
 ;

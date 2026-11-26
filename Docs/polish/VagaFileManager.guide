@@ -1,0 +1,359 @@
+@database VagaFileManager.guide
+@$VER: VagaFileManager.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 lub nowsza
+@wordwrap
+
+@node main "VagaFileManager"
+@{b}VagaFileManager 1.1@{ub}
+
+Mened¿er plików dla AmigaOS 4.1, autorstwa VagaPPC.
+
+@{" Wprowadzenie               " link intro}
+@{" Instalacja                 " link install}
+@{" Okno                       " link window}
+@{" Poruszanie siê             " link browse}
+@{" Widoki i sortowanie        " link views}
+@{" Zaznaczanie                " link select}
+@{" Praca z plikami            " link files}
+@{" Przeci±ganie i upuszczanie " link dragdrop}
+@{" Widok podzielony           " link split}
+@{" Zak³adki                   " link bookmarks}
+@{" Szybki filtr               " link filter}
+@{" Integracja z Workbenchem   " link workbench}
+@{" Katalogi sieciowe          " link network}
+@{" Wtyczki                    " link plugins}
+@{" Montowanie zasobów sieci   " link mount}
+@{" Klawiatura                 " link keys}
+@{" Menu                       " link menus}
+@{" ToolTypes i pliki          " link tooltypes}
+@{" Autor i licencja           " link author}
+@endnode
+
+@node intro "Wprowadzenie"
+@{b}Wprowadzenie@{ub}
+
+Workbench powsta³ w czasach dyskietek.  Przy dzisiejszych dyskach, pe³nych plików, otwieranie okna dla ka¿dego katalogu, uk³adanie ikon i zapamiêtywanie po³o¿enia okien zabiera du¿o czasu.
+
+VagaFileManager (VFM) pozwala poruszaæ siê po wszystkich plikach w jednym oknie, z ikonami lub w szczegó³owej li¶cie, z drugim panelem do kopiowania i przenoszenia plików, w stylu Directory Opus.  Mo¿e te¿ zast±piæ okna katalogów Workbencha.
+
+Dodatkowe funkcje (archiwa, wyszukiwanie, zasoby sieciowe) to wtyczki napisane w Pythonie: s± wczytywane tylko wtedy, gdy ich u¿ywasz, i mo¿na je dodawaæ lub usuwaæ bez zmieniania programu.
+
+VFM korzysta z ReAction i obrazków AISS i jest przet³umaczony na angielski, w³oski, francuski, niemiecki, polski, hiszpañski i grecki.
+@endnode
+
+@node install "Instalacja"
+@{b}Instalacja@{ub}
+
+Wymagania: AmigaOS 4.1.  Opcjonalnie: AISS (obrazki paska i menu z TBImages:), Python (dla wtyczek).
+
+Skopiuj katalog VFM razem z jego ikon± VFM.info w dowolne miejsce, na przyk³ad do SYS:Utilities.  Uruchom VagaFileManager podwójnym klikniêciem.
+
+Zostaw te katalogi obok programu, bo VFM szuka ich we w³asnym katalogu (PROGDIR:):
+
+- Catalogs: t³umaczenia.  VFM u¿ywa jêzyka wybranego w preferencjach Locale.
+
+- icons: obrazki paska przycisków, u¿ywane, gdy AISS nie jest zainstalowany.
+
+- Plugins: wtyczki z menu Skrypt.
+
+- Docs: ten przewodnik we wszystkich jêzykach.
+
+Aby u¿ywaæ VFM zamiast okien Workbencha, uruchom WB2VFM (zobacz @{"Integracja z Workbenchem" link workbench}); aby uruchamia³ siê przy ka¿dym starcie systemu, skopiuj jego ikonê do SYS:WBStartup.
+@endnode
+
+@node window "Okno"
+@{b}Okno@{ub}
+
+Od góry do do³u okno VFM zawiera:
+
+- @{b}Pasek ¶cie¿ki@{ub}: wy¶wietlany katalog.  Mo¿esz wpisaæ ¶cie¿kê i nacisn±æ Return, aby tam przej¶æ.
+
+- @{b}Pasek przycisków@{ub}: Ikony/Szczegó³y, Start, Wstecz, Dalej, Od¶wie¿, a dalej Zmieñ nazwê, Usuñ, Duplikuj, Kopiuj, Wytnij, Wklej, Informacje, Oblicz rozmiar, Shell i Podziel.  Przytrzymaj mysz nad przyciskiem, aby zobaczyæ, co robi i jaki ma skrót klawiszowy.
+
+- @{b}Listê@{ub} plików i katalogów, z ikonami lub jako szczegó³ow± listê.
+
+- @{b}Pasek filtra@{ub}: zobacz @{"Szybki filtr" link filter}.
+
+- @{b}Pasek stanu@{ub}: ile jest pozycji i ile jest zaznaczonych.
+
+Ka¿dy pasek mo¿na ukryæ w @{b}Widok > Paski@{ub}.  Rozmiar i po³o¿enie okna s± zapamiêtywane osobno dla ka¿dego wolumenu.
+
+Ka¿de okno VFM to osobny program: @{b}Program > Nowe...@{ub} (Amiga+N) otwiera kolejne, a zamkniêcie jednego nie zamyka pozosta³ych.
+@endnode
+
+@node browse "Poruszanie siê"
+@{b}Poruszanie siê@{ub}
+
+- Kliknij dwukrotnie katalog, aby do niego wej¶æ; dwukrotne klikniêcie pliku otwiera go, jak na Workbenchu.
+
+- @{b}Wstecz@{ub} (lub Backspace) przechodzi do katalogu nadrzêdnego; @{b}Dalej@{ub} wraca do katalogów, z których wyszed³e¶.
+
+- @{b}Start@{ub} pokazuje listê urz±dzeñ, wolumenów i przypisañ.  Stamt±d dotrzesz do ka¿dego dysku.
+
+- @{b}Od¶wie¿@{ub} (F5) ponownie wczytuje katalog.  Zwykle nie jest to potrzebne: VFM sam aktualizuje listê, gdy pliki siê zmieniaj±.
+
+- @{b}Edycja > Otwórz w nowym oknie@{ub} (Shift+Return) otwiera zaznaczony katalog w nowym oknie VFM, obok wska¼nika myszy.
+
+- Return otwiera zaznaczon± pozycjê; Shift+Return otwiera j± w nowym oknie.
+
+Przy w³±czonej opcji @{b}Widok > Emulacja WB@{ub} podwójne klikniêcie otwiera katalogi w nowych oknach, jak Workbench: zobacz @{"Integracja z Workbenchem" link workbench}.
+@endnode
+
+@node views "Widoki i sortowanie"
+@{b}Widoki i sortowanie@{ub}
+
+Przycisk @{b}Ikony/Szczegó³y@{ub} (tak¿e @{b}Widok > Ikony@{ub}) prze³±cza miêdzy:
+
+- @{b}Ikony@{ub}: ikony plików, jak w oknie Workbencha.  @{b}Widok > Rozmiar@{ub} wybiera wielko¶æ pól ikon: Auto, 32, 48, 64 lub 96 pikseli.
+
+- @{b}Szczegó³y@{ub}: lista z ikon±, nazw±, typem, rozmiarem, dat± i komentarzem.  Co druga linia ma ciemniejsze t³o.  Kliknij tytu³ kolumny, aby sortowaæ wed³ug niej; kolejne klikniêcie odwraca kolejno¶æ.
+
+@{b}Widok > Poka¿ wg@{ub} wybiera, które pliki s± widoczne:
+
+- @{b}wg ikon@{ub}: tylko pliki, które maj± ikonê, jak na Workbenchu.
+
+- @{b}wszystkie pliki@{ub}: wszystkie pliki, tak¿e te bez ikony.
+
+@{b}Widok > Poka¿ info plików@{ub} pokazuje tak¿e pliki .info (tylko w widoku Szczegó³y).
+
+@{b}Widok > Sortuj wg@{ub} sortuje wed³ug typu (najpierw katalogi), nazwy, daty lub rozmiaru.
+
+VFM zapamiêtuje dla ka¿dego katalogu widok, rozmiar ikon, widoczne pliki i sposób sortowania.
+@endnode
+
+@node select "Zaznaczanie"
+@{b}Zaznaczanie@{ub}
+
+- Kliknij pozycjê, aby j± zaznaczyæ; Shift+klikniêcie dodaje lub usuwa pozycje.
+
+- Klawisze kursora przesuwaj± zaznaczenie.  W widoku Ikony góra i dó³ przesuwaj± o jeden rz±d.
+
+- Wpisz literê, aby zaznaczyæ nastêpn± pozycjê, która siê od niej zaczyna; naci¶nij j± ponownie, aby przej¶æ do kolejnej.  Wpisz szybko kilka liter, aby zaznaczyæ pierwsz± pozycjê, której nazwa siê od nich zaczyna (na przyk³ad st dla Startup-Sequence).
+
+- @{b}Edycja > Zaznacz wszystko@{ub} (Amiga+A), @{b}Odwróæ zaznaczenie@{ub} i @{b}Odznacz wszystko@{ub} (Esc).
+
+Pasek stanu pokazuje, ile pozycji jest zaznaczonych.
+@endnode
+
+@node files "Praca z plikami"
+@{b}Praca z plikami@{ub}
+
+Przyciski, menu @{b}Edycja@{ub} i menu kontekstowe (prawy przycisk myszy na pozycji) dzia³aj± na zaznaczonych pozycjach.
+
+- @{b}Kopiuj@{ub} (Amiga+C) i @{b}Wytnij@{ub} (Amiga+X) zapamiêtuj± pozycje; @{b}Wklej@{ub} (Amiga+V) kopiuje je lub przenosi do wy¶wietlanego katalogu.  Mo¿esz te¿ wkleiæ w innym oknie VFM.
+
+- @{b}Duplikuj@{ub} (Amiga+D) tworzy kopiê w tym samym katalogu.
+
+- @{b}Zmieñ nazwê@{ub} (F2) i @{b}Usuñ@{ub} (Del) prosz± o potwierdzenie.
+
+- @{b}Edycja > Nowy@{ub} tworzy katalog (Ctrl+N) lub pusty plik tekstowy.
+
+- @{b}Informacje@{ub} (Amiga+I) otwiera okno informacji Workbencha: bity ochrony, komentarz, ToolTypes.
+
+- @{b}Oblicz rozmiar@{ub} liczy rozmiar, pliki i katalogi zaznaczonego katalogu lub wolumenu.  Animowany pasek pokazuje, ¿e trwa praca; mo¿esz j± wstrzymaæ lub przerwaæ.
+
+- @{b}Otwórz za pomoc±...@{ub} otwiera plik wybranym programem.  Dla pliku bez w³asnej ikony VFM mo¿e ustawiæ ten program jako domy¶lny dla wszystkich plików tego samego typu albo tylko dla tego pliku.
+
+- @{b}Shell@{ub} otwiera okno Shella w wy¶wietlanym katalogu.
+
+Gdy plik ju¿ istnieje, VFM pyta, co zrobiæ: Nadpisz, Nadpisz wszystkie, Aktualizuj (kopiuj tylko, je¶li plik jest nowszy), Aktualizuj wszystkie, Zmieñ nazwê lub Pomiñ.  Je¶li pliku nie da siê skopiowaæ ani usun±æ, wy¶wietlany jest b³±d systemu (na przyk³ad "obiekt jest w u¿yciu") z przyciskami Ponów, Pomiñ i Anuluj.
+
+D³ugie operacje pokazuj± okno postêpu: mo¿esz je wstrzymaæ i wznowiæ pó¼niej albo anulowaæ.
+@endnode
+
+@node dragdrop "Przeci±ganie i upuszczanie"
+@{b}Przeci±ganie i upuszczanie@{ub}
+
+Przeci±gnij zaznaczone pozycje mysz±: ich ikony pod±¿aj± za wska¼nikiem, a miejsce, w którym zosta³yby upuszczone, jest obramowane.
+
+- Upuszczone na katalog, na drugi panel, na inne okno VFM lub na katalog Workbencha, pozycje s± kopiowane lub przenoszone: VFM pyta przy wska¼niku myszy Kopiuj, Przenie¶ lub Anuluj.
+
+- Upuszczone na inny program (edytor tekstu, Shell, okno wyboru pliku), program otrzymuje pliki tak, jakby pochodzi³y z Workbencha.  Dzia³a to tylko z oknami otwartymi po uruchomieniu VFM; AmiDock, zwykle uruchamiany wcze¶niej, ich nie otrzymuje.
+
+- Upuszczone tam, gdzie nic nie mo¿e siê staæ (na przyk³ad w tym samym katalogu), nic siê nie dzieje.
+@endnode
+
+@node split "Widok podzielony"
+@{b}Widok podzielony@{ub}
+
+Przycisk @{b}Podziel@{ub} (lub @{b}Widok > Podziel@{ub}) otwiera drugi panel obok pierwszego, jak w Directory Opus; naci¶nij go ponownie, aby go zamkn±æ.
+
+- Aktywny panel jest obramowany.  Kliknij panel lub naci¶nij Tab, aby go uaktywniæ.
+
+- Mo¿esz te¿ przeci±gaæ pozycje z jednego panelu do drugiego.
+
+Drugi panel zajmuje pamiêæ tylko wtedy, gdy jest otwarty.
+@endnode
+
+@node bookmarks "Zak³adki"
+@{b}Zak³adki@{ub}
+
+@{b}Zak³adki > Dodaj do zak³adek@{ub} zapamiêtuje wy¶wietlany katalog.  Zak³adki s± widoczne w menu Zak³adki i w menu kontekstowym: wybierz jedn±, aby tam przej¶æ.
+
+@{b}Zak³adki > Zarz±dzaj...@{ub} pozwala zmieniaæ ich nazwy i je usuwaæ.  S± zapisane w ENVARC:VagaFileManager.bookmarks i wspólne dla wszystkich okien VFM.
+@endnode
+
+@node filter "Szybki filtr"
+@{b}Szybki filtr@{ub}
+
+Pisz w pasku filtra na dole okna: ju¿ w trakcie pisania lista pokazuje tylko pozycje, których nazwa zaczyna siê od wpisanego tekstu.  Wielko¶æ liter nie ma znaczenia.
+
+Mo¿esz u¿ywaæ wzorców AmigaDOS: #? lub * dla dowolnego tekstu, ? dla dowolnego znaku, [a-c] dla zakresu, ~ dla "nie".  Na przyk³ad *.lha pokazuje tylko archiwa LHA.
+
+Przycisk obok pola czy¶ci filtr.
+@endnode
+
+@node workbench "Integracja z Workbenchem"
+@{b}Integracja z Workbenchem@{ub}
+
+@{b}WB2VFM@{ub} to commodity, które zastêpuje okna katalogów Workbencha oknami VFM:
+
+- Gdy otwierasz dysk lub katalog z Workbencha, zamiast niego otwiera siê okno VFM.
+
+- Podwójne klikniêcie pustego t³a pulpitu otwiera VFM na RAM: lub na ¶cie¿ce podanej w ToolType DESKTOPPATH ikony WB2VFM (na przyk³ad DESKTOPPATH=Work:).
+
+Uruchom WB2VFM podwójnym klikniêciem lub umie¶æ go w SYS:WBStartup, aby uruchamia³ siê przy ka¿dym starcie.  Jest widoczny w Exchange, gdzie mo¿esz go wy³±czyæ lub zakoñczyæ.
+
+@{b}Widok > Emulacja WB@{ub} sprawia, ¿e VFM wygl±da i dzia³a jak okno Workbencha: paski s± ukryte, prawy przycisk myszy pokazuje pasek menu zamiast menu kontekstowych, a katalogi otwieraj± siê w nowych oknach po podwójnym klikniêciu lub Return.  Wy³±cz j±, aby przywróciæ paski wybrane w Widok > Paski.
+@endnode
+
+@node network "Katalogi sieciowe"
+@{b}Katalogi sieciowe@{ub}
+
+Aby wybraæ ikonê pliku bez pliku .info, system czyta pocz±tek pliku.  W zasobie sieciowym oznacza to pobieranie czê¶ci ka¿dego pliku, wiêc otwieranie katalogu mo¿e trwaæ d³ugo.
+
+Na wolumenach handlerów wymienionych w ToolType NETHANDLERS ikony VagaFileManager VFM wybiera ikonê na podstawie nazwy (obraz, archiwum, d¼wiêk...), u¿ywaj±c domy¶lnych ikon systemu w pe³nym kolorze.  Katalog otwiera siê od razu.
+
+Domy¶lnie ToolType ma warto¶æ NETHANDLERS=smb2-handler.  Kilka handlerów oddziel znakiem |, na przyk³ad NETHANDLERS=smb2-handler|ssh2-handler.  Puste NETHANDLERS= wy³±cza tê funkcjê.
+@endnode
+
+@node plugins "Wtyczki"
+@{b}Wtyczki@{ub}
+
+Wtyczki znajduj± siê w katalogu Plugins i s± widoczne w menu @{b}Skrypt@{ub}, z obrazkiem AISS, gdy jest dostêpny.  Dzia³aj± na panelu, z którego zosta³y uruchomione.
+
+- @{b}Skrypt > Otwórz szufladê wtyczek@{ub} otwiera katalog Plugins.
+
+- Aby dodaæ wtyczkê, skopiuj jej plik .py lub .rexx do katalogu Plugins i wybierz @{b}Skrypt > Od¶wie¿ listê@{ub}.
+
+Wtyczki w Pythonie wymagaj± C:Python (lub C:Python3).  Okna wtyczek s± po angielsku.
+
+Do³±czone wtyczki:
+
+- @{b}Find@{ub}: szuka plików wed³ug nazwy, zaczynaj±c od wy¶wietlanego katalogu, tak¿e w podkatalogach.  Nazwa mo¿e zawieraæ znaki wieloznaczne (#?, *, ?); bez nich znajdowane s± wszystkie nazwy zawieraj±ce tekst.  Wybierz wynik, a VFM go poka¿e.
+
+- @{b}Grep@{ub}: szuka plików tekstowych zawieraj±cych s³owo.
+
+- @{b}CompressLHA@{ub}, @{b}CompressLZX@{ub}, @{b}CompressGZIP@{ub}: pakuj± zaznaczone pliki do archiwum LHA, LZX lub .tar.gz.  W widoku podzielonym archiwum trafia do katalogu drugiego panelu.  Je¶li archiwum istnieje, mo¿esz dodaæ do niego pliki lub je nadpisaæ.  Okno postêpu mo¿e przerwaæ pracê; niedokoñczone archiwum jest usuwane albo przywracane do poprzedniego stanu.
+
+- @{b}MountSamba@{ub}, @{b}MountSSH@{ub}, @{b}MountFTP@{ub}, @{b}MountNFS@{ub}: zobacz @{"Montowanie zasobów sieci" link mount}.
+
+Je¶li wtyczka nic nie robi, zajrzyj do jej dziennika w T: (na przyk³ad T:CompressLHA.log).
+
+Aby pisaæ w³asne wtyczki, przeczytaj Docs/Developer.guide (po angielsku).
+@endnode
+
+@node mount "Montowanie zasobów sieci"
+@{b}Montowanie zasobów sieci@{ub}
+
+Wtyczki Mount szukaj± komputerów w sieci lokalnej, pytaj± tylko o to, co potrzebne, montuj± zasób i otwieraj± go w VFM.  Je¶li brakuje handlera, informuj± o tym i pokazuj±, sk±d go pobraæ.  Ka¿da wtyczka dzia³a samodzielnie.
+
+@{b}MountSamba@{ub}: udostêpniony folder komputera z Windows, serwera NAS lub serwera Samba (SMB2/3).  Wymaga smb2-handler (smb2fs) i filesysbox.library 54.4 lub nowszej.
+
+- Wybierz serwer (znaleziony przez NetBIOS lub wpisany), nastêpnie udzia³, a potem wpisz u¿ytkownika i has³o.
+
+- Wype³niony ju¿ formularz podsumowuje wszystko i pyta, gdzie trzymaæ plik montowania: tymczasowo (T:), w DEVS:DOSDrivers lub SYS:Storage/DOSDrivers.  Zapisany plik zawiera has³o jawnym tekstem.
+
+- Urz±dzenie otrzymuje nazwê udzia³u, na przyk³ad Archivio:.
+
+@{b}MountSSH@{ub}: pliki serwera SSH (SFTP), przez ssh2-handler (Enhancer Software; wymaga AmiSSL).  Pokazuje komputery z otwartym portem SSH.  Formularz pyta o u¿ytkownika, has³o, plik klucza, zdalny katalog (domy¶lnie /; ~ to katalog domowy u¿ytkownika) i tylko do odczytu.  Przy pustym ha¶le handler pyta o nie podczas ³±czenia.  Wolumen nazywa siê serwer-u¿ytkownik, na przyk³ad basebianca-vagappc.
+
+@{b}MountFTP@{ub}: serwis FTP lub SFTP przez SFTPHandler (wymaga filesysbox.library 54.8, clib4.library i, dla SFTP, AmiSSL).  Serwis jest dodawany do listy SFTPHandler (ENV:SFTPHandler/sites.xml) bez zmieniania pozosta³ych, a VFM otwiera SFTP:<serwis>.  Opcja "Keep the site after a restart" zapisuje go tak¿e w ENVARC:.
+
+@{b}MountNFS@{ub}: eksport NFS.  Pokazuje serwery z otwartym portem NFS i ich eksporty.  Wymaga nfs-handlera dzia³aj±cego w AmigaOS 4: ten z Aminetu (comm/net/nfs-handler_rs) jest dla 68k i nie dzia³a.
+
+AmigaOS nie potrafi odmontowaæ tych handlerów: tymczasowe zamontowanie znika przy nastêpnym restarcie.
+@endnode
+
+@node keys "Klawiatura"
+@{b}Klawiatura@{ub}
+
+Klawisze kursora  przesuwaj± zaznaczenie
+Litera            nastêpna pozycja na tê literê
+Return            otwiera zaznaczon± pozycjê
+Shift+Return      otwiera w nowym oknie
+Backspace         katalog nadrzêdny
+Esc               odznacza wszystko
+Tab               zmienia panel (widok podzielony)
+F2                zmiana nazwy
+F5                od¶wie¿enie
+Del               usuniêcie
+Help, F1          ten przewodnik
+Ctrl+N            nowy katalog
+Amiga+N           nowe okno
+Amiga+A           zaznacz wszystko
+Amiga+C/X/V       kopiuj, wytnij, wklej
+Amiga+D           duplikuj
+Amiga+I           informacje
+Amiga+E           zakoñcz
+
+Okna zapytañ otwieraj± siê pod wska¼nikiem myszy.
+@endnode
+
+@node menus "Menu"
+@{b}Menu@{ub}
+
+@{b}Program@{ub}: Nowe... (kolejne okno), Przewodnik... (ten przewodnik), Informacje... (wersja i autor), Zakoñcz.
+
+@{b}Edycja@{ub}: Otwórz w nowym oknie, Otwórz za pomoc±..., Nowy (katalog, plik tekstowy), Zaznacz wszystko, Odwróæ zaznaczenie, Odznacz wszystko, Zmieñ nazwê, Usuñ, Duplikuj, Kopiuj, Wytnij, Wklej, Informacje, Oblicz rozmiar, Shell.
+
+@{b}Widok@{ub}: Rozmiar (ikon), Paski, Od¶wie¿, Ikony/Szczegó³y, Podziel, Emulacja WB, Poka¿ info plików, Poka¿ wg, Sortuj wg.
+
+@{b}Zak³adki@{ub}: Dodaj do zak³adek, Zarz±dzaj... i lista zak³adek.
+
+@{b}Skrypt@{ub}: wtyczki, Od¶wie¿ listê, Otwórz szufladê wtyczek.
+
+Prawy przycisk myszy nad pozycj± otwiera menu kontekstowe z poleceniami dla tej pozycji; nad pustym miejscem, polecenia dla katalogu (Nowy, Wklej, Shell, Od¶wie¿, Poka¿ wg, Zak³adki, Paski).
+@endnode
+
+@node tooltypes "ToolTypes i pliki"
+@{b}ToolTypes i pliki@{ub}
+
+ToolTypes ikony VagaFileManager:
+
+- @{b}NETHANDLERS@{ub}: zobacz @{"Katalogi sieciowe" link network}.
+
+- @{b}DEBUG@{ub}: TRUE zapisuje w dzienniku ka¿dy krok, co pomaga znale¼æ problem.  Zwykle FALSE: zapisywane s± tylko b³êdy.
+
+ToolTypes ikony WB2VFM:
+
+- @{b}DESKTOPPATH@{ub}: katalog otwierany podwójnym klikniêciem pulpitu (domy¶lnie RAM:).
+
+- @{b}DEBUG@{ub}: jak wy¿ej.
+
+Pliki:
+
+- ENVARC:VagaFileManager.prefs: ustawienia i widok ka¿dego katalogu.
+
+- ENVARC:VagaFileManager.bookmarks: zak³adki.
+
+- T:VagaFileManager.log, T:WB2VFM.log, T:<wtyczka>.log: dzienniki.
+@endnode
+
+@node author "Autor i licencja"
+@{b}Autor i licencja@{ub}
+
+VagaFileManager napisa³ VagaPPC (Benedetto Lorello) z pomoc± narzêdzi sztucznej inteligencji.
+
+Poczta: vagappc@yahoo.it
+Kod ¼ród³owy: https://github.com/VagaPPC/VagaFileManager
+
+Podziêkowania: ldg72, Flash, Kaffeine, ACube i AlfredONE.
+
+VFM jest darmowy.  Je¶li ci siê podoba, mo¿esz go wesprzeæ darowizn± na Ko-fi: https://ko-fi.com/vagappc.  Moim jedynym celem jest odzyskanie pieniêdzy wydanych na projekt; je¶li darowizny kiedy¶ przekrocz± tê kwotê, nadwy¿ka zostanie przekazana innym projektom na Amigê.
+
+VagaFileManager jest wolnym oprogramowaniem: mo¿esz go rozpowszechniaæ i/lub modyfikowaæ na warunkach GNU General Public License w wersji 3 lub nowszej.  Jest dostarczany bez ¿adnej gwarancji.  Pe³ny tekst znajduje siê w pliku LICENSE.
+
+Sugestie i zg³oszenia b³êdów s± mile widziane.
+@endnode

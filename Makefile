@@ -67,6 +67,7 @@ dist: catalogs $(PROG) $(WB2)
 	-MakeDir $(DIST)/Catalogs/spanish >NIL:
 	-MakeDir $(DIST)/Catalogs/greek >NIL:
 	-MakeDir $(DIST)/Plugins >NIL:
+	-MakeDir $(DIST)/Docs >NIL:
 	Copy $(PROG) $(DIST)
 	Copy $(PROG).info $(DIST)
 	Copy $(WB2) $(DIST)
@@ -85,6 +86,9 @@ dist: catalogs $(PROG) $(WB2)
 	Copy README.txt $(DIST)
 	-Copy README.Aminet $(DIST)
 	Copy CHANGELOG.md $(DIST)
+	Copy Docs/#? $(DIST)/Docs ALL QUIET
+	-Copy Docs.info $(DIST)
+	-Copy Plugins.info $(DIST)
 
 clean:
 	-Delete $(PROG) $(WB2) $(OBJS) $(WB2OBJS) Catalogs/english/VagaFileManager.catalog Catalogs/italian/VagaFileManager.catalog Catalogs/french/VagaFileManager.catalog Catalogs/german/VagaFileManager.catalog Catalogs/polish/VagaFileManager.catalog Catalogs/spanish/VagaFileManager.catalog Catalogs/greek/VagaFileManager.catalog quiet

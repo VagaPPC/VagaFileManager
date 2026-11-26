@@ -109,7 +109,10 @@ struct PluginSession
     char   dir[PATH_MAX_LEN];
     struct DeathMessage *dm;     /* MEMF_SHARED, riusato fra i lanci */
 };
-static struct PluginSession gSessions[MAX_PLUGIN_SESSIONS];
+/* Tabella di puntatori: ogni sessione e' allocata al primo uso e non si
+   sposta piu' (un comando SCRIPT puo' aprirne una mentre si scorre la
+   tabella).  Liberate in SessionsShutdown. */
+static struct PluginSession *gSessions[MAX_PLUGIN_SESSIONS];
 static struct MsgPort *gSessionPort = NULL;
 static ULONG gSessionSeq = 0;
 /* Incrementato a ogni apertura del pannello 1: se il pannello viene
@@ -122,12 +125,15 @@ static LONG gPreEmuView = -1;
 /* Cartella della sessione che sta eseguendo un comando (o NULL). */
 static CONST_STRPTR gCurSessionDir = NULL;
 
-struct Bookmark gBookmarks[MAX_BOOKMARKS];
+struct Bookmark *gBookmarks = NULL;
 LONG gBookmarkCount = 0;
 struct VFMWindowTag gWinTag;
 
-char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
-char gPluginIcons[MAX_PLUGINS][32];
+char (*gPlugins)[PATH_MAX_LEN] = NULL;
+char (*gPluginIcons)[32] = NULL;
+static char (*gPluginsOld)[PATH_MAX_LEN] = NULL;
+static char (*gPluginIconsOld)[32] = NULL;
+static LONG gPluginCap = 0, gPluginIconCap = 0;
 LONG gPluginCount = 0;
 
 static struct MsgPort *gRexxPort = NULL;
@@ -169,8 +175,6 @@ LONG gWinInnerH = DEFAULT_WIN_HEIGHT;
 static Class *gFbClass = NULL;
 static Object *gRootLayout = NULL;
 static Object *gPanesRow = NULL;
-static Object *gTopBar = NULL;
-static Object *gTopCopyBtn = NULL, *gTopMoveBtn = NULL, *gTopDeleteBtn = NULL;
 static struct Screen *gPubScreen = NULL;
 
 /* ===== Log =====
@@ -906,15 +910,15 @@ static Object *CreatePaneUI(int p)
     pn->toggleGad = MakeIconButton(GID_TOGGLE_VIEW + off,
         (pn->viewMode == FBVM_ICONS) ? gBtnImg[IMG_DETAILS] : gBtnImg[IMG_ICONS],
         (pn->viewMode == FBVM_ICONS) ? gBtnImgSel[IMG_DETAILS] : gBtnImgSel[IMG_ICONS],
-        (pn->viewMode == FBVM_ICONS) ? LS(MSG_BTN_DETAILS) : LS(MSG_BTN_ICONS));
+        (pn->viewMode == FBVM_ICONS) ? LS(MSG_HINT_DETAILS) : LS(MSG_HINT_ICONS));
 
     pathRow = IIntuition->NewObject(NULL, "layout.gadget",
         LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_HOME + off, gBtnImg[IMG_HOME], gBtnImgSel[IMG_HOME], LS(MSG_BTN_HOME)), CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_HOME + off, gBtnImg[IMG_HOME], gBtnImgSel[IMG_HOME], LS(MSG_HINT_HOME)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)pn->toggleGad, CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_BACK + off, gBtnImg[IMG_BACK], gBtnImgSel[IMG_BACK], LS(MSG_BTN_BACK)), CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_FORWARD + off, gBtnImg[IMG_FORWARD], gBtnImgSel[IMG_FORWARD], LS(MSG_BTN_FORWARD)), CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_REFRESH + off, gBtnImg[IMG_REFRESH], gBtnImgSel[IMG_REFRESH], LS(MSG_BTN_REFRESH)), CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_BACK + off, gBtnImg[IMG_BACK], gBtnImgSel[IMG_BACK], LS(MSG_HINT_BACK)), CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_FORWARD + off, gBtnImg[IMG_FORWARD], gBtnImgSel[IMG_FORWARD], LS(MSG_HINT_FORWARD)), CHILD_WeightedWidth, 0,
+        LAYOUT_AddChild, (ULONG)MakeIconButton(GID_REFRESH + off, gBtnImg[IMG_REFRESH], gBtnImgSel[IMG_REFRESH], LS(MSG_HINT_REFRESH)), CHILD_WeightedWidth, 0,
         LAYOUT_AddChild, (ULONG)pn->pathGad, CHILD_WeightedWidth, 100,
         TAG_DONE);
     }
@@ -922,19 +926,19 @@ static Object *CreatePaneUI(int p)
     /* barra operazioni; "Calcola dimensione" e "Dividi" */
     if (BarVisible(BAR_TOOLS))
     {
-        Object *btnRename = MakeIconButton(GID_RENAME + off, gBtnImg[IMG_RENAME], gBtnImgSel[IMG_RENAME], LS(MSG_RENAME));
-        Object *btnDelete = MakeIconButton(GID_DELETE + off, gBtnImg[IMG_DELETE], gBtnImgSel[IMG_DELETE], LS(MSG_DELETE));
-        Object *btnDuplicate = MakeIconButton(GID_DUPLICATE + off, gBtnImg[IMG_DUPLICATE], gBtnImgSel[IMG_DUPLICATE], LS(MSG_DUPLICATE));
-        Object *btnCopy = MakeIconButton(GID_COPY + off, gBtnImg[IMG_COPY], gBtnImgSel[IMG_COPY], LS(MSG_COPY));
-        Object *btnCut = MakeIconButton(GID_CUT + off, gBtnImg[IMG_CUT], gBtnImgSel[IMG_CUT], LS(MSG_CUT));
-        Object *btnPaste = MakeIconButton(GID_PASTE + off, gBtnImg[IMG_PASTE], gBtnImgSel[IMG_PASTE], LS(MSG_PASTE));
-        Object *btnInfo = MakeIconButton(GID_INFO + off, gBtnImg[IMG_INFO], gBtnImgSel[IMG_INFO], LS(MSG_INFO));
+        Object *btnRename = MakeIconButton(GID_RENAME + off, gBtnImg[IMG_RENAME], gBtnImgSel[IMG_RENAME], LS(MSG_HINT_RENAME));
+        Object *btnDelete = MakeIconButton(GID_DELETE + off, gBtnImg[IMG_DELETE], gBtnImgSel[IMG_DELETE], LS(MSG_HINT_DELETE));
+        Object *btnDuplicate = MakeIconButton(GID_DUPLICATE + off, gBtnImg[IMG_DUPLICATE], gBtnImgSel[IMG_DUPLICATE], LS(MSG_HINT_DUPLICATE));
+        Object *btnCopy = MakeIconButton(GID_COPY + off, gBtnImg[IMG_COPY], gBtnImgSel[IMG_COPY], LS(MSG_HINT_COPY));
+        Object *btnCut = MakeIconButton(GID_CUT + off, gBtnImg[IMG_CUT], gBtnImgSel[IMG_CUT], LS(MSG_HINT_CUT));
+        Object *btnPaste = MakeIconButton(GID_PASTE + off, gBtnImg[IMG_PASTE], gBtnImgSel[IMG_PASTE], LS(MSG_HINT_PASTE));
+        Object *btnInfo = MakeIconButton(GID_INFO + off, gBtnImg[IMG_INFO], gBtnImgSel[IMG_INFO], LS(MSG_HINT_INFO));
 
         /* Incolla nasce ghostato: UpdateStatus lo abilita solo se il
            clipboard condiviso contiene almeno un percorso valido. */
         IIntuition->SetAttrs(btnPaste, GA_Disabled, TRUE, TAG_DONE);
         Object *sizeBtn = MakeIconButton(GID_CALCSIZE + off, gBtnImg[IMG_SIZE], gBtnImgSel[IMG_SIZE],
-                                         LS(MSG_CALC_SIZE));
+                                         LS(MSG_HINT_CALCSIZE));
         Object *shellBtn = MakeIconButton(GID_SHELL + off, gBtnImg[IMG_SHELL], gBtnImgSel[IMG_SHELL],
                                           LS(MSG_BTN_SHELL_HINT));
         Object *splitBtn = (p == 0)
@@ -1031,65 +1035,9 @@ static void ApplyPaneIconSize(ULONG size, Object *listGad, struct Window *win)
                       gShowInfoFiles, gIconSize);
 }
 
-/* ===== Barra condivisa e modalita' split =====
-   Crea e aggiunge la barra dei comandi condivisa (solo in vista divisa).
-   Viene aggiunta in coda al layout verticale, cioe' in basso. */
-
-static void ShowTopBar(struct Window *win)
-{
-    struct lmAddChild add;
-    struct TagItem attrs[2];
-
-    if (!gRootLayout || gTopBar) return;
-
-    gTopCopyBtn = IIntuition->NewObject(NULL, "button.gadget",
-        GA_ID, GID_TOP_COPY, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_COPY), TAG_DONE);
-    gTopMoveBtn = IIntuition->NewObject(NULL, "button.gadget",
-        GA_ID, GID_TOP_MOVE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_MOVE), TAG_DONE);
-    gTopDeleteBtn = IIntuition->NewObject(NULL, "button.gadget",
-        GA_ID, GID_TOP_DELETE, GA_RelVerify, TRUE, GA_Text, (ULONG)LS(MSG_DELETE), TAG_DONE);
-
-    gTopBar = IIntuition->NewObject(NULL, "layout.gadget",
-        LAYOUT_Orientation, LAYOUT_ORIENT_HORIZ,
-        LAYOUT_AddChild, (ULONG)gTopCopyBtn,   CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)gTopMoveBtn,   CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)gTopDeleteBtn, CHILD_WeightedWidth, 0,
-        LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE), CHILD_WeightedWidth, 100,
-        TAG_DONE);
-    if (!gTopBar) return;
-
-    attrs[0].ti_Tag  = CHILD_WeightedHeight;
-    attrs[0].ti_Data = 0;
-    attrs[1].ti_Tag  = TAG_DONE;
-    attrs[1].ti_Data = 0;
-
-    memset(&add, 0, sizeof(add));
-    add.MethodID       = LM_ADDCHILD;
-    add.lm_Window      = win;
-    add.lm_Object      = gTopBar;
-    add.lm_ObjectAttrs = attrs;
-    IIntuition->IDoMethodA(gRootLayout, (Msg)&add);
-}
-
-/* Rimuove e distrugge la barra condivisa: sparisce completamente. */
-static void HideTopBar(struct Window *win)
-{
-    struct lmRemoveChild rem;
-
-    if (!gRootLayout || !gTopBar) return;
-
-    memset(&rem, 0, sizeof(rem));
-    rem.MethodID  = LM_REMOVECHILD;
-    rem.lm_Window = win;
-    rem.lm_Object = gTopBar;
-    IIntuition->IDoMethodA(gRootLayout, (Msg)&rem);
-
-    gTopBar = NULL;
-    gTopCopyBtn = gTopMoveBtn = gTopDeleteBtn = NULL;
-}
+/* ===== Modalita' split ===== */
 
 /* attiva (o chiude) il secondo pannello */
-static void UpdateTopBar(struct Window *win);
 static void UpdatePaneMarkers(struct Window *win);
 
 /* Vista > Vista barra: ricostruisce i pannelli aperti con le sole barre
@@ -1250,9 +1198,7 @@ static void ToggleSplitPanes(struct Window *win, Object *winObj)
         if (pn->colInfo) { IListBrowser->FreeLBColumnInfo(pn->colInfo); pn->colInfo = NULL; }
         FreePaneArrays(1);          /* il secondo pannello non c'e' piu' */
         gActivePane = 0;
-        HideTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
-        UpdateTopBar(win);
         UpdatePaneMarkers(win);
         DBG("split: second pane closed");
     }
@@ -1297,9 +1243,7 @@ static void ToggleSplitPanes(struct Window *win, Object *winObj)
         add.lm_ObjectAttrs = attrs;
         IIntuition->IDoMethodA(gPanesRow, (Msg)&add);
 
-        ShowTopBar(win);
         IIntuition->IDoMethod(winObj, WM_RETHINK);
-        UpdateTopBar(win);
         SetupNotify(pn->pathBuffer);
         UpdateStatus(pn->listGad, pn->statusGad, win);
         UpdateWindowTitle(win, pn->pathBuffer);
@@ -1357,6 +1301,42 @@ static void OpenShellHere(void)
 
     if (rc < 0)
         IDOS->UnLock(lock);
+}
+
+/* Apre la guida AmigaGuide nella lingua del catalogo in uso
+   (PROGDIR:Docs/<lingua>/VagaFileManager.guide), altrimenti quella
+   inglese, con MultiView.  Il percorso passato a MultiView e' assoluto:
+   PROGDIR: nel processo figlio sarebbe la cartella di MultiView. */
+static void OpenGuide(void)
+{
+    CONST_STRPTR langs[2];
+    char path[300], full[PATH_MAX_LEN], cmd[PATH_MAX_LEN + 64];
+    BPTR lock = 0;
+    int i;
+
+    langs[0] = (gLoc.li_Catalog && gLoc.li_Catalog->cat_Language) ?
+               (CONST_STRPTR)gLoc.li_Catalog->cat_Language : (CONST_STRPTR)"english";
+    langs[1] = "english";
+    for (i = 0; i < 2 && !lock; i++)
+    {
+        snprintf(path, sizeof(path), "PROGDIR:Docs/%s/VagaFileManager.guide", langs[i]);
+        lock = IDOS->Lock(path, SHARED_LOCK);
+    }
+    if (!lock || !IDOS->NameFromLock(lock, full, sizeof(full)))
+    {
+        char msg[400];
+        if (lock) IDOS->UnLock(lock);
+        LOGERR("guide not found: %s", path);
+        snprintf(msg, sizeof(msg), LS(MSG_OPENWITH_FAILED), path);
+        ShowMessage(LS(MSG_ERROR_TITLE), msg);
+        return;
+    }
+    IDOS->UnLock(lock);
+    snprintf(cmd, sizeof(cmd), "SYS:Utilities/MultiView \"%s\"", full);
+    DBG("guide: %s", cmd);
+    if (IDOS->SystemTags(cmd, SYS_Asynch, TRUE, SYS_Input, 0, SYS_Output, 0,
+                         TAG_DONE) < 0)
+        LOGERR("cannot start MultiView");
 }
 
 /* ---- filtro rapido ---- */
@@ -1553,7 +1533,13 @@ static struct PluginSession *SessionOpen(int pane)
     if (!gPluginDir[0] || !gSessionPort) return NULL;
 
     for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
-        if (!gSessions[i].used) { s = &gSessions[i]; break; }
+    {
+        if (!gSessions[i])
+            gSessions[i] = (struct PluginSession *)IExec->AllocVecTags(sizeof(struct PluginSession),
+                AVT_Type, MEMF_PRIVATE, AVT_ClearWithValue, 0, TAG_DONE);
+        if (gSessions[i] && !gSessions[i]->used) { s = gSessions[i]; break; }
+        if (!gSessions[i]) break;              /* niente memoria */
+    }
     if (!s)
     {
         LOGERR("plugin session: table full");
@@ -1614,9 +1600,9 @@ static void ProcessSessionDeaths(void)
     {
         for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
         {
-            if (gSessions[i].used && (struct Message *)gSessions[i].dm == m)
+            if (gSessions[i] && gSessions[i]->used && (struct Message *)gSessions[i]->dm == m)
             {
-                SessionClose(&gSessions[i]);
+                SessionClose(gSessions[i]);
                 break;
             }
         }
@@ -1635,16 +1621,19 @@ static void SessionsShutdown(void)
     ProcessSessionDeaths();
     for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
     {
-        if (gSessions[i].used)
+        if (!gSessions[i]) continue;
+        if (gSessions[i]->used)
         {
+            /* il DeathMessage arrivera' dopo: sessione e messaggio restano */
             alive = TRUE;
-            DeleteChannelDir(gSessions[i].dir, FALSE);
-            gSessions[i].used = FALSE;
+            DeleteChannelDir(gSessions[i]->dir, FALSE);
+            gSessions[i]->used = FALSE;
         }
-        else if (gSessions[i].dm)
+        else
         {
-            IExec->FreeVec(gSessions[i].dm);
-            gSessions[i].dm = NULL;
+            if (gSessions[i]->dm) IExec->FreeVec(gSessions[i]->dm);
+            IExec->FreeVec(gSessions[i]);
+            gSessions[i] = NULL;
         }
     }
     if (gSessionPort)
@@ -1716,8 +1705,8 @@ void RunPlugin(CONST_STRPTR path)
             return;
         }
 
-        /* Terzo argomento: l'eseguibile VFM, cosi' l'addon puo' aprire
-           un dialogo Reaction con "--dialog" senza passare da ARexx. */
+        /* Terzo argomento: l'eseguibile VFM, che l'addon lancia con
+           --notify per il canale dei comandi. */
         exePath[0] = '\0';
         dir = IDOS->GetProgramDir();
         if (!dir || !IDOS->NameFromLock(dir, exePath, sizeof(exePath)) ||
@@ -1801,7 +1790,7 @@ void ScanPlugins(void)
                                      EX_DataFields, EXF_NAME | EXF_TYPE, TAG_END);
     if (!ctx) return;
 
-    while (gPluginCount < MAX_PLUGINS && (ed = IDOS->ExamineDir(ctx)) != NULL)
+    while ((ed = IDOS->ExamineDir(ctx)) != NULL)
     {
         ULONG len;
         BOOL isRexx, isPy;
@@ -1810,6 +1799,12 @@ void ScanPlugins(void)
         isRexx = (len > 5 && IUtility->Stricmp(ed->Name + len - 5, ".rexx") == 0) ? TRUE : FALSE;
         isPy   = (len > 3 && IUtility->Stricmp(ed->Name + len - 3, ".py") == 0) ? TRUE : FALSE;
         if (!isRexx && !isPy) continue;
+        /* elenco e icone crescono insieme, a blocchi di 8 */
+        if (!GrowArray((void **)&gPlugins, (void **)&gPluginsOld, &gPluginCap,
+                       gPluginCount + 1, PATH_MAX_LEN, 8, MAX_PLUGINS) ||
+            !GrowArray((void **)&gPluginIcons, (void **)&gPluginIconsOld, &gPluginIconCap,
+                       gPluginCount + 1, 32, 8, MAX_PLUGINS))
+            break;
         strncpy(gPlugins[gPluginCount], PLUGIN_DIR, PATH_MAX_LEN - 1);
         gPlugins[gPluginCount][PATH_MAX_LEN - 1] = '\0';
         if (!IDOS->AddPart(gPlugins[gPluginCount], ed->Name, PATH_MAX_LEN)) continue;
@@ -1820,7 +1815,7 @@ void ScanPlugins(void)
     /* Ordine alfabetico (senza distinzione maiuscole/minuscole) sul nome
        del file, cosi' il menu Script e' stabile e facile da consultare. */
     {
-        static char tmp[PATH_MAX_LEN];
+        char tmp[PATH_MAX_LEN];
         LONG i, j;
         for (i = 1; i < gPluginCount; i++)
         {
@@ -2763,8 +2758,8 @@ static void ProcessPluginRequests(struct Window *win)
         if (ProcessOneChannelRequest(gPluginDir, NULL, win)) any = TRUE;
         for (i = 0; i < MAX_PLUGIN_SESSIONS; i++)
         {
-            if (gSessions[i].used &&
-                ProcessOneChannelRequest(gSessions[i].dir, &gSessions[i], win))
+            if (gSessions[i] && gSessions[i]->used &&
+                ProcessOneChannelRequest(gSessions[i]->dir, gSessions[i], win))
                 any = TRUE;
         }
     } while (any && !gRexxQuit);
@@ -2988,22 +2983,90 @@ static void MovePaneSelection(LONG delta, BOOL vertical, struct Window *win)
     SelectPaneIndex(gActivePane, index, win);
 }
 
+/* Selezione da tastiera per nome, come nei file manager moderni:
+   - la stessa lettera ripetuta passa alla voce successiva con quella
+     iniziale e, in fondo all'elenco, ricomincia dall'inizio;
+   - lettere diverse scritte in fretta (meno di 1 secondo fra l'una e
+     l'altra) formano un prefisso: viene scelta la prima voce, a partire
+     da quella selezionata, il cui nome comincia con quel testo.
+   Le voci sono visitate nell'ordine in cui sono mostrate (e filtrate). */
+#define TYPEAHEAD_MS 1000
+
+static BOOL NodeMatchesTyped(struct Node *n, CONST_STRPTR typed, LONG len, BOOL cycle)
+{
+    ULONG idx = MAX_ENTRIES;
+    CONST_STRPTR name;
+
+    IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &idx, TAG_DONE);
+    if (idx >= (ULONG)gEntryCount) return FALSE;
+    name = PaneArrays(gActivePane)->names[idx];
+    if (!name[0]) return FALSE;
+    if (cycle)
+        return (toupper((int)(unsigned char)name[0]) == toupper((int)(unsigned char)typed[0])) ? TRUE : FALSE;
+    return (IUtility->Strnicmp(name, typed, len) == 0) ? TRUE : FALSE;
+}
+
 static void SelectByLetter(unsigned char ch, struct Window *win)
 {
+    static char typed[32];
+    static LONG typedLen = 0;
+    static uint32 lastMs = 0;
+    static int lastPane = -1;
     struct Pane *pn = &gPanes[gActivePane];
-    LONG i;
-    int upper = toupper((int)ch);
+    struct Node *n, *curNode = NULL, *startNode, *found = NULL;
+    struct DateStamp ds;
+    uint32 now;
+    LONG cur, i;
+    BOOL cycle = TRUE;
 
     if (!pn->listGad || pn->entryCount <= 0) return;
 
-    for (i = 0; i < pn->entryCount; i++)
+    IDOS->DateStamp(&ds);
+    now = (uint32)ds.ds_Days * 86400000UL + (uint32)ds.ds_Minute * 60000UL +
+          (uint32)ds.ds_Tick * (1000UL / TICKS_PER_SECOND);
+    if (gActivePane != lastPane || now - lastMs > TYPEAHEAD_MS) typedLen = 0;
+    lastMs = now;
+    lastPane = gActivePane;
+
+    /* la prima lettera deve essere una lettera o una cifra */
+    if (typedLen == 0 && !isalnum((int)ch)) return;
+    if (typedLen < (LONG)sizeof(typed) - 1) typed[typedLen++] = (char)ch;
+    typed[typedLen] = '\0';
+    for (i = 1; i < typedLen; i++)
+        if (toupper((int)(unsigned char)typed[i]) != toupper((int)(unsigned char)typed[0]))
+            cycle = FALSE;
+
+    /* nodo della voce selezionata ora */
+    cur = PaneSelectedIndex(&pn->fileList);
+    if (cur >= 0)
     {
-        if (PaneArrays(gActivePane)->names[i][0] &&
-            toupper((int)(unsigned char)PaneArrays(gActivePane)->names[i][0]) == upper)
+        for (n = pn->fileList.lh_Head; n->ln_Succ; n = n->ln_Succ)
         {
-            SelectPaneIndex(gActivePane, i, win);
-            return;
+            ULONG idx = MAX_ENTRIES;
+            IListBrowser->GetListBrowserNodeAttrs(n, LBNA_UserData, &idx, TAG_DONE);
+            if ((LONG)idx == cur) { curNode = n; break; }
         }
+    }
+
+    /* ciclo: si parte dalla voce dopo quella selezionata; prefisso: dalla
+       voce selezionata stessa (scrivendo "st" resta su Startup-Sequence) */
+    if (!curNode)
+        startNode = pn->fileList.lh_Head;
+    else if (cycle)
+        startNode = curNode->ln_Succ->ln_Succ ? curNode->ln_Succ : pn->fileList.lh_Head;
+    else
+        startNode = curNode;
+
+    for (n = startNode; n->ln_Succ && !found; n = n->ln_Succ)
+        if (NodeMatchesTyped(n, typed, typedLen, cycle)) found = n;
+    for (n = pn->fileList.lh_Head; n != startNode && n->ln_Succ && !found; n = n->ln_Succ)
+        if (NodeMatchesTyped(n, typed, typedLen, cycle)) found = n;
+
+    if (found && found != curNode)
+    {
+        ULONG idx = MAX_ENTRIES;
+        IListBrowser->GetListBrowserNodeAttrs(found, LBNA_UserData, &idx, TAG_DONE);
+        SelectPaneIndex(gActivePane, (LONG)idx, win);
     }
 }
 
@@ -3304,7 +3367,8 @@ static void HandleVanillaKey(ULONG key, struct Window *win)
         return;
     }
 
-    if (key >= 32 && key < 127 && isalpha((int)key))
+    /* lettere e cifre (e, dopo la prima, ogni carattere): selezione per nome */
+    if (key >= 32 && key < 127)
         SelectByLetter((unsigned char)key, win);
 }
 
@@ -3364,95 +3428,14 @@ static void HandleRawKey(ULONG key, struct Window *win)
             if (!(qual & IEQUALIFIER_REPEAT)) DoKeyCommand(MENU_REFRESH, win);
             break;
 
+        case RAWKEY_HELP:
+        case RAWKEY_F1:
+            if (!(qual & IEQUALIFIER_REPEAT)) OpenGuide();
+            break;
+
         default:
             break;
     }
-}
-
-/* Ricarica la vista di un singolo pannello (imposta temporaneamente
-   gActivePane, perche' LoadPath usa le macro del pannello attivo). */
-static void RefreshPane(int p, struct Window *win)
-{
-    int save = gActivePane;
-    if (p >= 0 && p <= 1 && gPanes[p].listGad && win)
-    {
-        gActivePane = p;
-        LoadPath(gPanes[p].pathBuffer, gPanes[p].listGad, gPanes[p].pathGad,
-                 gPanes[p].statusGad, win, &gPanes[p].fileList);
-    }
-    gActivePane = save;
-}
-
-/* Abilita i pulsanti della barra superiore: copia/sposta hanno senso solo
-   con la vista divisa (serve il secondo pannello). */
-static void UpdateTopBar(struct Window *win)
-{
-    BOOL split = (gPanes[1].listGad != NULL);
-
-    if (gTopCopyBtn)
-        IIntuition->SetGadgetAttrs((struct Gadget *)gTopCopyBtn, win, NULL,
-            GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
-    if (gTopMoveBtn)
-        IIntuition->SetGadgetAttrs((struct Gadget *)gTopMoveBtn, win, NULL,
-            GA_Disabled, split ? FALSE : TRUE, TAG_DONE);
-}
-
-/* ---- Modalita' dialogo standalone ----
-   Un addon puo' chiedere una finestra Reaction senza usare ARexx:
-       VagaFileManager --dialog "<risultato>|<titolo>|<testo>|<valore>|<pulsanti>"
-   oppure, per testi che contengono '|' o '"':
-       VagaFileManager --dialog "@<file-specifica>"
-   La specifica su file ha cinque righe: risultato, titolo, testo, valore,
-   pulsanti.  Alla chiusura scrive "<indice>|<testo>" nel file risultato.
-   Indice 0 = annullato, 1 = Invio/primo pulsante. */
-static BOOL ReadDialogSpec(CONST_STRPTR spec, char *resultFile, ULONG resultSize,
-                           char *title, ULONG titleSize,
-                           char *prompt, ULONG promptSize,
-                           char *value, ULONG valueSize,
-                           char *buttons, ULONG buttonsSize)
-{
-    char *fields[5];
-    ULONG sizes[5];
-    int i;
-
-    fields[0] = resultFile; sizes[0] = resultSize;
-    fields[1] = title;      sizes[1] = titleSize;
-    fields[2] = prompt;     sizes[2] = promptSize;
-    fields[3] = value;      sizes[3] = valueSize;
-    fields[4] = buttons;    sizes[4] = buttonsSize;
-
-    for (i = 0; i < 5; i++) fields[i][0] = '\0';
-
-    if (spec && spec[0] == '@')
-    {
-        BPTR fh = IDOS->Open(spec + 1, MODE_OLDFILE);
-        if (!fh) return FALSE;
-        for (i = 0; i < 5; i++)
-        {
-            ULONG n;
-            if (!IDOS->FGets(fh, fields[i], sizes[i]))
-            {
-                fields[i][0] = '\0';
-                continue;
-            }
-            n = strlen(fields[i]);
-            while (n && (fields[i][n - 1] == '\n' || fields[i][n - 1] == '\r'))
-                fields[i][--n] = '\0';
-        }
-        IDOS->Close(fh);
-        return TRUE;
-    }
-
-    for (i = 0; i < 5 && spec; i++)
-    {
-        CONST_STRPTR sep = (i < 4) ? strchr(spec, '|') : NULL;
-        ULONG n = sep ? (ULONG)(sep - spec) : (ULONG)strlen(spec);
-        if (n >= sizes[i]) n = sizes[i] - 1;
-        memcpy(fields[i], spec, n);
-        fields[i][n] = '\0';
-        spec = sep ? sep + 1 : NULL;
-    }
-    return TRUE;
 }
 
 /* ===== Punto di ingresso =====
@@ -3482,34 +3465,6 @@ int main(int argc, char **argv)
         struct MsgPort *port = IExec->FindPort(argv[2]);
         printf("FindPort(%s)=%p\n", argv[2], (void *)port);
         return port ? 0 : 1;
-    }
-
-    /* Dialogo standalone per gli addon: nessuna finestra principale,
-       nessuna porta ARexx, solo window.class e il file risultato. */
-    if (argc > 2 && argv[1] && !strcmp(argv[1], "--dialog"))
-    {
-        char resultFile[PATH_MAX_LEN] = "";
-        char title[128] = "VFM";
-        char prompt[256] = "";
-        char value[512] = "";
-        char buttons[128] = "OK|Cancel";
-        LONG idx;
-        BPTR out;
-
-        if (!ReadDialogSpec(argv[2], resultFile, sizeof(resultFile),
-                            title, sizeof(title), prompt, sizeof(prompt),
-                            value, sizeof(value), buttons, sizeof(buttons)) ||
-            !resultFile[0])
-            return 20;
-
-        idx = PromptDialog(title, prompt, value, sizeof(value), buttons);
-        out = IDOS->Open(resultFile, MODE_NEWFILE);
-        if (out)
-        {
-            IDOS->FPrintf(out, "%ld|%s", (long)idx, value);
-            IDOS->Close(out);
-        }
-        return 0;
     }
 
     windows[WID_MAIN] = NULL; objects[OID_MAIN] = NULL;
@@ -3760,7 +3715,6 @@ int main(int argc, char **argv)
                 /* Default: vista singola. La divisione si apre solo su richiesta
                    (pulsante/voce "Dividi"). */
                 gActivePane = 0;
-                UpdateTopBar(windows[WID_MAIN]);
                 UpdatePaneMarkers(windows[WID_MAIN]);
 
                 while (!done)
@@ -3964,35 +3918,6 @@ int main(int argc, char **argv)
                                 {
                                     ULONG gid = result & WMHI_GADGETMASK;
 
-                                    /* barra superiore condivisa: agisce sul pannello
-                                       attivo e trasferisce verso l'altro pannello */
-                                    if (gid == GID_TOP_COPY || gid == GID_TOP_MOVE ||
-                                        gid == GID_TOP_DELETE)
-                                    {
-                                        int src = (gActivePane == 1 && gPanes[1].listGad) ? 1 : 0;
-                                        int dst = src ^ 1;
-
-                                        if (gid == GID_TOP_DELETE)
-                                        {
-                                            DoDeleteSelected(gPanes[src].listGad, gPanes[src].pathGad,
-                                                             gPanes[src].statusGad, windows[WID_MAIN],
-                                                             &gPanes[src].fileList);
-                                        }
-                                        else if (gPanes[1].listGad)
-                                        {
-                                            DoTransferToPane(&gPanes[src].fileList,
-                                                             gPanes[src].pathBuffer,
-                                                             gPanes[dst].pathBuffer,
-                                                             (gid == GID_TOP_MOVE) ? TRUE : FALSE,
-                                                             windows[WID_MAIN]);
-                                            RefreshPane(dst, windows[WID_MAIN]);
-                                            if (gid == GID_TOP_MOVE)
-                                                RefreshPane(src, windows[WID_MAIN]);
-                                        }
-                                        UpdateAllStatuses(windows[WID_MAIN]);
-                                        break;
-                                    }
-
                                     {
                                     int gp = (gid >= PANE_ID_OFFSET) ? 1 : 0;
                                     ULONG bid = gid - (ULONG)gp * PANE_ID_OFFSET;
@@ -4136,6 +4061,7 @@ int main(int argc, char **argv)
                                                 case MENU_INVERT_SELECTION: InvertSelectionEntries(fl); RefreshAfterSelection(listGad, windows[WID_MAIN]); needStatus=TRUE; break;
                                                 case MENU_DESELECT_ALL: DeselectAllEntries(fl); RefreshAfterSelection(listGad, windows[WID_MAIN]); needStatus=TRUE; break;
                                                 case MENU_INFO: ShowAbout(windows[WID_MAIN]); break;
+                                                case MENU_GUIDE: OpenGuide(); break;
                                                 case MENU_QUIT: done = TRUE; break;
                                                 case MENU_RENAME: DoRenameSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
                                                 case MENU_DELETE: DoDeleteSelected(listGad,pathGad,statusGad,windows[WID_MAIN],fl); break;
@@ -4415,6 +4341,10 @@ int main(int argc, char **argv)
     }
     gActivePane = 0;
     FreeClipboard();
+    FreeBookmarks();
+    FreeGrownArray((void **)&gPlugins, (void **)&gPluginsOld, &gPluginCap);
+    FreeGrownArray((void **)&gPluginIcons, (void **)&gPluginIconsOld, &gPluginIconCap);
+    gPluginCount = 0;
 
     if (objects[OID_MAIN]) { IIntuition->DisposeObject(objects[OID_MAIN]); windows[WID_MAIN]=NULL; }
     if (gMenuRoot) { IIntuition->DisposeObject(gMenuRoot); gMenuRoot = NULL; }

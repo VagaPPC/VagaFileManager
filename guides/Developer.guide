@@ -1,0 +1,203 @@
+@database Developer.guide
+@$VER: Developer.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 or later
+@wordwrap
+
+@node main "VagaFileManager developer guide"
+@{b}VagaFileManager developer guide@{ub}
+
+How to write plugins for VagaFileManager, drive it from ARexx, build it and translate it.  For using the program, see Docs/<language>/VagaFileManager.guide.
+
+@{" Plugins: overview        " link overview}
+@{" How a plugin is started  " link start}
+@{" The command channel      " link channel}
+@{" Commands                 " link commands}
+@{" DIALOG                   " link dialog}
+@{" FORM                     " link form}
+@{" PROGRESS                 " link progress}
+@{" Menu image               " link icon}
+@{" ARexx port               " link arexx}
+@{" Building                 " link build}
+@{" Translating              " link translate}
+@endnode
+
+@node overview "Plugins: overview"
+@{b}Plugins: overview@{ub}
+
+A plugin is a Python (.py) or ARexx (.rexx) file in PROGDIR:Plugins.  VFM lists the files in the Script menu; Script > Refresh list reads the drawer again.
+
+The VFM command port exposes only what a script cannot know or do by itself: the state and the interface of VFM.  File operations (rename, copy, delete...) are done by the plugin itself.
+
+Python plugins talk to VFM through a file channel and do not need ARexx.  .rexx plugins are run with C:RX and use the ARexx port.
+
+The bundled plugins are complete examples.  Plugins/CompressLHA.py is commented step by step and uses the channel, DIALOG and PROGRESS; the Mount plugins use FORM.  Each plugin is self-contained (no shared modules), so it can be copied alone.
+
+Plugins must run on the Python of AmigaOS (2.5) and on Python 3: no b'' literals, no "with", no "except X as e".
+
+Every bundled plugin writes its log to T:<plugin>.log: errors always, every step with the DEBUG argument (see @{"How a plugin is started" link start}).
+@endnode
+
+@node start "How a plugin is started"
+@{b}How a plugin is started@{ub}
+
+VFM looks for C:Python, then C:Python3, and runs:
+
+| C:Python "<script>" "<arexx-port>" "<path>" "<vfm-executable>"
+|          "<drop-port>" "<channel-dir>" DEBUG|NODEBUG
+
+- arexx-port: the name of the ARexx port of this VFM window.
+
+- path: the drawer shown in the pane the plugin was started from.
+
+- vfm-executable: the full path of VagaFileManager, used for --notify.
+
+- drop-port and channel-dir: see @{"The command channel" link channel}.
+
+- DEBUG or NODEBUG: the DEBUG ToolType of the VagaFileManager icon.
+
+Each launch gets its own channel directory (a session), deleted when the plugin ends.  Its commands always act on the pane the plugin was started from, even if the user activates the other pane meanwhile.  If that pane is closed, the commands that need it answer "Pane closed".
+@endnode
+
+@node channel "The command channel"
+@{b}The command channel@{ub}
+
+To send a command:
+
+- write one line to "<channel-dir>/req_<id>.txt" (id: any unique text, for example a counter);
+
+- run: <vfm-executable> --notify "<drop-port>"
+
+- read "<channel-dir>/rep_<id>.txt": "<rc>|<result>", where rc 0 means success.
+
+The commands are the same as the ARexx port (see @{"Commands" link commands}).  This works even when the ARexx host or RX is not working.
+@endnode
+
+@node commands "Commands"
+@{b}Commands@{ub}
+
+| Read context:  PATH, ENTRIES, SELECTED, ADDONINFO, VERSION, PROTOCOL
+| Interface:     CD <path>, OPEN [name], UP, FORWARD, REFRESH,
+|                REVEAL <path>, SELECT [ADD] <pattern>, SELECT NONE,
+|                VIEW ICONS|ALLFILES, SORT TYPE|NAME|DATE|SIZE,
+|                MODE ICONS|DETAILS, SPLIT
+| Services:      DIALOG, FORM, ASK <prompt>, STATUS [text], PROGRESS
+| Application:   NEW, SCRIPT <file>, QUIT, HELP
+
+- SELECTED returns the selected entries, one full path per line.
+
+- SELECT accepts AmigaDOS patterns (a plain name is an exact match) and returns the number of matching entries.
+
+- REVEAL moves the pane to the drawer of a file and selects it.
+
+- STATUS shows a message in the status bar until VFM updates it; STATUS alone restores it.
+
+- PROTOCOL returns the version of this command set (currently 2).  It changes only when a command changes or is removed, not when one is added.  Older builds answer "Unknown command": treat that as 1.
+@endnode
+
+@node dialog "DIALOG"
+@{b}DIALOG@{ub}
+
+The AmigaOS Python cannot use ReAction directly.  DIALOG shows a ReAction window with a text field:
+
+| DIALOG <title>|<prompt>|<default>|<buttons>   ->   <index>|<text>
+
+<buttons> holds up to six labels separated by |.  Index 0 means the window was closed, 1 is the first button (or Return).
+
+With the optional prefix CHECK=<0|1>:<label>| a checkbox is shown under the text field and the reply becomes <index>|<0|1>|<text>.  Find and Grep use it for "Include subfolders".
+@endnode
+
+@node form "FORM"
+@{b}FORM@{ub}
+
+FORM <file> shows a window with several fields, described by the file, one line each:
+
+| TITLE <title>
+| FIELD <id>|TEXT|<label>|<value>
+| FIELD <id>|PASSWORD|<label>|<value>     (shown as asterisks)
+| FIELD <id>|CHECK|<label>|<0|1>
+| FIELD <id>|CHOICE|<label>|<item1;item2;...>|<index>
+| FIELD <id>|FILE|<label>|<path>           (with a file requester button)
+| INFO <text>
+| BUTTONS <button1>|<button2>|...          (up to 6)
+| PLACE LAST
+
+The reply is the button pressed (0 = window closed).  The values are written to <file>.out as BUTTON=<n> and one <id>=<value> line per field.
+
+A CHOICE field holds at most 8 items: longer lists must be paged by the plugin (the Mount plugins show 7 items and a "More..." entry).
+
+Without PLACE LAST the window opens under the mouse pointer; with it, where the last form was closed, so a plugin asking several questions in a row does not move its windows.
+
+FILE needs build 94 or newer, PLACE LAST build 92 or newer; older builds ignore the line or show a text field.
+@endnode
+
+@node progress "PROGRESS"
+@{b}PROGRESS@{ub}
+
+| PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal]
+| PROGRESS TEXT <message>
+| PROGRESS CLOSE
+
+The first form opens or updates the VFM progress window.  The reply is 1 when the user asked to cancel.
+
+- NOCANCEL: no Cancel button.
+
+- NOBUTTONS: no Cancel or Pause buttons, only the close button, which reports the cancel request.
+
+- INDET: an animated bar, for work of unknown length.
+
+PROGRESS TEXT shows a message instead of the file count (PROGRESS TEXT alone brings the count back).  PROGRESS CLOSE closes the window.
+@endnode
+
+@node icon "Menu image"
+@{b}Menu image@{ub}
+
+A plugin can show an AISS image in the Script menu with a comment line near its start:
+
+| # VFM-Icon: network
+
+The image is loaded only from TBImages:<name>.  Without AISS, or if the image is missing, the usual script image is shown.
+
+The bundled plugins use archiveadd (Compress*), find, search (Grep), network (MountSamba), connectremote (MountSSH), connectserver (MountNFS) and ftp (MountFTP).
+@endnode
+
+@node arexx "ARexx port"
+@{b}ARexx port@{ub}
+
+Every VFM window has its own ARexx port: the first one is VAGAFILEMANAGER, the next ones VAGAFILEMANAGER.<hex number>.  A plugin gets the name of its window's port as its first argument.  It accepts the same commands as the channel and stays available to external clients.
+
+Tools/ARexxProbe.py, in the source repository, checks the ARexx setup:
+
+| C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VFM/VagaFileManager
+
+It finds the VAGAFILEMANAGER and WORKBENCH ports with VFM --findport, then runs two RX scripts against them.  Results go to T:ARexxProbe.log and to the Shell.
+@endnode
+
+@node build "Building"
+@{b}Building@{ub}
+
+Source code: https://github.com/VagaPPC/VagaFileManager
+
+On AmigaOS 4 with the SDK, from the source drawer:
+
+| make           program, catalogs and the VFM/ distribution drawer
+| make dist      only the VFM/ drawer
+| make catalogs  only the .catalog files (needs CatComp)
+| make clean     remove the built files and VFM/
+
+The VFM/ drawer is deleted and made again at every build.  It contains only what is needed to run the program: the executables and their icons, icons/, Catalogs/, Plugins/, Docs/, README.txt, CHANGELOG.md and LICENSE.  Copy it together with VFM.info, the drawer icon.
+
+The program can also be cross-compiled with ppc-amigaos-gcc; the catalogs must be built on AmigaOS with CatComp.
+
+FileBrowser.c and FileBrowser.h are a separate public domain work by OpenAmiga.org (listbrowser gadget with cell mode), used with one small addition: the read-only FILEBROWSER_Columns attribute.
+@endnode
+
+@node translate "Translating"
+@{b}Translating@{ub}
+
+@{b}Program strings.@{ub}  VagaFileManager.cd describes the strings; Catalogs/<language>/VagaFileManager.ct holds each translation.  Language directories use the English names of AmigaOS 4 (english, italian, french, german, polish, spanish, greek).  The .ct files use the codeset of the language (ISO-8859-1, ISO-8859-2 for Polish, ISO-8859-7 for Greek).  Strings must not contain the " character.  VFM looks for the catalogs in PROGDIR:Catalogs, then LOCALE:Catalogs.
+
+@{b}Guides.@{ub}  The user guides are written in UTF-8 in guides/<language>.guide and this guide in guides/Developer.guide.  Tools/build_guides.py converts them into Docs/ in the codeset of each language, checks the links and checks that every language has the same pages.  Program > Guide..., F1 and the Help key open the guide of the language of the catalog in use, or the English one.
+
+To add a language: copy Catalogs/english/VagaFileManager.ct and guides/english.guide, translate them, add the language to build_catalogs, to the Makefile and to the CODESETS table of Tools/build_guides.py.
+@endnode

@@ -139,9 +139,6 @@ enum
     GID_CALCSIZE,
     GID_SHELL,
     GID_FILTER,
-    GID_TOP_COPY,
-    GID_TOP_MOVE,
-    GID_TOP_DELETE,
     GID_CLEAR_FILTER       /* pulsante che svuota il filtro rapido */
 };
 
@@ -190,7 +187,8 @@ enum
     MENU_BAR_FILTER,       /* barra del filtro */
     MENU_BAR_STATUS,       /* barra di stato */
     MENU_SPLIT,            /* Vista > Dividi (anche senza barra pulsanti) */
-    MENU_WB_EMULATION      /* Vista > Emulazione WB */
+    MENU_WB_EMULATION,     /* Vista > Emulazione WB */
+    MENU_GUIDE             /* Programma > Guida (anche tasti F1 e Help) */
 };
 #define MENU_BOOKMARK_BASE 1000
 #define MENU_SCRIPT_BASE   2000
@@ -425,6 +423,11 @@ extern struct Hook gIconRenderHooks[2];
 extern char (*gClipboard)[PATH_MAX_LEN];
 BOOL ClipboardReserve(LONG count);
 void FreeClipboard(void);
+BOOL GrowArray(void **arr, void **retired, LONG *cap, LONG need,
+               LONG elemSize, LONG step, LONG max);
+void FreeGrownArray(void **arr, void **retired, LONG *cap);
+BOOL BookmarkReserve(LONG count);
+void FreeBookmarks(void);
 extern LONG gClipboardCount;
 extern ULONG gClipboardMode;
 
@@ -434,7 +437,7 @@ extern BOOL  gDragButtonDown;
 
 extern char gDropPortName[64];
 
-extern struct Bookmark gBookmarks[MAX_BOOKMARKS];
+extern struct Bookmark *gBookmarks;   /* MAX_BOOKMARKS al massimo, allocati su richiesta */
 extern LONG gBookmarkCount;
 extern Object *gMenuRoot;
 extern Object *gCtxMenuItem;   /* menu contestuale: cassetto */
@@ -443,10 +446,10 @@ extern Object *gCtxMenuEmpty;  /* menu contestuale: spazio vuoto */
 extern Object *gMenuImg[MIMG_COUNT];
 extern struct VFMWindowTag gWinTag;
 
-extern char gPlugins[MAX_PLUGINS][PATH_MAX_LEN];
+extern char (*gPlugins)[PATH_MAX_LEN];   /* allocati su richiesta, MAX_PLUGINS al massimo */
 /* Icona AISS di ogni plugin (riga "VFM-Icon: <nome>" nel file), vuota se
    non dichiarata: il menu Script la carica solo da tbimages:<nome>. */
-extern char gPluginIcons[MAX_PLUGINS][32];
+extern char (*gPluginIcons)[32];
 extern LONG gPluginCount;
 extern char gRexxPortName[64];
 
@@ -523,7 +526,6 @@ void InitEasyAtMouse(struct EasyStruct *es);
 BOOL ConfirmRequest(CONST_STRPTR title, CONST_STRPTR body);
 BOOL PromptRename(CONST_STRPTR oldName, STRPTR newNameBuf, ULONG bufSize);
 BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize);
-LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize, CONST_STRPTR buttons);
 LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt, STRPTR buf, ULONG bufSize,
                        CONST_STRPTR buttons, CONST_STRPTR checkLabel, ULONG *checked);
 BOOL RevealPath(CONST_STRPTR path, struct Window *win);
@@ -595,7 +597,6 @@ void DoDuplicateSelected(Object *listGad, Object *pathGad, Object *statusGad, st
 void DoCopySelected(struct List *list);
 void DoCutSelected(struct List *list);
 void DoPaste(Object *listGad, Object *pathGad, Object *statusGad, struct Window *win, struct List *list);
-void DoTransferToPane(struct List *srcList, CONST_STRPTR srcDir, CONST_STRPTR dstDir, BOOL move, struct Window *win);
 void SaveSharedClipboard(void);
 BOOL LoadSharedClipboard(void);
 

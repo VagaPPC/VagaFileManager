@@ -45,169 +45,161 @@
 #define MSG_VIEW_ICONS_ONLY 1
 #define MSG_VIEW_ALL_FILES 2
 #define MSG_SORT_BY_TYPE 3
-#define MSG_SORT_ALPHABETICAL 4
-#define MSG_SORT_BY_NAME 5
-#define MSG_SORT_BY_DATE 6
-#define MSG_SORT_BY_SIZE 7
-#define MSG_TYPE_DIR_LINK 8
-#define MSG_TYPE_LINK 9
-#define MSG_TYPE_DRAWER 10
-#define MSG_TYPE_FILE 11
-#define MSG_TYPE_SOFTLINK 12
-#define MSG_TYPE_OTHER 13
-#define MSG_TYPE_DEVICE 14
-#define MSG_TYPE_VOLUME 15
-#define MSG_TYPE_ASSIGN 16
-#define MSG_TYPE_LATE_ASSIGN 17
-#define MSG_TYPE_NONBINDING 18
-#define MSG_ROOT_ASSIGNS 19
-#define MSG_STATUS_FORMAT 20
-#define MSG_BTN_OK 21
-#define MSG_BTN_CANCEL 22
-#define MSG_BTN_OK_CANCEL 23
-#define MSG_RENAME_TITLE 24
-#define MSG_RENAME 25
-#define MSG_RENAME_SELECT_ONE 26
-#define MSG_RENAME_FAILED 27
-#define MSG_ERROR_TITLE 28
-#define MSG_DELETE 29
-#define MSG_DELETE_NONE 30
-#define MSG_DELETE_CONFIRM_ONE 31
-#define MSG_DELETE_CONFIRM_MANY 32
-#define MSG_DELETE_CONFIRM_TITLE 33
-#define MSG_DELETE_FAILED 34
-#define MSG_DUPLICATE 35
-#define MSG_DUPLICATE_ROOT 36
-#define MSG_DUPLICATE_NONE 37
-#define MSG_DUPLICATE_ERRORS 38
-#define MSG_COPY_PREFIX 39
-#define MSG_COPY 40
-#define MSG_COPY_NONE 41
-#define MSG_PASTE 42
-#define MSG_PASTE_ROOT 43
-#define MSG_PASTE_EMPTY 44
-#define MSG_PASTE_ERRORS 45
-#define MSG_INFO 46
-#define MSG_INFO_TITLE 47
-#define MSG_INFO_SELECT_ONE 48
-#define MSG_DROP_COPY_FAILED 49
-#define MSG_DRAGDROP_TITLE 50
-#define MSG_DROP_ROOT 51
-#define MSG_DROP_COPY_ERROR_NAME 52
-#define MSG_COL_NAME 53
-#define MSG_COL_TYPE 54
-#define MSG_COL_SIZE 55
-#define MSG_COL_DATE 56
-#define MSG_STATUS_EMPTY 57
-#define MSG_BTN_ICONS 58
-#define MSG_BTN_DETAILS 59
-#define MSG_BTN_UP 60
-#define MSG_BTN_OPEN 61
-#define MSG_BTN_REFRESH 62
-#define MSG_BTN_HOME 63
-#define MSG_LABEL_VIEW 64
-#define MSG_LABEL_LIST 65
-#define MSG_LABEL_PATH 66
-#define MSG_DROP_NO_TARGET 67
-#define MSG_COL_COMMENT 68
-#define MSG_BTN_BACK 69
-#define MSG_BTN_FORWARD 70
-#define MSG_MENU_PROGRAM 71
-#define MSG_MENU_NEWWINDOW 72
-#define MSG_MENU_INFO 73
-#define MSG_MENU_QUIT 74
-#define MSG_MENU_EDIT 75
-#define MSG_MENU_VIEW 76
-#define MSG_MENU_BOOKMARKS 77
-#define MSG_MENU_ADDBOOKMARK 78
-#define MSG_BOOKMARK_ADDED 79
-#define MSG_MENU_MANAGE 80
-#define MSG_CUT 81
-#define MSG_FILTER 82
-#define MSG_SORT 83
-#define MSG_ABOUT_VERSION 84
-#define MSG_ABOUT_AUTHOR 85
-#define MSG_ABOUT_EMAIL 86
-#define MSG_ABOUT_LICENSE 87
-#define MSG_MOVE 88
-#define MSG_PROG_TITLE 89
-#define MSG_PROG_STATUS 90
-#define MSG_PROG_PAUSE 91
-#define MSG_PROG_CONTINUE 92
-#define MSG_MENU_SHOW 93
-#define MSG_MENU_SCRIPT 94
-#define MSG_SCRIPT_REFRESH 95
-#define MSG_SCRIPT_OPENDIR 96
-#define MSG_CALC_SIZE 97
-#define MSG_SIZE_TITLE 98
-#define MSG_SIZE_SELECT_DIR 99
-#define MSG_SIZE_RESULT 100
-#define MSG_BTN_SPLIT_HINT 101
-#define MSG_ABOUT_BY 102
-#define MSG_ABOUT_AUTHOR_NAME 103
-#define MSG_ABOUT_AUTHOR_SUFFIX 104
-#define MSG_ABOUT_MAIL 105
-#define MSG_ABOUT_THANKS 106
-#define MSG_MENU_WBREPLACE 107
-#define MSG_MENU_WBRESTORE 108
-#define MSG_FIND_TITLE 109
-#define MSG_FIND_NONE 110
-#define MSG_FIND_RESULTS 111
-#define MSG_GREP_TITLE 112
-#define MSG_GREP_NONE 113
-#define MSG_GREP_RESULTS 114
-#define MSG_MENU_SHOWINFO 115
-#define MSG_BTN_SHELL_HINT 116
-#define MSG_MENU_SHELL 117
-#define MSG_MENU_NEW 118
-#define MSG_MENU_NEW_DRAWER 119
-#define MSG_MENU_NEW_TEXTFILE 120
-#define MSG_MENU_SELECT_ALL 121
-#define MSG_MENU_INVERT_SELECTION 122
-#define MSG_MENU_DESELECT_ALL 123
-#define MSG_NEW_DRAWER_PROMPT 124
-#define MSG_NEW_FILE_PROMPT 125
-#define MSG_NEW_DRAWER_FAILED 126
-#define MSG_NEW_FILE_FAILED 127
-#define MSG_NEW_FILE_EXISTS 128
-#define MSG_CONFLICT_TITLE 129
-#define MSG_CONFLICT_BODY 130
-#define MSG_CONFLICT_OVERWRITE 131
-#define MSG_CONFLICT_OVERWRITE_ALL 132
-#define MSG_CONFLICT_UPDATE 133
-#define MSG_CONFLICT_UPDATE_ALL 134
-#define MSG_CONFLICT_RENAME 135
-#define MSG_CONFLICT_SKIP 136
-#define MSG_COPY_ERROR_BODY 137
-#define MSG_COPY_ERROR_BUTTONS 138
-#define MSG_OPEN_MANY_CONFIRM 139
-#define MSG_MENU_OPEN_NEWWIN 140
-#define MSG_DROP_ASK_ITEMS 141
-#define MSG_DROP_ASK_TO 142
-#define MSG_DROP_ASK_MORE 143
-#define MSG_MENU_OPEN_WITH 144
-#define MSG_OPENWITH_PROMPT 145
-#define MSG_OPENWITH_CHOOSE 146
-#define MSG_OPENWITH_ASL_TITLE 147
-#define MSG_OPENWITH_FAILED 148
-#define MSG_OPENWITH_MAKEDEFAULT 149
-#define MSG_OPENWITH_DEFTYPE_BODY 150
-#define MSG_OPENWITH_NOTYPE_BODY 151
-#define MSG_OPENWITH_ALL_OF_TYPE 152
-#define MSG_OPENWITH_ONLY_FILE 153
-#define MSG_OPENWITH_SAVE_FAILED 154
-#define MSG_MENU_ICONSIZE 155
-#define MSG_MENU_BARS 156
-#define MSG_BAR_PATH 157
-#define MSG_BAR_TOOLS 158
-#define MSG_BAR_FILTER 159
-#define MSG_BAR_STATUS 160
-#define MSG_MENU_SPLIT 161
-#define MSG_BTN_CLEAR_FILTER 162
-#define MSG_ABOUT_DONATE 163
-#define MSG_MENU_WBEMULATION 164
-#define MSG_DELETE_ERROR_BODY 165
-#define MSG_DELETE_ERROR_BUTTONS 166
+#define MSG_SORT_BY_NAME 4
+#define MSG_SORT_BY_DATE 5
+#define MSG_SORT_BY_SIZE 6
+#define MSG_TYPE_DIR_LINK 7
+#define MSG_TYPE_LINK 8
+#define MSG_TYPE_DRAWER 9
+#define MSG_TYPE_FILE 10
+#define MSG_TYPE_SOFTLINK 11
+#define MSG_TYPE_OTHER 12
+#define MSG_TYPE_DEVICE 13
+#define MSG_TYPE_VOLUME 14
+#define MSG_TYPE_ASSIGN 15
+#define MSG_TYPE_LATE_ASSIGN 16
+#define MSG_TYPE_NONBINDING 17
+#define MSG_ROOT_ASSIGNS 18
+#define MSG_STATUS_FORMAT 19
+#define MSG_BTN_OK 20
+#define MSG_BTN_CANCEL 21
+#define MSG_BTN_OK_CANCEL 22
+#define MSG_RENAME_TITLE 23
+#define MSG_RENAME 24
+#define MSG_RENAME_SELECT_ONE 25
+#define MSG_RENAME_FAILED 26
+#define MSG_ERROR_TITLE 27
+#define MSG_DELETE 28
+#define MSG_DELETE_NONE 29
+#define MSG_DELETE_CONFIRM_ONE 30
+#define MSG_DELETE_CONFIRM_MANY 31
+#define MSG_DELETE_CONFIRM_TITLE 32
+#define MSG_DUPLICATE 33
+#define MSG_DUPLICATE_ROOT 34
+#define MSG_DUPLICATE_NONE 35
+#define MSG_DUPLICATE_ERRORS 36
+#define MSG_COPY_PREFIX 37
+#define MSG_COPY 38
+#define MSG_COPY_NONE 39
+#define MSG_PASTE 40
+#define MSG_PASTE_ROOT 41
+#define MSG_PASTE_EMPTY 42
+#define MSG_PASTE_ERRORS 43
+#define MSG_INFO 44
+#define MSG_INFO_TITLE 45
+#define MSG_INFO_SELECT_ONE 46
+#define MSG_DROP_COPY_FAILED 47
+#define MSG_DRAGDROP_TITLE 48
+#define MSG_DROP_ROOT 49
+#define MSG_DROP_COPY_ERROR_NAME 50
+#define MSG_COL_NAME 51
+#define MSG_COL_TYPE 52
+#define MSG_COL_SIZE 53
+#define MSG_COL_DATE 54
+#define MSG_STATUS_EMPTY 55
+#define MSG_BTN_ICONS 56
+#define MSG_BTN_OPEN 57
+#define MSG_BTN_REFRESH 58
+#define MSG_LABEL_PATH 59
+#define MSG_COL_COMMENT 60
+#define MSG_MENU_PROGRAM 61
+#define MSG_MENU_NEWWINDOW 62
+#define MSG_MENU_INFO 63
+#define MSG_MENU_QUIT 64
+#define MSG_MENU_EDIT 65
+#define MSG_MENU_VIEW 66
+#define MSG_MENU_BOOKMARKS 67
+#define MSG_MENU_ADDBOOKMARK 68
+#define MSG_MENU_MANAGE 69
+#define MSG_CUT 70
+#define MSG_FILTER 71
+#define MSG_SORT 72
+#define MSG_ABOUT_VERSION 73
+#define MSG_MOVE 74
+#define MSG_PROG_TITLE 75
+#define MSG_PROG_PAUSE 76
+#define MSG_PROG_CONTINUE 77
+#define MSG_MENU_SHOW 78
+#define MSG_MENU_SCRIPT 79
+#define MSG_SCRIPT_REFRESH 80
+#define MSG_SCRIPT_OPENDIR 81
+#define MSG_CALC_SIZE 82
+#define MSG_SIZE_TITLE 83
+#define MSG_SIZE_RESULT 84
+#define MSG_BTN_SPLIT_HINT 85
+#define MSG_ABOUT_BY 86
+#define MSG_ABOUT_AUTHOR_NAME 87
+#define MSG_ABOUT_AUTHOR_SUFFIX 88
+#define MSG_ABOUT_MAIL 89
+#define MSG_ABOUT_THANKS 90
+#define MSG_FIND_TITLE 91
+#define MSG_MENU_SHOWINFO 92
+#define MSG_BTN_SHELL_HINT 93
+#define MSG_MENU_SHELL 94
+#define MSG_MENU_NEW 95
+#define MSG_MENU_NEW_DRAWER 96
+#define MSG_MENU_NEW_TEXTFILE 97
+#define MSG_MENU_SELECT_ALL 98
+#define MSG_MENU_INVERT_SELECTION 99
+#define MSG_MENU_DESELECT_ALL 100
+#define MSG_NEW_DRAWER_PROMPT 101
+#define MSG_NEW_FILE_PROMPT 102
+#define MSG_NEW_DRAWER_FAILED 103
+#define MSG_NEW_FILE_FAILED 104
+#define MSG_NEW_FILE_EXISTS 105
+#define MSG_CONFLICT_TITLE 106
+#define MSG_CONFLICT_BODY 107
+#define MSG_CONFLICT_OVERWRITE 108
+#define MSG_CONFLICT_OVERWRITE_ALL 109
+#define MSG_CONFLICT_UPDATE 110
+#define MSG_CONFLICT_UPDATE_ALL 111
+#define MSG_CONFLICT_RENAME 112
+#define MSG_CONFLICT_SKIP 113
+#define MSG_COPY_ERROR_BODY 114
+#define MSG_COPY_ERROR_BUTTONS 115
+#define MSG_OPEN_MANY_CONFIRM 116
+#define MSG_MENU_OPEN_NEWWIN 117
+#define MSG_DROP_ASK_ITEMS 118
+#define MSG_DROP_ASK_TO 119
+#define MSG_DROP_ASK_MORE 120
+#define MSG_MENU_OPEN_WITH 121
+#define MSG_OPENWITH_PROMPT 122
+#define MSG_OPENWITH_CHOOSE 123
+#define MSG_OPENWITH_ASL_TITLE 124
+#define MSG_OPENWITH_FAILED 125
+#define MSG_OPENWITH_MAKEDEFAULT 126
+#define MSG_OPENWITH_DEFTYPE_BODY 127
+#define MSG_OPENWITH_NOTYPE_BODY 128
+#define MSG_OPENWITH_ALL_OF_TYPE 129
+#define MSG_OPENWITH_ONLY_FILE 130
+#define MSG_OPENWITH_SAVE_FAILED 131
+#define MSG_MENU_ICONSIZE 132
+#define MSG_MENU_BARS 133
+#define MSG_BAR_PATH 134
+#define MSG_BAR_TOOLS 135
+#define MSG_BAR_FILTER 136
+#define MSG_BAR_STATUS 137
+#define MSG_MENU_SPLIT 138
+#define MSG_BTN_CLEAR_FILTER 139
+#define MSG_ABOUT_DONATE 140
+#define MSG_MENU_WBEMULATION 141
+#define MSG_DELETE_ERROR_BODY 142
+#define MSG_DELETE_ERROR_BUTTONS 143
+#define MSG_MENU_GUIDE 144
+#define MSG_HINT_DETAILS 145
+#define MSG_HINT_ICONS 146
+#define MSG_HINT_HOME 147
+#define MSG_HINT_BACK 148
+#define MSG_HINT_FORWARD 149
+#define MSG_HINT_REFRESH 150
+#define MSG_HINT_RENAME 151
+#define MSG_HINT_DELETE 152
+#define MSG_HINT_DUPLICATE 153
+#define MSG_HINT_COPY 154
+#define MSG_HINT_CUT 155
+#define MSG_HINT_PASTE 156
+#define MSG_HINT_INFO 157
+#define MSG_HINT_CALCSIZE 158
 
 #endif /* CATCOMP_NUMBERS */
 
@@ -221,7 +213,6 @@
 #define MSG_VIEW_ICONS_ONLY_STR "by icons"
 #define MSG_VIEW_ALL_FILES_STR "all files"
 #define MSG_SORT_BY_TYPE_STR "type"
-#define MSG_SORT_ALPHABETICAL_STR "Alphabetical"
 #define MSG_SORT_BY_NAME_STR "name"
 #define MSG_SORT_BY_DATE_STR "date"
 #define MSG_SORT_BY_SIZE_STR "size"
@@ -251,7 +242,6 @@
 #define MSG_DELETE_CONFIRM_ONE_STR "Delete the selected item?"
 #define MSG_DELETE_CONFIRM_MANY_STR "Delete %ld selected items?"
 #define MSG_DELETE_CONFIRM_TITLE_STR "Confirm deletion"
-#define MSG_DELETE_FAILED_STR "Unable to delete:\n%s\n%s"
 #define MSG_DUPLICATE_STR "Duplicate"
 #define MSG_DUPLICATE_ROOT_STR "Operation not available in this view."
 #define MSG_DUPLICATE_NONE_STR "No item selected."
@@ -276,18 +266,10 @@
 #define MSG_COL_DATE_STR "Date"
 #define MSG_STATUS_EMPTY_STR "Items: 0  |  Selected: 0"
 #define MSG_BTN_ICONS_STR "Icons"
-#define MSG_BTN_DETAILS_STR "Details"
-#define MSG_BTN_UP_STR "Up"
 #define MSG_BTN_OPEN_STR "Open"
 #define MSG_BTN_REFRESH_STR "Refresh"
-#define MSG_BTN_HOME_STR "Home"
-#define MSG_LABEL_VIEW_STR "View:"
-#define MSG_LABEL_LIST_STR "List:"
 #define MSG_LABEL_PATH_STR "Path:"
-#define MSG_DROP_NO_TARGET_STR "No valid drop target found."
 #define MSG_COL_COMMENT_STR "Comment"
-#define MSG_BTN_BACK_STR "Back"
-#define MSG_BTN_FORWARD_STR "Forward"
 #define MSG_MENU_PROGRAM_STR "Program"
 #define MSG_MENU_NEWWINDOW_STR "New..."
 #define MSG_MENU_INFO_STR "Information..."
@@ -296,18 +278,13 @@
 #define MSG_MENU_VIEW_STR "View"
 #define MSG_MENU_BOOKMARKS_STR "Bookmarks"
 #define MSG_MENU_ADDBOOKMARK_STR "Add to favorites"
-#define MSG_BOOKMARK_ADDED_STR "Added to favorites."
 #define MSG_MENU_MANAGE_STR "Manage..."
 #define MSG_CUT_STR "Cut"
 #define MSG_FILTER_STR "Filter"
 #define MSG_SORT_STR "Sort by"
 #define MSG_ABOUT_VERSION_STR "Version %s"
-#define MSG_ABOUT_AUTHOR_STR "VagaPPC (Benedetto Lorello)"
-#define MSG_ABOUT_EMAIL_STR "mail: vagappc@yahoo.it"
-#define MSG_ABOUT_LICENSE_STR "Free software: GNU General Public License v3 or later"
 #define MSG_MOVE_STR "Move"
 #define MSG_PROG_TITLE_STR "File operation"
-#define MSG_PROG_STATUS_STR "Copying..."
 #define MSG_PROG_PAUSE_STR "Pause"
 #define MSG_PROG_CONTINUE_STR "Continue"
 #define MSG_MENU_SHOW_STR "Show by"
@@ -316,24 +293,16 @@
 #define MSG_SCRIPT_OPENDIR_STR "Open plugin drawer"
 #define MSG_CALC_SIZE_STR "Calculate size"
 #define MSG_SIZE_TITLE_STR "Size"
-#define MSG_SIZE_SELECT_DIR_STR "Select a drawer or a volume."
 #define MSG_SIZE_RESULT_STR "Size: %s (%lld bytes)   Files: %lld   Drawers: %lld"
-#define MSG_BTN_SPLIT_HINT_STR "Split / close second pane"
+#define MSG_BTN_SPLIT_HINT_STR "Split: divide the window into two lists (Tab: other list)"
 #define MSG_ABOUT_BY_STR "by"
 #define MSG_ABOUT_AUTHOR_NAME_STR "VagaPPC"
 #define MSG_ABOUT_AUTHOR_SUFFIX_STR "(Benedetto Lorello)"
 #define MSG_ABOUT_MAIL_STR "Mail: vagappc@yahoo.it"
 #define MSG_ABOUT_THANKS_STR "Special thanks: ldg72, Flash, Kaffeine, ACube and AlfredONE"
-#define MSG_MENU_WBREPLACE_STR "Replace Workbench"
-#define MSG_MENU_WBRESTORE_STR "Restore Workbench"
 #define MSG_FIND_TITLE_STR "Find file"
-#define MSG_FIND_NONE_STR "No file found."
-#define MSG_FIND_RESULTS_STR "Search results"
-#define MSG_GREP_TITLE_STR "grep"
-#define MSG_GREP_NONE_STR "No match in the selected files."
-#define MSG_GREP_RESULTS_STR "grep results"
 #define MSG_MENU_SHOWINFO_STR "Show file info"
-#define MSG_BTN_SHELL_HINT_STR "Open shell here"
+#define MSG_BTN_SHELL_HINT_STR "Shell: open a Shell in this drawer"
 #define MSG_MENU_SHELL_STR "Shell"
 #define MSG_MENU_NEW_STR "New"
 #define MSG_MENU_NEW_DRAWER_STR "Drawer"
@@ -379,11 +348,26 @@
 #define MSG_BAR_FILTER_STR "Show filter bar"
 #define MSG_BAR_STATUS_STR "Show status bar"
 #define MSG_MENU_SPLIT_STR "Split"
-#define MSG_BTN_CLEAR_FILTER_STR "Clear filter"
+#define MSG_BTN_CLEAR_FILTER_STR "Clear filter: show all the files again"
 #define MSG_ABOUT_DONATE_STR "Donate:"
 #define MSG_MENU_WBEMULATION_STR "Workbench emulation"
 #define MSG_DELETE_ERROR_BODY_STR "Error while deleting '%s':\n%s"
 #define MSG_DELETE_ERROR_BUTTONS_STR "Retry|Skip|Skip all|Cancel"
+#define MSG_MENU_GUIDE_STR "Guide..."
+#define MSG_HINT_DETAILS_STR "Details: show the files as a list"
+#define MSG_HINT_ICONS_STR "Icons: show the files as icons"
+#define MSG_HINT_HOME_STR "Home: devices, volumes and assigns"
+#define MSG_HINT_BACK_STR "Back: parent drawer (Backspace)"
+#define MSG_HINT_FORWARD_STR "Forward: back into the drawer you left"
+#define MSG_HINT_REFRESH_STR "Refresh: read the drawer again (F5)"
+#define MSG_HINT_RENAME_STR "Rename: rename the selected item (F2)"
+#define MSG_HINT_DELETE_STR "Delete: delete the selected items (Del)"
+#define MSG_HINT_DUPLICATE_STR "Duplicate: copy the selected items into this drawer (Amiga+D)"
+#define MSG_HINT_COPY_STR "Copy: copy the selected items, then Paste (Amiga+C)"
+#define MSG_HINT_CUT_STR "Cut: move the selected items, then Paste (Amiga+X)"
+#define MSG_HINT_PASTE_STR "Paste: put the copied or cut items here (Amiga+V)"
+#define MSG_HINT_INFO_STR "Info: protection bits, comment and ToolTypes (Amiga+I)"
+#define MSG_HINT_CALCSIZE_STR "Calculate size: size of the selected drawer or volume"
 
 #endif /* CATCOMP_STRINGS */
 
@@ -405,7 +389,6 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_VIEW_ICONS_ONLY,(CONST_STRPTR)MSG_VIEW_ICONS_ONLY_STR},
     {MSG_VIEW_ALL_FILES,(CONST_STRPTR)MSG_VIEW_ALL_FILES_STR},
     {MSG_SORT_BY_TYPE,(CONST_STRPTR)MSG_SORT_BY_TYPE_STR},
-    {MSG_SORT_ALPHABETICAL,(CONST_STRPTR)MSG_SORT_ALPHABETICAL_STR},
     {MSG_SORT_BY_NAME,(CONST_STRPTR)MSG_SORT_BY_NAME_STR},
     {MSG_SORT_BY_DATE,(CONST_STRPTR)MSG_SORT_BY_DATE_STR},
     {MSG_SORT_BY_SIZE,(CONST_STRPTR)MSG_SORT_BY_SIZE_STR},
@@ -435,7 +418,6 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_DELETE_CONFIRM_ONE,(CONST_STRPTR)MSG_DELETE_CONFIRM_ONE_STR},
     {MSG_DELETE_CONFIRM_MANY,(CONST_STRPTR)MSG_DELETE_CONFIRM_MANY_STR},
     {MSG_DELETE_CONFIRM_TITLE,(CONST_STRPTR)MSG_DELETE_CONFIRM_TITLE_STR},
-    {MSG_DELETE_FAILED,(CONST_STRPTR)MSG_DELETE_FAILED_STR},
     {MSG_DUPLICATE,(CONST_STRPTR)MSG_DUPLICATE_STR},
     {MSG_DUPLICATE_ROOT,(CONST_STRPTR)MSG_DUPLICATE_ROOT_STR},
     {MSG_DUPLICATE_NONE,(CONST_STRPTR)MSG_DUPLICATE_NONE_STR},
@@ -460,18 +442,10 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_COL_DATE,(CONST_STRPTR)MSG_COL_DATE_STR},
     {MSG_STATUS_EMPTY,(CONST_STRPTR)MSG_STATUS_EMPTY_STR},
     {MSG_BTN_ICONS,(CONST_STRPTR)MSG_BTN_ICONS_STR},
-    {MSG_BTN_DETAILS,(CONST_STRPTR)MSG_BTN_DETAILS_STR},
-    {MSG_BTN_UP,(CONST_STRPTR)MSG_BTN_UP_STR},
     {MSG_BTN_OPEN,(CONST_STRPTR)MSG_BTN_OPEN_STR},
     {MSG_BTN_REFRESH,(CONST_STRPTR)MSG_BTN_REFRESH_STR},
-    {MSG_BTN_HOME,(CONST_STRPTR)MSG_BTN_HOME_STR},
-    {MSG_LABEL_VIEW,(CONST_STRPTR)MSG_LABEL_VIEW_STR},
-    {MSG_LABEL_LIST,(CONST_STRPTR)MSG_LABEL_LIST_STR},
     {MSG_LABEL_PATH,(CONST_STRPTR)MSG_LABEL_PATH_STR},
-    {MSG_DROP_NO_TARGET,(CONST_STRPTR)MSG_DROP_NO_TARGET_STR},
     {MSG_COL_COMMENT,(CONST_STRPTR)MSG_COL_COMMENT_STR},
-    {MSG_BTN_BACK,(CONST_STRPTR)MSG_BTN_BACK_STR},
-    {MSG_BTN_FORWARD,(CONST_STRPTR)MSG_BTN_FORWARD_STR},
     {MSG_MENU_PROGRAM,(CONST_STRPTR)MSG_MENU_PROGRAM_STR},
     {MSG_MENU_NEWWINDOW,(CONST_STRPTR)MSG_MENU_NEWWINDOW_STR},
     {MSG_MENU_INFO,(CONST_STRPTR)MSG_MENU_INFO_STR},
@@ -480,18 +454,13 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_MENU_VIEW,(CONST_STRPTR)MSG_MENU_VIEW_STR},
     {MSG_MENU_BOOKMARKS,(CONST_STRPTR)MSG_MENU_BOOKMARKS_STR},
     {MSG_MENU_ADDBOOKMARK,(CONST_STRPTR)MSG_MENU_ADDBOOKMARK_STR},
-    {MSG_BOOKMARK_ADDED,(CONST_STRPTR)MSG_BOOKMARK_ADDED_STR},
     {MSG_MENU_MANAGE,(CONST_STRPTR)MSG_MENU_MANAGE_STR},
     {MSG_CUT,(CONST_STRPTR)MSG_CUT_STR},
     {MSG_FILTER,(CONST_STRPTR)MSG_FILTER_STR},
     {MSG_SORT,(CONST_STRPTR)MSG_SORT_STR},
     {MSG_ABOUT_VERSION,(CONST_STRPTR)MSG_ABOUT_VERSION_STR},
-    {MSG_ABOUT_AUTHOR,(CONST_STRPTR)MSG_ABOUT_AUTHOR_STR},
-    {MSG_ABOUT_EMAIL,(CONST_STRPTR)MSG_ABOUT_EMAIL_STR},
-    {MSG_ABOUT_LICENSE,(CONST_STRPTR)MSG_ABOUT_LICENSE_STR},
     {MSG_MOVE,(CONST_STRPTR)MSG_MOVE_STR},
     {MSG_PROG_TITLE,(CONST_STRPTR)MSG_PROG_TITLE_STR},
-    {MSG_PROG_STATUS,(CONST_STRPTR)MSG_PROG_STATUS_STR},
     {MSG_PROG_PAUSE,(CONST_STRPTR)MSG_PROG_PAUSE_STR},
     {MSG_PROG_CONTINUE,(CONST_STRPTR)MSG_PROG_CONTINUE_STR},
     {MSG_MENU_SHOW,(CONST_STRPTR)MSG_MENU_SHOW_STR},
@@ -500,7 +469,6 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_SCRIPT_OPENDIR,(CONST_STRPTR)MSG_SCRIPT_OPENDIR_STR},
     {MSG_CALC_SIZE,(CONST_STRPTR)MSG_CALC_SIZE_STR},
     {MSG_SIZE_TITLE,(CONST_STRPTR)MSG_SIZE_TITLE_STR},
-    {MSG_SIZE_SELECT_DIR,(CONST_STRPTR)MSG_SIZE_SELECT_DIR_STR},
     {MSG_SIZE_RESULT,(CONST_STRPTR)MSG_SIZE_RESULT_STR},
     {MSG_BTN_SPLIT_HINT,(CONST_STRPTR)MSG_BTN_SPLIT_HINT_STR},
     {MSG_ABOUT_BY,(CONST_STRPTR)MSG_ABOUT_BY_STR},
@@ -508,14 +476,7 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_ABOUT_AUTHOR_SUFFIX,(CONST_STRPTR)MSG_ABOUT_AUTHOR_SUFFIX_STR},
     {MSG_ABOUT_MAIL,(CONST_STRPTR)MSG_ABOUT_MAIL_STR},
     {MSG_ABOUT_THANKS,(CONST_STRPTR)MSG_ABOUT_THANKS_STR},
-    {MSG_MENU_WBREPLACE,(CONST_STRPTR)MSG_MENU_WBREPLACE_STR},
-    {MSG_MENU_WBRESTORE,(CONST_STRPTR)MSG_MENU_WBRESTORE_STR},
     {MSG_FIND_TITLE,(CONST_STRPTR)MSG_FIND_TITLE_STR},
-    {MSG_FIND_NONE,(CONST_STRPTR)MSG_FIND_NONE_STR},
-    {MSG_FIND_RESULTS,(CONST_STRPTR)MSG_FIND_RESULTS_STR},
-    {MSG_GREP_TITLE,(CONST_STRPTR)MSG_GREP_TITLE_STR},
-    {MSG_GREP_NONE,(CONST_STRPTR)MSG_GREP_NONE_STR},
-    {MSG_GREP_RESULTS,(CONST_STRPTR)MSG_GREP_RESULTS_STR},
     {MSG_MENU_SHOWINFO,(CONST_STRPTR)MSG_MENU_SHOWINFO_STR},
     {MSG_BTN_SHELL_HINT,(CONST_STRPTR)MSG_BTN_SHELL_HINT_STR},
     {MSG_MENU_SHELL,(CONST_STRPTR)MSG_MENU_SHELL_STR},
@@ -568,6 +529,21 @@ STATIC CONST struct CatCompArrayType CatCompArray[] =
     {MSG_MENU_WBEMULATION,(CONST_STRPTR)MSG_MENU_WBEMULATION_STR},
     {MSG_DELETE_ERROR_BODY,(CONST_STRPTR)MSG_DELETE_ERROR_BODY_STR},
     {MSG_DELETE_ERROR_BUTTONS,(CONST_STRPTR)MSG_DELETE_ERROR_BUTTONS_STR},
+    {MSG_MENU_GUIDE,(CONST_STRPTR)MSG_MENU_GUIDE_STR},
+    {MSG_HINT_DETAILS,(CONST_STRPTR)MSG_HINT_DETAILS_STR},
+    {MSG_HINT_ICONS,(CONST_STRPTR)MSG_HINT_ICONS_STR},
+    {MSG_HINT_HOME,(CONST_STRPTR)MSG_HINT_HOME_STR},
+    {MSG_HINT_BACK,(CONST_STRPTR)MSG_HINT_BACK_STR},
+    {MSG_HINT_FORWARD,(CONST_STRPTR)MSG_HINT_FORWARD_STR},
+    {MSG_HINT_REFRESH,(CONST_STRPTR)MSG_HINT_REFRESH_STR},
+    {MSG_HINT_RENAME,(CONST_STRPTR)MSG_HINT_RENAME_STR},
+    {MSG_HINT_DELETE,(CONST_STRPTR)MSG_HINT_DELETE_STR},
+    {MSG_HINT_DUPLICATE,(CONST_STRPTR)MSG_HINT_DUPLICATE_STR},
+    {MSG_HINT_COPY,(CONST_STRPTR)MSG_HINT_COPY_STR},
+    {MSG_HINT_CUT,(CONST_STRPTR)MSG_HINT_CUT_STR},
+    {MSG_HINT_PASTE,(CONST_STRPTR)MSG_HINT_PASTE_STR},
+    {MSG_HINT_INFO,(CONST_STRPTR)MSG_HINT_INFO_STR},
+    {MSG_HINT_CALCSIZE,(CONST_STRPTR)MSG_HINT_CALCSIZE_STR},
 };
 
 #endif /* CATCOMP_ARRAY */
@@ -588,332 +564,316 @@ STATIC CONST UBYTE CatCompBlock[] =
     MSG_VIEW_ALL_FILES_STR "\x00"
     "\x00\x00\x00\x03\x00\x06"
     MSG_SORT_BY_TYPE_STR "\x00\x00"
-    "\x00\x00\x00\x04\x00\x0E"
-    MSG_SORT_ALPHABETICAL_STR "\x00\x00"
-    "\x00\x00\x00\x05\x00\x06"
+    "\x00\x00\x00\x04\x00\x06"
     MSG_SORT_BY_NAME_STR "\x00\x00"
-    "\x00\x00\x00\x06\x00\x06"
+    "\x00\x00\x00\x05\x00\x06"
     MSG_SORT_BY_DATE_STR "\x00\x00"
-    "\x00\x00\x00\x07\x00\x06"
+    "\x00\x00\x00\x06\x00\x06"
     MSG_SORT_BY_SIZE_STR "\x00\x00"
-    "\x00\x00\x00\x08\x00\x0C"
+    "\x00\x00\x00\x07\x00\x0C"
     MSG_TYPE_DIR_LINK_STR "\x00\x00"
-    "\x00\x00\x00\x09\x00\x06"
+    "\x00\x00\x00\x08\x00\x06"
     MSG_TYPE_LINK_STR "\x00\x00"
-    "\x00\x00\x00\x0A\x00\x08"
+    "\x00\x00\x00\x09\x00\x08"
     MSG_TYPE_DRAWER_STR "\x00\x00"
-    "\x00\x00\x00\x0B\x00\x06"
+    "\x00\x00\x00\x0A\x00\x06"
     MSG_TYPE_FILE_STR "\x00\x00"
-    "\x00\x00\x00\x0C\x00\x0A"
+    "\x00\x00\x00\x0B\x00\x0A"
     MSG_TYPE_SOFTLINK_STR "\x00\x00"
-    "\x00\x00\x00\x0D\x00\x06"
+    "\x00\x00\x00\x0C\x00\x06"
     MSG_TYPE_OTHER_STR "\x00"
-    "\x00\x00\x00\x0E\x00\x08"
+    "\x00\x00\x00\x0D\x00\x08"
     MSG_TYPE_DEVICE_STR "\x00\x00"
-    "\x00\x00\x00\x0F\x00\x08"
+    "\x00\x00\x00\x0E\x00\x08"
     MSG_TYPE_VOLUME_STR "\x00\x00"
-    "\x00\x00\x00\x10\x00\x08"
+    "\x00\x00\x00\x0F\x00\x08"
     MSG_TYPE_ASSIGN_STR "\x00\x00"
-    "\x00\x00\x00\x11\x00\x0C"
+    "\x00\x00\x00\x10\x00\x0C"
     MSG_TYPE_LATE_ASSIGN_STR "\x00"
-    "\x00\x00\x00\x12\x00\x0C"
+    "\x00\x00\x00\x11\x00\x0C"
     MSG_TYPE_NONBINDING_STR "\x00"
-    "\x00\x00\x00\x13\x00\x16"
+    "\x00\x00\x00\x12\x00\x16"
     MSG_ROOT_ASSIGNS_STR "\x00"
-    "\x00\x00\x00\x14\x00\x1E"
+    "\x00\x00\x00\x13\x00\x1E"
     MSG_STATUS_FORMAT_STR "\x00\x00"
-    "\x00\x00\x00\x15\x00\x04"
+    "\x00\x00\x00\x14\x00\x04"
     MSG_BTN_OK_STR "\x00\x00"
-    "\x00\x00\x00\x16\x00\x08"
+    "\x00\x00\x00\x15\x00\x08"
     MSG_BTN_CANCEL_STR "\x00\x00"
-    "\x00\x00\x00\x17\x00\x0A"
+    "\x00\x00\x00\x16\x00\x0A"
     MSG_BTN_OK_CANCEL_STR "\x00"
-    "\x00\x00\x00\x18\x00\x0C"
+    "\x00\x00\x00\x17\x00\x0C"
     MSG_RENAME_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x19\x00\x08"
+    "\x00\x00\x00\x18\x00\x08"
     MSG_RENAME_STR "\x00\x00"
-    "\x00\x00\x00\x1A\x00\x20"
+    "\x00\x00\x00\x19\x00\x20"
     MSG_RENAME_SELECT_ONE_STR "\x00"
-    "\x00\x00\x00\x1B\x00\x16"
+    "\x00\x00\x00\x1A\x00\x16"
     MSG_RENAME_FAILED_STR "\x00\x00"
-    "\x00\x00\x00\x1C\x00\x06"
+    "\x00\x00\x00\x1B\x00\x06"
     MSG_ERROR_TITLE_STR "\x00"
-    "\x00\x00\x00\x1D\x00\x08"
+    "\x00\x00\x00\x1C\x00\x08"
     MSG_DELETE_STR "\x00\x00"
-    "\x00\x00\x00\x1E\x00\x12"
+    "\x00\x00\x00\x1D\x00\x12"
     MSG_DELETE_NONE_STR "\x00"
-    "\x00\x00\x00\x1F\x00\x1A"
+    "\x00\x00\x00\x1E\x00\x1A"
     MSG_DELETE_CONFIRM_ONE_STR "\x00"
-    "\x00\x00\x00\x20\x00\x1C"
+    "\x00\x00\x00\x1F\x00\x1C"
     MSG_DELETE_CONFIRM_MANY_STR "\x00\x00"
-    "\x00\x00\x00\x21\x00\x12"
+    "\x00\x00\x00\x20\x00\x12"
     MSG_DELETE_CONFIRM_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x22\x00\x18"
-    MSG_DELETE_FAILED_STR "\x00"
-    "\x00\x00\x00\x23\x00\x0A"
+    "\x00\x00\x00\x21\x00\x0A"
     MSG_DUPLICATE_STR "\x00"
-    "\x00\x00\x00\x24\x00\x26"
+    "\x00\x00\x00\x22\x00\x26"
     MSG_DUPLICATE_ROOT_STR "\x00"
-    "\x00\x00\x00\x25\x00\x12"
+    "\x00\x00\x00\x23\x00\x12"
     MSG_DUPLICATE_NONE_STR "\x00"
-    "\x00\x00\x00\x26\x00\x24"
+    "\x00\x00\x00\x24\x00\x24"
     MSG_DUPLICATE_ERRORS_STR "\x00"
-    "\x00\x00\x00\x27\x00\x0C"
+    "\x00\x00\x00\x25\x00\x0C"
     MSG_COPY_PREFIX_STR "\x00"
-    "\x00\x00\x00\x28\x00\x06"
+    "\x00\x00\x00\x26\x00\x06"
     MSG_COPY_STR "\x00\x00"
-    "\x00\x00\x00\x29\x00\x12"
+    "\x00\x00\x00\x27\x00\x12"
     MSG_COPY_NONE_STR "\x00"
-    "\x00\x00\x00\x2A\x00\x06"
+    "\x00\x00\x00\x28\x00\x06"
     MSG_PASTE_STR "\x00"
-    "\x00\x00\x00\x2B\x00\x24"
+    "\x00\x00\x00\x29\x00\x24"
     MSG_PASTE_ROOT_STR "\x00"
-    "\x00\x00\x00\x2C\x00\x14"
+    "\x00\x00\x00\x2A\x00\x14"
     MSG_PASTE_EMPTY_STR "\x00"
-    "\x00\x00\x00\x2D\x00\x20"
+    "\x00\x00\x00\x2B\x00\x20"
     MSG_PASTE_ERRORS_STR "\x00"
-    "\x00\x00\x00\x2E\x00\x06"
+    "\x00\x00\x00\x2C\x00\x06"
     MSG_INFO_STR "\x00\x00"
-    "\x00\x00\x00\x2F\x00\x0C"
+    "\x00\x00\x00\x2D\x00\x0C"
     MSG_INFO_TITLE_STR "\x00"
-    "\x00\x00\x00\x30\x00\x16"
+    "\x00\x00\x00\x2E\x00\x16"
     MSG_INFO_SELECT_ONE_STR "\x00"
-    "\x00\x00\x00\x31\x00\x26"
+    "\x00\x00\x00\x2F\x00\x26"
     MSG_DROP_COPY_FAILED_STR "\x00"
-    "\x00\x00\x00\x32\x00\x0C"
+    "\x00\x00\x00\x30\x00\x0C"
     MSG_DRAGDROP_TITLE_STR "\x00"
-    "\x00\x00\x00\x33\x00\x24"
+    "\x00\x00\x00\x31\x00\x24"
     MSG_DROP_ROOT_STR "\x00\x00"
-    "\x00\x00\x00\x34\x00\x12"
+    "\x00\x00\x00\x32\x00\x12"
     MSG_DROP_COPY_ERROR_NAME_STR "\x00"
-    "\x00\x00\x00\x35\x00\x06"
+    "\x00\x00\x00\x33\x00\x06"
     MSG_COL_NAME_STR "\x00\x00"
-    "\x00\x00\x00\x36\x00\x06"
+    "\x00\x00\x00\x34\x00\x06"
     MSG_COL_TYPE_STR "\x00\x00"
-    "\x00\x00\x00\x37\x00\x06"
+    "\x00\x00\x00\x35\x00\x06"
     MSG_COL_SIZE_STR "\x00\x00"
-    "\x00\x00\x00\x38\x00\x06"
+    "\x00\x00\x00\x36\x00\x06"
     MSG_COL_DATE_STR "\x00\x00"
-    "\x00\x00\x00\x39\x00\x1A"
+    "\x00\x00\x00\x37\x00\x1A"
     MSG_STATUS_EMPTY_STR "\x00\x00"
-    "\x00\x00\x00\x3A\x00\x06"
+    "\x00\x00\x00\x38\x00\x06"
     MSG_BTN_ICONS_STR "\x00"
-    "\x00\x00\x00\x3B\x00\x08"
-    MSG_BTN_DETAILS_STR "\x00"
-    "\x00\x00\x00\x3C\x00\x04"
-    MSG_BTN_UP_STR "\x00\x00"
-    "\x00\x00\x00\x3D\x00\x06"
+    "\x00\x00\x00\x39\x00\x06"
     MSG_BTN_OPEN_STR "\x00\x00"
-    "\x00\x00\x00\x3E\x00\x08"
+    "\x00\x00\x00\x3A\x00\x08"
     MSG_BTN_REFRESH_STR "\x00"
-    "\x00\x00\x00\x3F\x00\x06"
-    MSG_BTN_HOME_STR "\x00\x00"
-    "\x00\x00\x00\x40\x00\x06"
-    MSG_LABEL_VIEW_STR "\x00"
-    "\x00\x00\x00\x41\x00\x06"
-    MSG_LABEL_LIST_STR "\x00"
-    "\x00\x00\x00\x42\x00\x06"
+    "\x00\x00\x00\x3B\x00\x06"
     MSG_LABEL_PATH_STR "\x00"
-    "\x00\x00\x00\x43\x00\x1C"
-    MSG_DROP_NO_TARGET_STR "\x00"
-    "\x00\x00\x00\x44\x00\x08"
+    "\x00\x00\x00\x3C\x00\x08"
     MSG_COL_COMMENT_STR "\x00"
-    "\x00\x00\x00\x45\x00\x06"
-    MSG_BTN_BACK_STR "\x00\x00"
-    "\x00\x00\x00\x46\x00\x08"
-    MSG_BTN_FORWARD_STR "\x00"
-    "\x00\x00\x00\x47\x00\x08"
+    "\x00\x00\x00\x3D\x00\x08"
     MSG_MENU_PROGRAM_STR "\x00"
-    "\x00\x00\x00\x48\x00\x08"
+    "\x00\x00\x00\x3E\x00\x08"
     MSG_MENU_NEWWINDOW_STR "\x00\x00"
-    "\x00\x00\x00\x49\x00\x10"
+    "\x00\x00\x00\x3F\x00\x10"
     MSG_MENU_INFO_STR "\x00\x00"
-    "\x00\x00\x00\x4A\x00\x06"
+    "\x00\x00\x00\x40\x00\x06"
     MSG_MENU_QUIT_STR "\x00\x00"
-    "\x00\x00\x00\x4B\x00\x06"
+    "\x00\x00\x00\x41\x00\x06"
     MSG_MENU_EDIT_STR "\x00\x00"
-    "\x00\x00\x00\x4C\x00\x06"
+    "\x00\x00\x00\x42\x00\x06"
     MSG_MENU_VIEW_STR "\x00\x00"
-    "\x00\x00\x00\x4D\x00\x0A"
+    "\x00\x00\x00\x43\x00\x0A"
     MSG_MENU_BOOKMARKS_STR "\x00"
-    "\x00\x00\x00\x4E\x00\x12"
+    "\x00\x00\x00\x44\x00\x12"
     MSG_MENU_ADDBOOKMARK_STR "\x00\x00"
-    "\x00\x00\x00\x4F\x00\x14"
-    MSG_BOOKMARK_ADDED_STR "\x00"
-    "\x00\x00\x00\x50\x00\x0A"
+    "\x00\x00\x00\x45\x00\x0A"
     MSG_MENU_MANAGE_STR "\x00"
-    "\x00\x00\x00\x51\x00\x04"
+    "\x00\x00\x00\x46\x00\x04"
     MSG_CUT_STR "\x00"
-    "\x00\x00\x00\x52\x00\x08"
+    "\x00\x00\x00\x47\x00\x08"
     MSG_FILTER_STR "\x00\x00"
-    "\x00\x00\x00\x53\x00\x08"
+    "\x00\x00\x00\x48\x00\x08"
     MSG_SORT_STR "\x00"
-    "\x00\x00\x00\x54\x00\x0C"
+    "\x00\x00\x00\x49\x00\x0C"
     MSG_ABOUT_VERSION_STR "\x00\x00"
-    "\x00\x00\x00\x55\x00\x1C"
-    MSG_ABOUT_AUTHOR_STR "\x00"
-    "\x00\x00\x00\x56\x00\x18"
-    MSG_ABOUT_EMAIL_STR "\x00\x00"
-    "\x00\x00\x00\x57\x00\x36"
-    MSG_ABOUT_LICENSE_STR "\x00"
-    "\x00\x00\x00\x58\x00\x06"
+    "\x00\x00\x00\x4A\x00\x06"
     MSG_MOVE_STR "\x00\x00"
-    "\x00\x00\x00\x59\x00\x10"
+    "\x00\x00\x00\x4B\x00\x10"
     MSG_PROG_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x5A\x00\x0C"
-    MSG_PROG_STATUS_STR "\x00\x00"
-    "\x00\x00\x00\x5B\x00\x06"
+    "\x00\x00\x00\x4C\x00\x06"
     MSG_PROG_PAUSE_STR "\x00"
-    "\x00\x00\x00\x5C\x00\x0A"
+    "\x00\x00\x00\x4D\x00\x0A"
     MSG_PROG_CONTINUE_STR "\x00\x00"
-    "\x00\x00\x00\x5D\x00\x08"
+    "\x00\x00\x00\x4E\x00\x08"
     MSG_MENU_SHOW_STR "\x00"
-    "\x00\x00\x00\x5E\x00\x08"
+    "\x00\x00\x00\x4F\x00\x08"
     MSG_MENU_SCRIPT_STR "\x00\x00"
-    "\x00\x00\x00\x5F\x00\x0E"
+    "\x00\x00\x00\x50\x00\x0E"
     MSG_SCRIPT_REFRESH_STR "\x00\x00"
-    "\x00\x00\x00\x60\x00\x14"
+    "\x00\x00\x00\x51\x00\x14"
     MSG_SCRIPT_OPENDIR_STR "\x00\x00"
-    "\x00\x00\x00\x61\x00\x10"
+    "\x00\x00\x00\x52\x00\x10"
     MSG_CALC_SIZE_STR "\x00\x00"
-    "\x00\x00\x00\x62\x00\x06"
+    "\x00\x00\x00\x53\x00\x06"
     MSG_SIZE_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x63\x00\x1E"
-    MSG_SIZE_SELECT_DIR_STR "\x00\x00"
-    "\x00\x00\x00\x64\x00\x34"
+    "\x00\x00\x00\x54\x00\x34"
     MSG_SIZE_RESULT_STR "\x00"
-    "\x00\x00\x00\x65\x00\x1A"
+    "\x00\x00\x00\x55\x00\x3A"
     MSG_BTN_SPLIT_HINT_STR "\x00"
-    "\x00\x00\x00\x66\x00\x04"
+    "\x00\x00\x00\x56\x00\x04"
     MSG_ABOUT_BY_STR "\x00\x00"
-    "\x00\x00\x00\x67\x00\x08"
+    "\x00\x00\x00\x57\x00\x08"
     MSG_ABOUT_AUTHOR_NAME_STR "\x00"
-    "\x00\x00\x00\x68\x00\x14"
+    "\x00\x00\x00\x58\x00\x14"
     MSG_ABOUT_AUTHOR_SUFFIX_STR "\x00"
-    "\x00\x00\x00\x69\x00\x18"
+    "\x00\x00\x00\x59\x00\x18"
     MSG_ABOUT_MAIL_STR "\x00\x00"
-    "\x00\x00\x00\x6A\x00\x3C"
+    "\x00\x00\x00\x5A\x00\x3C"
     MSG_ABOUT_THANKS_STR "\x00"
-    "\x00\x00\x00\x6B\x00\x12"
-    MSG_MENU_WBREPLACE_STR "\x00"
-    "\x00\x00\x00\x6C\x00\x12"
-    MSG_MENU_WBRESTORE_STR "\x00"
-    "\x00\x00\x00\x6D\x00\x0A"
+    "\x00\x00\x00\x5B\x00\x0A"
     MSG_FIND_TITLE_STR "\x00"
-    "\x00\x00\x00\x6E\x00\x10"
-    MSG_FIND_NONE_STR "\x00\x00"
-    "\x00\x00\x00\x6F\x00\x10"
-    MSG_FIND_RESULTS_STR "\x00\x00"
-    "\x00\x00\x00\x70\x00\x06"
-    MSG_GREP_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x71\x00\x20"
-    MSG_GREP_NONE_STR "\x00"
-    "\x00\x00\x00\x72\x00\x0E"
-    MSG_GREP_RESULTS_STR "\x00\x00"
-    "\x00\x00\x00\x73\x00\x10"
+    "\x00\x00\x00\x5C\x00\x10"
     MSG_MENU_SHOWINFO_STR "\x00\x00"
-    "\x00\x00\x00\x74\x00\x10"
-    MSG_BTN_SHELL_HINT_STR "\x00"
-    "\x00\x00\x00\x75\x00\x06"
+    "\x00\x00\x00\x5D\x00\x24"
+    MSG_BTN_SHELL_HINT_STR "\x00\x00"
+    "\x00\x00\x00\x5E\x00\x06"
     MSG_MENU_SHELL_STR "\x00"
-    "\x00\x00\x00\x76\x00\x04"
+    "\x00\x00\x00\x5F\x00\x04"
     MSG_MENU_NEW_STR "\x00"
-    "\x00\x00\x00\x77\x00\x08"
+    "\x00\x00\x00\x60\x00\x08"
     MSG_MENU_NEW_DRAWER_STR "\x00\x00"
-    "\x00\x00\x00\x78\x00\x0A"
+    "\x00\x00\x00\x61\x00\x0A"
     MSG_MENU_NEW_TEXTFILE_STR "\x00"
-    "\x00\x00\x00\x79\x00\x0C"
+    "\x00\x00\x00\x62\x00\x0C"
     MSG_MENU_SELECT_ALL_STR "\x00\x00"
-    "\x00\x00\x00\x7A\x00\x12"
+    "\x00\x00\x00\x63\x00\x12"
     MSG_MENU_INVERT_SELECTION_STR "\x00\x00"
-    "\x00\x00\x00\x7B\x00\x0E"
+    "\x00\x00\x00\x64\x00\x0E"
     MSG_MENU_DESELECT_ALL_STR "\x00\x00"
-    "\x00\x00\x00\x7C\x00\x18"
+    "\x00\x00\x00\x65\x00\x18"
     MSG_NEW_DRAWER_PROMPT_STR "\x00"
-    "\x00\x00\x00\x7D\x00\x1C"
+    "\x00\x00\x00\x66\x00\x1C"
     MSG_NEW_FILE_PROMPT_STR "\x00\x00"
-    "\x00\x00\x00\x7E\x00\x1A"
+    "\x00\x00\x00\x67\x00\x1A"
     MSG_NEW_DRAWER_FAILED_STR "\x00"
-    "\x00\x00\x00\x7F\x00\x18"
+    "\x00\x00\x00\x68\x00\x18"
     MSG_NEW_FILE_FAILED_STR "\x00"
-    "\x00\x00\x00\x80\x00\x26"
+    "\x00\x00\x00\x69\x00\x26"
     MSG_NEW_FILE_EXISTS_STR "\x00"
-    "\x00\x00\x00\x81\x00\x14"
+    "\x00\x00\x00\x6A\x00\x14"
     MSG_CONFLICT_TITLE_STR "\x00"
-    "\x00\x00\x00\x82\x00\x36"
+    "\x00\x00\x00\x6B\x00\x36"
     MSG_CONFLICT_BODY_STR "\x00\x00"
-    "\x00\x00\x00\x83\x00\x0A"
+    "\x00\x00\x00\x6C\x00\x0A"
     MSG_CONFLICT_OVERWRITE_STR "\x00"
-    "\x00\x00\x00\x84\x00\x0E"
+    "\x00\x00\x00\x6D\x00\x0E"
     MSG_CONFLICT_OVERWRITE_ALL_STR "\x00"
-    "\x00\x00\x00\x85\x00\x08"
+    "\x00\x00\x00\x6E\x00\x08"
     MSG_CONFLICT_UPDATE_STR "\x00\x00"
-    "\x00\x00\x00\x86\x00\x0C"
+    "\x00\x00\x00\x6F\x00\x0C"
     MSG_CONFLICT_UPDATE_ALL_STR "\x00\x00"
-    "\x00\x00\x00\x87\x00\x08"
+    "\x00\x00\x00\x70\x00\x08"
     MSG_CONFLICT_RENAME_STR "\x00\x00"
-    "\x00\x00\x00\x88\x00\x06"
+    "\x00\x00\x00\x71\x00\x06"
     MSG_CONFLICT_SKIP_STR "\x00\x00"
-    "\x00\x00\x00\x89\x00\x1E"
+    "\x00\x00\x00\x72\x00\x1E"
     MSG_COPY_ERROR_BODY_STR "\x00\x00"
-    "\x00\x00\x00\x8A\x00\x12"
+    "\x00\x00\x00\x73\x00\x12"
     MSG_COPY_ERROR_BUTTONS_STR "\x00"
-    "\x00\x00\x00\x8B\x00\x10"
+    "\x00\x00\x00\x74\x00\x10"
     MSG_OPEN_MANY_CONFIRM_STR "\x00"
-    "\x00\x00\x00\x8C\x00\x14"
+    "\x00\x00\x00\x75\x00\x14"
     MSG_MENU_OPEN_NEWWIN_STR "\x00\x00"
-    "\x00\x00\x00\x8D\x00\x0E"
+    "\x00\x00\x00\x76\x00\x0E"
     MSG_DROP_ASK_ITEMS_STR "\x00"
-    "\x00\x00\x00\x8E\x00\x04"
+    "\x00\x00\x00\x77\x00\x04"
     MSG_DROP_ASK_TO_STR "\x00"
-    "\x00\x00\x00\x8F\x00\x0E"
+    "\x00\x00\x00\x78\x00\x0E"
     MSG_DROP_ASK_MORE_STR "\x00\x00"
-    "\x00\x00\x00\x90\x00\x0E"
+    "\x00\x00\x00\x79\x00\x0E"
     MSG_MENU_OPEN_WITH_STR "\x00\x00"
-    "\x00\x00\x00\x91\x00\x0C"
+    "\x00\x00\x00\x7A\x00\x0C"
     MSG_OPENWITH_PROMPT_STR "\x00\x00"
-    "\x00\x00\x00\x92\x00\x0A"
+    "\x00\x00\x00\x7B\x00\x0A"
     MSG_OPENWITH_CHOOSE_STR "\x00"
-    "\x00\x00\x00\x93\x00\x14"
+    "\x00\x00\x00\x7C\x00\x14"
     MSG_OPENWITH_ASL_TITLE_STR "\x00\x00"
-    "\x00\x00\x00\x94\x00\x12"
+    "\x00\x00\x00\x7D\x00\x12"
     MSG_OPENWITH_FAILED_STR "\x00\x00"
-    "\x00\x00\x00\x95\x00\x0E"
+    "\x00\x00\x00\x7E\x00\x0E"
     MSG_OPENWITH_MAKEDEFAULT_STR "\x00\x00"
-    "\x00\x00\x00\x96\x00\x48"
+    "\x00\x00\x00\x7F\x00\x48"
     MSG_OPENWITH_DEFTYPE_BODY_STR "\x00"
-    "\x00\x00\x00\x97\x00\x68"
+    "\x00\x00\x00\x80\x00\x68"
     MSG_OPENWITH_NOTYPE_BODY_STR "\x00\x00"
-    "\x00\x00\x00\x98\x00\x18"
+    "\x00\x00\x00\x81\x00\x18"
     MSG_OPENWITH_ALL_OF_TYPE_STR "\x00\x00"
-    "\x00\x00\x00\x99\x00\x10"
+    "\x00\x00\x00\x82\x00\x10"
     MSG_OPENWITH_ONLY_FILE_STR "\x00\x00"
-    "\x00\x00\x00\x9A\x00\x1C"
+    "\x00\x00\x00\x83\x00\x1C"
     MSG_OPENWITH_SAVE_FAILED_STR "\x00"
-    "\x00\x00\x00\x9B\x00\x06"
+    "\x00\x00\x00\x84\x00\x06"
     MSG_MENU_ICONSIZE_STR "\x00\x00"
-    "\x00\x00\x00\x9C\x00\x06"
+    "\x00\x00\x00\x85\x00\x06"
     MSG_MENU_BARS_STR "\x00\x00"
-    "\x00\x00\x00\x9D\x00\x0E"
+    "\x00\x00\x00\x86\x00\x0E"
     MSG_BAR_PATH_STR "\x00"
-    "\x00\x00\x00\x9E\x00\x10"
+    "\x00\x00\x00\x87\x00\x10"
     MSG_BAR_TOOLS_STR "\x00"
-    "\x00\x00\x00\x9F\x00\x10"
+    "\x00\x00\x00\x88\x00\x10"
     MSG_BAR_FILTER_STR "\x00"
-    "\x00\x00\x00\xA0\x00\x10"
+    "\x00\x00\x00\x89\x00\x10"
     MSG_BAR_STATUS_STR "\x00"
-    "\x00\x00\x00\xA1\x00\x06"
+    "\x00\x00\x00\x8A\x00\x06"
     MSG_MENU_SPLIT_STR "\x00"
-    "\x00\x00\x00\xA2\x00\x0E"
+    "\x00\x00\x00\x8B\x00\x28"
     MSG_BTN_CLEAR_FILTER_STR "\x00\x00"
-    "\x00\x00\x00\xA3\x00\x08"
+    "\x00\x00\x00\x8C\x00\x08"
     MSG_ABOUT_DONATE_STR "\x00"
-    "\x00\x00\x00\xA4\x00\x14"
+    "\x00\x00\x00\x8D\x00\x14"
     MSG_MENU_WBEMULATION_STR "\x00"
-    "\x00\x00\x00\xA5\x00\x1E"
+    "\x00\x00\x00\x8E\x00\x1E"
     MSG_DELETE_ERROR_BODY_STR "\x00"
-    "\x00\x00\x00\xA6\x00\x1C"
+    "\x00\x00\x00\x8F\x00\x1C"
     MSG_DELETE_ERROR_BUTTONS_STR "\x00\x00"
+    "\x00\x00\x00\x90\x00\x0A"
+    MSG_MENU_GUIDE_STR "\x00\x00"
+    "\x00\x00\x00\x91\x00\x22"
+    MSG_HINT_DETAILS_STR "\x00"
+    "\x00\x00\x00\x92\x00\x20"
+    MSG_HINT_ICONS_STR "\x00\x00"
+    "\x00\x00\x00\x93\x00\x24"
+    MSG_HINT_HOME_STR "\x00\x00"
+    "\x00\x00\x00\x94\x00\x20"
+    MSG_HINT_BACK_STR "\x00"
+    "\x00\x00\x00\x95\x00\x28"
+    MSG_HINT_FORWARD_STR "\x00\x00"
+    "\x00\x00\x00\x96\x00\x24"
+    MSG_HINT_REFRESH_STR "\x00"
+    "\x00\x00\x00\x97\x00\x26"
+    MSG_HINT_RENAME_STR "\x00"
+    "\x00\x00\x00\x98\x00\x28"
+    MSG_HINT_DELETE_STR "\x00"
+    "\x00\x00\x00\x99\x00\x3E"
+    MSG_HINT_DUPLICATE_STR "\x00"
+    "\x00\x00\x00\x9A\x00\x34"
+    MSG_HINT_COPY_STR "\x00"
+    "\x00\x00\x00\x9B\x00\x34"
+    MSG_HINT_CUT_STR "\x00\x00"
+    "\x00\x00\x00\x9C\x00\x32"
+    MSG_HINT_PASTE_STR "\x00"
+    "\x00\x00\x00\x9D\x00\x38"
+    MSG_HINT_INFO_STR "\x00\x00"
+    "\x00\x00\x00\x9E\x00\x36"
+    MSG_HINT_CALCSIZE_STR "\x00"
 };
 
 #endif /* CATCOMP_BLOCK */

@@ -1,0 +1,359 @@
+@database VagaFileManager.guide
+@$VER: VagaFileManager.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 or later
+@wordwrap
+
+@node main "VagaFileManager"
+@{b}VagaFileManager 1.1@{ub}
+
+A file manager for AmigaOS 4.1, by VagaPPC.
+
+@{" Introduction            " link intro}
+@{" Installation            " link install}
+@{" The window              " link window}
+@{" Moving around           " link browse}
+@{" Views and sorting       " link views}
+@{" Selecting               " link select}
+@{" Working with files      " link files}
+@{" Drag and drop           " link dragdrop}
+@{" Split view              " link split}
+@{" Bookmarks               " link bookmarks}
+@{" Quick filter            " link filter}
+@{" Workbench integration   " link workbench}
+@{" Network drawers         " link network}
+@{" Plugins                 " link plugins}
+@{" Mounting network shares " link mount}
+@{" Keyboard                " link keys}
+@{" Menus                   " link menus}
+@{" ToolTypes and files     " link tooltypes}
+@{" Author and license      " link author}
+@endnode
+
+@node intro "Introduction"
+@{b}Introduction@{ub}
+
+The Workbench was designed for floppy disks.  With today's hard disks, full of files, opening a window for every drawer, arranging icons and snapshotting windows takes a lot of time.
+
+VagaFileManager (VFM) lets you move through all your files in a single window, with icons or with a detailed list, and a second pane for copying and moving files, in the style of Directory Opus.  It can also take the place of the Workbench drawer windows.
+
+Extra functions (archives, searches, network shares) are plugins written in Python: they are loaded only when you use them and can be added or removed without touching the program.
+
+VFM uses ReAction and the AISS images, and is translated into English, Italian, French, German, Polish, Spanish and Greek.
+@endnode
+
+@node install "Installation"
+@{b}Installation@{ub}
+
+Requirements: AmigaOS 4.1.  Optional: AISS (toolbar and menu images from TBImages:), Python (for the plugins).
+
+Copy the VFM drawer, with its icon VFM.info, wherever you like, for example to SYS:Utilities.  Start VagaFileManager with a double-click.
+
+Keep these next to the program, because VFM looks for them in its own drawer (PROGDIR:):
+
+- Catalogs: the translations.  VFM uses the language set in the Locale preferences.
+
+- icons: the toolbar images used when AISS is not installed.
+
+- Plugins: the plugins listed in the Script menu.
+
+- Docs: this guide in every language.
+
+To use VFM instead of the Workbench windows, start WB2VFM (see @{"Workbench integration" link workbench}); to start it at every boot, copy its icon to SYS:WBStartup.
+@endnode
+
+@node window "The window"
+@{b}The window@{ub}
+
+From top to bottom a VFM window has:
+
+- The @{b}path bar@{ub}: the drawer shown.  You can type a path and press Return to go there.
+
+- The @{b}button bar@{ub}: Icons/Details, Home, Back, Forward, Refresh, then Rename, Delete, Duplicate, Copy, Cut, Paste, Info, Calculate size, Shell and Split.  Leave the mouse over a button to see what it does and its keyboard shortcut.
+
+- The @{b}list@{ub} of files and drawers, with icons or as a detailed list.
+
+- The @{b}filter bar@{ub}: see @{"Quick filter" link filter}.
+
+- The @{b}status bar@{ub}: how many items there are and how many are selected.
+
+Each bar can be hidden with @{b}View > Bars@{ub}.  The window size and position are remembered separately for each volume.
+
+Every VFM window is a separate program: @{b}Program > New...@{ub} (Amiga+N) opens another one, and closing one does not close the others.
+@endnode
+
+@node browse "Moving around"
+@{b}Moving around@{ub}
+
+- Double-click a drawer to enter it; double-click a file to open it, like on the Workbench.
+
+- @{b}Back@{ub} (or Backspace) goes to the parent drawer; @{b}Forward@{ub} goes back down into the drawers you came out of.
+
+- @{b}Home@{ub} shows the list of devices, volumes and assigns.  From there you can reach any disk.
+
+- @{b}Refresh@{ub} (F5) reads the drawer again.  Usually it is not needed: VFM updates the list by itself when files change.
+
+- @{b}Edit > Open in new window@{ub} (Shift+Return) opens the selected drawer in a new VFM window, near the mouse pointer.
+
+- Return opens the selected item; Shift+Return opens it in a new window.
+
+With @{b}View > Workbench emulation@{ub} a double-click opens drawers in new windows, like the Workbench: see @{"Workbench integration" link workbench}.
+@endnode
+
+@node views "Views and sorting"
+@{b}Views and sorting@{ub}
+
+The @{b}Icons/Details@{ub} button (also @{b}View > Icons@{ub}) switches between:
+
+- @{b}Icons@{ub}: the icons of the files, like a Workbench window.  @{b}View > Size@{ub} chooses the size of the icon boxes: Auto, 32, 48, 64 or 96 pixels.
+
+- @{b}Details@{ub}: a list with icon, name, type, size, date and comment.  Every other row has a darker background.  Click a column title to sort by that column; click again to reverse the order.
+
+@{b}View > Show by@{ub} chooses which files are shown:
+
+- @{b}by icons@{ub}: only the files that have an icon, like the Workbench.
+
+- @{b}all files@{ub}: every file, also those without an icon.
+
+@{b}View > Show file info@{ub} also shows the .info files (only in Details mode).
+
+@{b}View > Sort by@{ub} sorts by type (drawers first), name, date or size.
+
+VFM remembers the view, the icon size, what is shown and the sort order for each drawer.
+@endnode
+
+@node select "Selecting"
+@{b}Selecting@{ub}
+
+- Click an item to select it; Shift+click adds or removes items.
+
+- The cursor keys move the selection.  In Icons mode up and down move by a row.
+
+- Type a letter to select the next item that starts with it; press it again to go to the following one.  Type several letters quickly to select the first item whose name starts with them (for example st for Startup-Sequence).
+
+- @{b}Edit > Select all@{ub} (Amiga+A), @{b}Invert selection@{ub} and @{b}Deselect all@{ub} (Esc).
+
+The status bar shows how many items are selected.
+@endnode
+
+@node files "Working with files"
+@{b}Working with files@{ub}
+
+The buttons, the @{b}Edit@{ub} menu and the context menu (right mouse button on an item) work on the selected items.
+
+- @{b}Copy@{ub} (Amiga+C) and @{b}Cut@{ub} (Amiga+X) remember the items; @{b}Paste@{ub} (Amiga+V) copies or moves them into the drawer shown.  You can paste in another VFM window too.
+
+- @{b}Duplicate@{ub} (Amiga+D) makes a copy in the same drawer.
+
+- @{b}Rename@{ub} (F2) and @{b}Delete@{ub} (Del) ask for confirmation.
+
+- @{b}Edit > New@{ub} creates a drawer (Ctrl+N) or an empty text file.
+
+- @{b}Info@{ub} (Amiga+I) opens the Workbench information window: protection bits, comment, ToolTypes.
+
+- @{b}Calculate size@{ub} counts the size, files and drawers of the selected drawer or volume.  An animated bar shows that it is working; you can pause or stop it.
+
+- @{b}Open with...@{ub} opens a file with a program you choose.  For a file without its own icon VFM can make that program the default for all files of the same type, or only for that file.
+
+- @{b}Shell@{ub} opens a Shell window in the drawer shown.
+
+When a file already exists VFM asks what to do: Overwrite, Overwrite all, Update (copy only if the file is newer), Update all, Rename or Skip.  If a file cannot be copied or deleted, the system error is shown (for example "object is in use") with Retry, Skip and Cancel.
+
+Long operations show a progress window: you can pause them and continue later, or cancel them.
+@endnode
+
+@node dragdrop "Drag and drop"
+@{b}Drag and drop@{ub}
+
+Drag the selected items with the mouse: their icons follow the pointer, and the place where they would be dropped is outlined.
+
+- Dropped on a drawer, on the other pane, on another VFM window or on a Workbench drawer, the items are copied or moved: VFM asks Copy, Move or Cancel at the mouse pointer.
+
+- Dropped on another program (a text editor, a Shell, a file requester), the program receives the files as it would from the Workbench.  This works only with windows opened after VFM was started; AmiDock, usually started before, does not receive them.
+
+- Dropped where nothing can happen (for example in the same drawer), nothing happens.
+@endnode
+
+@node split "Split view"
+@{b}Split view@{ub}
+
+The @{b}Split@{ub} button (or @{b}View > Split@{ub}) opens a second pane next to the first, like Directory Opus; press it again to close it.
+
+- The active pane is outlined.  Click a pane, or press Tab, to make it active.
+
+- You can also drag items from one pane to the other.
+
+The second pane takes memory only while it is open.
+@endnode
+
+@node bookmarks "Bookmarks"
+@{b}Bookmarks@{ub}
+
+@{b}Bookmarks > Add to favorites@{ub} remembers the drawer shown.  The bookmarks are listed in the Bookmarks menu and in the context menu: choose one to go there.
+
+@{b}Bookmarks > Manage...@{ub} lets you rename and delete them.  They are saved in ENVARC:VagaFileManager.bookmarks and shared by all VFM windows.
+@endnode
+
+@node filter "Quick filter"
+@{b}Quick filter@{ub}
+
+Type in the filter bar, at the bottom of the window: the list shows only the items whose name starts with what you typed, while you type.  Upper and lower case are the same.
+
+You can use AmigaDOS patterns: #? or * for any text, ? for any character, [a-c] for a range, ~ for "not".  For example *.lha shows only the LHA archives.
+
+The button next to the field clears the filter.
+@endnode
+
+@node workbench "Workbench integration"
+@{b}Workbench integration@{ub}
+
+@{b}WB2VFM@{ub} is a commodity that replaces the Workbench drawer windows with VFM:
+
+- When you open a disk or a drawer from the Workbench, a VFM window opens instead.
+
+- A double-click on the empty desktop background opens VFM on RAM:, or on the path set with the DESKTOPPATH ToolType of the WB2VFM icon (for example DESKTOPPATH=Work:).
+
+Start WB2VFM with a double-click, or put it in SYS:WBStartup to start it at every boot.  It is listed in Exchange, where you can turn it off or quit it.
+
+@{b}View > Workbench emulation@{ub} makes VFM look and behave like a Workbench window: the bars are hidden, the right mouse button shows the menu bar instead of the context menus, and drawers open in new windows with a double-click or Return.  Turn it off to get back the bars chosen in View > Bars.
+@endnode
+
+@node network "Network drawers"
+@{b}Network drawers@{ub}
+
+To choose the icon of a file without an .info file, the system reads the beginning of the file.  On a network share this means downloading part of every file, and a drawer can take a long time to open.
+
+On the volumes of the handlers listed in the NETHANDLERS ToolType of the VagaFileManager icon, VFM chooses the icon from the name instead (picture, archive, sound...), using the default icons of the system, in full colour.  The drawer opens at once.
+
+The ToolType is NETHANDLERS=smb2-handler by default.  Separate more handlers with |, for example NETHANDLERS=smb2-handler|ssh2-handler.  An empty NETHANDLERS= turns this off.
+@endnode
+
+@node plugins "Plugins"
+@{b}Plugins@{ub}
+
+The plugins are in the Plugins drawer and are listed in the @{b}Script@{ub} menu, with their AISS image when it is available.  They work on the pane they are started from.
+
+- @{b}Script > Open plugin drawer@{ub} opens the Plugins drawer.
+
+- To add a plugin, copy its .py or .rexx file to the Plugins drawer and choose @{b}Script > Refresh list@{ub}.
+
+Python plugins need C:Python (or C:Python3).
+
+Plugins included:
+
+- @{b}Find@{ub}: finds files by name from the drawer shown, also in the subfolders.  The name can contain wildcards (#?, *, ?); without them, every name that contains the text is found.  Choose a result and VFM shows it.
+
+- @{b}Grep@{ub}: finds the text files that contain a word.
+
+- @{b}CompressLHA@{ub}, @{b}CompressLZX@{ub}, @{b}CompressGZIP@{ub}: pack the selected files into an LHA, LZX or .tar.gz archive.  In split view the archive goes into the drawer of the other pane.  If the archive exists you can add the files or overwrite it.  The progress window can stop the work; a half-made archive is removed, or restored as it was.
+
+- @{b}MountSamba@{ub}, @{b}MountSSH@{ub}, @{b}MountFTP@{ub}, @{b}MountNFS@{ub}: see @{"Mounting network shares" link mount}.
+
+If a plugin does nothing, look at its log in T: (for example T:CompressLHA.log).
+
+To write your own plugins, read Docs/Developer.guide (in English).
+@endnode
+
+@node mount "Mounting network shares"
+@{b}Mounting network shares@{ub}
+
+The Mount plugins look for the computers of your local network, ask only what is needed, mount the share and open it in VFM.  If a handler is missing, they say so and show where to download it.  Each plugin works by itself.
+
+@{b}MountSamba@{ub}: a shared folder of a Windows PC, a NAS or a Samba server (SMB2/3).  Needs smb2-handler (smb2fs) and filesysbox.library 54.4 or newer.
+
+- Choose the server (found with NetBIOS, or typed), then the share, then type user and password.
+
+- A form, already filled in, sums up everything and asks where to keep the mount file: temporary (T:), DEVS:DOSDrivers or SYS:Storage/DOSDrivers.  A saved file keeps the password in plain text.
+
+- The device takes the name of the share, for example Archivio:.
+
+@{b}MountSSH@{ub}: the files of an SSH server (SFTP), with ssh2-handler (Enhancer Software; needs AmiSSL).  It lists the computers with the SSH port open.  The form asks user, password, key file, remote folder (/ by default; ~ is the home of the user) and read only.  With an empty password the handler asks it when it connects.  The volume is called server-user, for example basebianca-vagappc.
+
+@{b}MountFTP@{ub}: an FTP or SFTP site with SFTPHandler (needs filesysbox.library 54.8, clib4.library and, for SFTP, AmiSSL).  The site is added to the SFTPHandler list (ENV:SFTPHandler/sites.xml) without touching the others, and VFM opens SFTP:<site>.  "Keep the site after a restart" saves it in ENVARC: as well.
+
+@{b}MountNFS@{ub}: an NFS export.  It lists the servers with the NFS port open and their exports.  It needs an nfs-handler that works on AmigaOS 4: the one on Aminet (comm/net/nfs-handler_rs) is for 68k and does not.
+
+AmigaOS cannot unmount these handlers: a temporary mount disappears at the next restart.
+@endnode
+
+@node keys "Keyboard"
+@{b}Keyboard@{ub}
+
+| Cursor keys      move the selection
+| Letter           next item with that initial (again: the following one)
+| Return           open the selected item
+| Shift+Return     open in a new window
+| Backspace        parent drawer
+| Esc              deselect all
+| Tab              switch pane (split view)
+| F2               rename
+| F5               refresh
+| Del              delete
+| Help, F1         this guide
+| Ctrl+N           new drawer
+| Amiga+N          new window
+| Amiga+A          select all
+| Amiga+C/X/V      copy, cut, paste
+| Amiga+D          duplicate
+| Amiga+I          information
+| Amiga+E          quit
+
+Requesters open under the mouse pointer.
+@endnode
+
+@node menus "Menus"
+@{b}Menus@{ub}
+
+@{b}Program@{ub}: New... (another window), Guide... (this guide), Information... (version and author), Quit.
+
+@{b}Edit@{ub}: Open in new window, Open with..., New (drawer, text file), Select all, Invert selection, Deselect all, Rename, Delete, Duplicate, Copy, Cut, Paste, Info, Calculate size, Shell.
+
+@{b}View@{ub}: Size (of the icons), Bars, Refresh, Icons/Details, Split, Workbench emulation, Show file info, Show by, Sort by.
+
+@{b}Bookmarks@{ub}: Add to favorites, Manage..., and the list of bookmarks.
+
+@{b}Script@{ub}: the plugins, Refresh list, Open plugin drawer.
+
+The right mouse button over an item opens a context menu with the commands for that item; over an empty area, the commands for the drawer (New, Paste, Shell, Refresh, Show by, Bookmarks, Bars).
+@endnode
+
+@node tooltypes "ToolTypes and files"
+@{b}ToolTypes and files@{ub}
+
+ToolTypes of the VagaFileManager icon:
+
+- @{b}NETHANDLERS@{ub}: see @{"Network drawers" link network}.
+
+- @{b}DEBUG@{ub}: TRUE writes every step in the log, to help find a problem.  Normally FALSE: only errors are written.
+
+ToolTypes of the WB2VFM icon:
+
+- @{b}DESKTOPPATH@{ub}: the drawer opened by a double-click on the desktop (RAM: by default).
+
+- @{b}DEBUG@{ub}: as above.
+
+Files:
+
+- ENVARC:VagaFileManager.prefs: settings and views of each drawer.
+
+- ENVARC:VagaFileManager.bookmarks: the bookmarks.
+
+- T:VagaFileManager.log, T:WB2VFM.log, T:<plugin>.log: the logs.
+@endnode
+
+@node author "Author and license"
+@{b}Author and license@{ub}
+
+VagaFileManager is written by VagaPPC (Benedetto Lorello), with the help of AI tools.
+
+| Mail: vagappc@yahoo.it
+| Source code: https://github.com/VagaPPC/VagaFileManager
+
+Special thanks: ldg72, Flash, Kaffeine, ACube and AlfredONE.
+
+VFM is free.  If you like it, you can support it with a donation on Ko-fi: https://ko-fi.com/vagappc.  My only goal is to recover the money I have spent on the project; if donations ever go beyond that, the excess will be passed on to other Amiga projects.
+
+VagaFileManager is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License, version 3 or later.  It comes with no warranty.  The full text is in the LICENSE file.
+
+Suggestions and bug reports are welcome.
+@endnode

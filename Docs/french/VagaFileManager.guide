@@ -1,0 +1,359 @@
+@database VagaFileManager.guide
+@$VER: VagaFileManager.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 ou ultérieure
+@wordwrap
+
+@node main "VagaFileManager"
+@{b}VagaFileManager 1.1@{ub}
+
+Un gestionnaire de fichiers pour AmigaOS 4.1, par VagaPPC.
+
+@{" Introduction               " link intro}
+@{" Installation               " link install}
+@{" La fenêtre                 " link window}
+@{" Se déplacer                " link browse}
+@{" Affichage et tri           " link views}
+@{" Sélectionner               " link select}
+@{" Travailler avec les fichiers " link files}
+@{" Glisser-déposer            " link dragdrop}
+@{" Vue divisée                " link split}
+@{" Favoris                    " link bookmarks}
+@{" Filtre rapide              " link filter}
+@{" Intégration au Workbench   " link workbench}
+@{" Tiroirs réseau             " link network}
+@{" Plugins                    " link plugins}
+@{" Monter des partages réseau " link mount}
+@{" Clavier                    " link keys}
+@{" Menus                      " link menus}
+@{" ToolTypes et fichiers      " link tooltypes}
+@{" Auteur et licence          " link author}
+@endnode
+
+@node intro "Introduction"
+@{b}Introduction@{ub}
+
+Le Workbench a été conçu pour les disquettes.  Avec les disques d'aujourd'hui, remplis de fichiers, ouvrir une fenêtre pour chaque tiroir, ranger les icônes et figer les fenêtres fait perdre beaucoup de temps.
+
+VagaFileManager (VFM) permet de parcourir tous vos fichiers dans une seule fenêtre, avec des icônes ou une liste détaillée, et un second volet pour copier et déplacer les fichiers, dans le style de Directory Opus.  Il peut aussi remplacer les fenêtres des tiroirs du Workbench.
+
+Les fonctions supplémentaires (archives, recherches, partages réseau) sont des plugins écrits en Python : ils ne sont chargés que lorsque vous les utilisez et peuvent être ajoutés ou retirés sans toucher au programme.
+
+VFM utilise ReAction et les images AISS, et il est traduit en anglais, italien, français, allemand, polonais, espagnol et grec.
+@endnode
+
+@node install "Installation"
+@{b}Installation@{ub}
+
+Configuration requise : AmigaOS 4.1.  En option : AISS (images de la barre et des menus depuis TBImages:), Python (pour les plugins).
+
+Copiez le tiroir VFM, avec son icône VFM.info, où vous voulez, par exemple dans SYS:Utilities.  Lancez VagaFileManager par un double-clic.
+
+Laissez ces tiroirs à côté du programme, car VFM les cherche dans son propre tiroir (PROGDIR:) :
+
+- Catalogs : les traductions.  VFM utilise la langue choisie dans les préférences Locale.
+
+- icons : les images de la barre de boutons, utilisées quand AISS n'est pas installé.
+
+- Plugins : les plugins affichés dans le menu Script.
+
+- Docs : ce guide dans toutes les langues.
+
+Pour utiliser VFM à la place des fenêtres du Workbench, lancez WB2VFM (voir @{"Intégration au Workbench" link workbench}) ; pour le lancer à chaque démarrage, copiez son icône dans SYS:WBStartup.
+@endnode
+
+@node window "La fenêtre"
+@{b}La fenêtre@{ub}
+
+De haut en bas, une fenêtre de VFM contient :
+
+- La @{b}barre de chemin@{ub} : le tiroir affiché.  Vous pouvez taper un chemin et appuyer sur Entrée pour y aller.
+
+- La @{b}barre de boutons@{ub} : Icônes/Détails, Accueil, Précédent, Suivant, Actualiser, puis Renommer, Supprimer, Dupliquer, Copier, Couper, Coller, Infos, Calculer la taille, Shell et Diviser.  Laissez la souris sur un bouton pour voir ce qu'il fait et son raccourci clavier.
+
+- La @{b}liste@{ub} des fichiers et des tiroirs, avec des icônes ou sous forme de liste détaillée.
+
+- La @{b}barre de filtre@{ub} : voir @{"Filtre rapide" link filter}.
+
+- La @{b}barre d'état@{ub} : le nombre d'éléments et le nombre d'éléments sélectionnés.
+
+Chaque barre peut être masquée avec @{b}Affichage > Barres@{ub}.  La taille et la position de la fenêtre sont mémorisées pour chaque volume.
+
+Chaque fenêtre de VFM est un programme séparé : @{b}Programme > Nouvelle...@{ub} (Amiga+N) en ouvre une autre, et fermer l'une ne ferme pas les autres.
+@endnode
+
+@node browse "Se déplacer"
+@{b}Se déplacer@{ub}
+
+- Double-cliquez sur un tiroir pour y entrer ; double-cliquez sur un fichier pour l'ouvrir, comme sur le Workbench.
+
+- @{b}Précédent@{ub} (ou Retour arrière) va au tiroir parent ; @{b}Suivant@{ub} redescend dans les tiroirs dont vous êtes sorti.
+
+- @{b}Accueil@{ub} affiche la liste des périphériques, volumes et assignations.  De là, vous atteignez n'importe quel disque.
+
+- @{b}Actualiser@{ub} (F5) relit le tiroir.  En général ce n'est pas nécessaire : VFM met la liste à jour tout seul quand les fichiers changent.
+
+- @{b}Édition > Ouvrir dans une nouvelle fenêtre@{ub} (Maj+Entrée) ouvre le tiroir sélectionné dans une nouvelle fenêtre de VFM, près du pointeur de la souris.
+
+- Entrée ouvre l'élément sélectionné ; Maj+Entrée l'ouvre dans une nouvelle fenêtre.
+
+Avec @{b}Affichage > Émulation WB@{ub}, un double-clic ouvre les tiroirs dans de nouvelles fenêtres, comme le Workbench : voir @{"Intégration au Workbench" link workbench}.
+@endnode
+
+@node views "Affichage et tri"
+@{b}Affichage et tri@{ub}
+
+Le bouton @{b}Icônes/Détails@{ub} (aussi @{b}Affichage > Icônes@{ub}) passe d'un mode à l'autre :
+
+- @{b}Icônes@{ub} : les icônes des fichiers, comme une fenêtre du Workbench.  @{b}Affichage > Taille@{ub} choisit la taille des cases des icônes : Auto, 32, 48, 64 ou 96 pixels.
+
+- @{b}Détails@{ub} : une liste avec icône, nom, type, taille, date et commentaire.  Une ligne sur deux a un fond plus sombre.  Cliquez sur le titre d'une colonne pour trier selon cette colonne ; un second clic inverse l'ordre.
+
+@{b}Affichage > Afficher par@{ub} choisit les fichiers affichés :
+
+- @{b}par icônes@{ub} : seulement les fichiers qui ont une icône, comme le Workbench.
+
+- @{b}tous les fichiers@{ub} : tous les fichiers, même ceux sans icône.
+
+@{b}Affichage > Afficher infos fichier@{ub} affiche aussi les fichiers .info (seulement en mode Détails).
+
+@{b}Affichage > Trier par@{ub} trie par type (les tiroirs d'abord), nom, date ou taille.
+
+VFM mémorise pour chaque tiroir l'affichage, la taille des icônes, les fichiers affichés et l'ordre de tri.
+@endnode
+
+@node select "Sélectionner"
+@{b}Sélectionner@{ub}
+
+- Cliquez sur un élément pour le sélectionner ; Maj+clic ajoute ou retire des éléments.
+
+- Les touches fléchées déplacent la sélection.  En mode Icônes, haut et bas avancent d'une ligne.
+
+- Tapez une lettre pour sélectionner l'élément suivant qui commence par cette lettre ; tapez-la encore pour passer au suivant.  Tapez rapidement plusieurs lettres pour sélectionner le premier élément dont le nom commence par ce texte (par exemple st pour Startup-Sequence).
+
+- @{b}Édition > Tout sélectionner@{ub} (Amiga+A), @{b}Inverser la sélection@{ub} et @{b}Tout désélectionner@{ub} (Échap).
+
+La barre d'état indique le nombre d'éléments sélectionnés.
+@endnode
+
+@node files "Travailler avec les fichiers"
+@{b}Travailler avec les fichiers@{ub}
+
+Les boutons, le menu @{b}Édition@{ub} et le menu contextuel (bouton droit de la souris sur un élément) agissent sur les éléments sélectionnés.
+
+- @{b}Copier@{ub} (Amiga+C) et @{b}Couper@{ub} (Amiga+X) mémorisent les éléments ; @{b}Coller@{ub} (Amiga+V) les copie ou les déplace dans le tiroir affiché.  Vous pouvez aussi coller dans une autre fenêtre de VFM.
+
+- @{b}Dupliquer@{ub} (Amiga+D) fait une copie dans le même tiroir.
+
+- @{b}Renommer@{ub} (F2) et @{b}Supprimer@{ub} (Suppr) demandent confirmation.
+
+- @{b}Édition > Nouveau@{ub} crée un tiroir (Ctrl+N) ou un fichier texte vide.
+
+- @{b}Infos@{ub} (Amiga+I) ouvre la fenêtre d'informations du Workbench : bits de protection, commentaire, ToolTypes.
+
+- @{b}Calculer la taille@{ub} compte la taille, les fichiers et les tiroirs du tiroir ou du volume sélectionné.  Une barre animée montre que le calcul est en cours ; vous pouvez le mettre en pause ou l'arrêter.
+
+- @{b}Ouvrir avec...@{ub} ouvre un fichier avec le programme de votre choix.  Pour un fichier sans icône propre, VFM peut faire de ce programme celui par défaut pour tous les fichiers du même type, ou seulement pour ce fichier.
+
+- @{b}Shell@{ub} ouvre une fenêtre Shell dans le tiroir affiché.
+
+Quand un fichier existe déjà, VFM demande quoi faire : Écraser, Tout écraser, Mettre à jour (copier seulement si le fichier est plus récent), Tout mettre à jour, Renommer ou Passer.  Si un fichier ne peut pas être copié ou supprimé, l'erreur du système est affichée (par exemple "objet en cours d'utilisation") avec Réessayer, Passer et Annuler.
+
+Les opérations longues affichent une fenêtre de progression : vous pouvez les mettre en pause et les reprendre plus tard, ou les annuler.
+@endnode
+
+@node dragdrop "Glisser-déposer"
+@{b}Glisser-déposer@{ub}
+
+Faites glisser les éléments sélectionnés avec la souris : leurs icônes suivent le pointeur, et l'endroit où ils seraient déposés est entouré.
+
+- Déposés sur un tiroir, sur l'autre volet, sur une autre fenêtre de VFM ou sur un tiroir du Workbench, les éléments sont copiés ou déplacés : VFM demande Copier, Déplacer ou Annuler sous le pointeur de la souris.
+
+- Déposés sur un autre programme (un éditeur de texte, un Shell, un sélecteur de fichiers), le programme reçoit les fichiers comme il les recevrait du Workbench.  Cela ne marche qu'avec les fenêtres ouvertes après le lancement de VFM ; AmiDock, lancé en général avant, ne les reçoit pas.
+
+- Déposés là où rien ne peut se passer (par exemple dans le même tiroir), rien ne se passe.
+@endnode
+
+@node split "Vue divisée"
+@{b}Vue divisée@{ub}
+
+Le bouton @{b}Diviser@{ub} (ou @{b}Affichage > Diviser@{ub}) ouvre un second volet à côté du premier, comme dans Directory Opus ; appuyez à nouveau pour le fermer.
+
+- Le volet actif est entouré.  Cliquez sur un volet, ou appuyez sur Tab, pour le rendre actif.
+
+- Vous pouvez aussi faire glisser des éléments d'un volet à l'autre.
+
+Le second volet n'occupe de la mémoire que lorsqu'il est ouvert.
+@endnode
+
+@node bookmarks "Favoris"
+@{b}Favoris@{ub}
+
+@{b}Favoris > Ajouter aux favoris@{ub} mémorise le tiroir affiché.  Les favoris sont listés dans le menu Favoris et dans le menu contextuel : choisissez-en un pour y aller.
+
+@{b}Favoris > Gérer...@{ub} permet de les renommer et de les supprimer.  Ils sont enregistrés dans ENVARC:VagaFileManager.bookmarks et partagés par toutes les fenêtres de VFM.
+@endnode
+
+@node filter "Filtre rapide"
+@{b}Filtre rapide@{ub}
+
+Tapez dans la barre de filtre, en bas de la fenêtre : pendant la saisie, la liste n'affiche que les éléments dont le nom commence par le texte tapé.  Majuscules et minuscules sont équivalentes.
+
+Vous pouvez utiliser les motifs AmigaDOS : #? ou * pour n'importe quel texte, ? pour n'importe quel caractère, [a-c] pour un intervalle, ~ pour "sauf".  Par exemple *.lha n'affiche que les archives LHA.
+
+Le bouton à côté du champ efface le filtre.
+@endnode
+
+@node workbench "Intégration au Workbench"
+@{b}Intégration au Workbench@{ub}
+
+@{b}WB2VFM@{ub} est une commodité qui remplace les fenêtres des tiroirs du Workbench par VFM :
+
+- Quand vous ouvrez un disque ou un tiroir depuis le Workbench, une fenêtre de VFM s'ouvre à la place.
+
+- Un double-clic sur le fond vide du bureau ouvre VFM sur RAM:, ou sur le chemin indiqué par le ToolType DESKTOPPATH de l'icône de WB2VFM (par exemple DESKTOPPATH=Work:).
+
+Lancez WB2VFM par un double-clic, ou placez-le dans SYS:WBStartup pour le lancer à chaque démarrage.  Il apparaît dans Exchange, où vous pouvez le désactiver ou le quitter.
+
+@{b}Affichage > Émulation WB@{ub} donne à VFM l'aspect et le comportement d'une fenêtre du Workbench : les barres sont masquées, le bouton droit de la souris affiche la barre de menus au lieu des menus contextuels, et les tiroirs s'ouvrent dans de nouvelles fenêtres par un double-clic ou Entrée.  Désactivez-la pour retrouver les barres choisies dans Affichage > Barres.
+@endnode
+
+@node network "Tiroirs réseau"
+@{b}Tiroirs réseau@{ub}
+
+Pour choisir l'icône d'un fichier sans fichier .info, le système lit le début du fichier.  Sur un partage réseau, cela veut dire télécharger une partie de chaque fichier, et un tiroir peut mettre longtemps à s'ouvrir.
+
+Sur les volumes des handlers listés dans le ToolType NETHANDLERS de l'icône de VagaFileManager, VFM choisit plutôt l'icône d'après le nom (image, archive, son...), avec les icônes par défaut du système, en couleurs.  Le tiroir s'ouvre tout de suite.
+
+Le ToolType vaut NETHANDLERS=smb2-handler au départ.  Séparez plusieurs handlers par |, par exemple NETHANDLERS=smb2-handler|ssh2-handler.  Un NETHANDLERS= vide désactive cette fonction.
+@endnode
+
+@node plugins "Plugins"
+@{b}Plugins@{ub}
+
+Les plugins se trouvent dans le tiroir Plugins et sont listés dans le menu @{b}Script@{ub}, avec leur image AISS quand elle est disponible.  Ils agissent sur le volet depuis lequel ils sont lancés.
+
+- @{b}Script > Ouvrir le dossier des plugins@{ub} ouvre le tiroir Plugins.
+
+- Pour ajouter un plugin, copiez son fichier .py ou .rexx dans le tiroir Plugins et choisissez @{b}Script > Actualiser la liste@{ub}.
+
+Les plugins Python ont besoin de C:Python (ou C:Python3).  Les fenêtres des plugins sont en anglais.
+
+Plugins inclus :
+
+- @{b}Find@{ub} : cherche des fichiers par leur nom à partir du tiroir affiché, sous-dossiers compris.  Le nom peut contenir des jokers (#?, *, ?) ; sans joker, tous les noms qui contiennent le texte sont trouvés.  Choisissez un résultat et VFM vous le montre.
+
+- @{b}Grep@{ub} : cherche les fichiers texte qui contiennent un mot.
+
+- @{b}CompressLHA@{ub}, @{b}CompressLZX@{ub}, @{b}CompressGZIP@{ub} : compressent les fichiers sélectionnés dans une archive LHA, LZX ou .tar.gz.  En vue divisée, l'archive va dans le tiroir de l'autre volet.  Si l'archive existe, vous pouvez y ajouter les fichiers ou l'écraser.  La fenêtre de progression peut arrêter le travail ; une archive à moitié faite est supprimée, ou remise dans son état d'origine.
+
+- @{b}MountSamba@{ub}, @{b}MountSSH@{ub}, @{b}MountFTP@{ub}, @{b}MountNFS@{ub} : voir @{"Monter des partages réseau" link mount}.
+
+Si un plugin ne fait rien, regardez son journal dans T: (par exemple T:CompressLHA.log).
+
+Pour écrire vos propres plugins, lisez Docs/Developer.guide (en anglais).
+@endnode
+
+@node mount "Monter des partages réseau"
+@{b}Monter des partages réseau@{ub}
+
+Les plugins Mount cherchent les ordinateurs de votre réseau local, demandent seulement ce qui est nécessaire, montent le partage et l'ouvrent dans VFM.  S'il manque un handler, ils le signalent et indiquent où le télécharger.  Chaque plugin fonctionne seul.
+
+@{b}MountSamba@{ub} : un dossier partagé d'un PC Windows, d'un NAS ou d'un serveur Samba (SMB2/3).  Nécessite smb2-handler (smb2fs) et filesysbox.library 54.4 ou ultérieure.
+
+- Choisissez le serveur (trouvé par NetBIOS, ou tapé), puis le partage, puis tapez l'utilisateur et le mot de passe.
+
+- Un formulaire déjà rempli résume tout et demande où garder le fichier de montage : temporaire (T:), DEVS:DOSDrivers ou SYS:Storage/DOSDrivers.  Un fichier enregistré contient le mot de passe en clair.
+
+- Le périphérique prend le nom du partage, par exemple Archivio:.
+
+@{b}MountSSH@{ub} : les fichiers d'un serveur SSH (SFTP), avec ssh2-handler (Enhancer Software ; nécessite AmiSSL).  Il liste les ordinateurs dont le port SSH est ouvert.  Le formulaire demande l'utilisateur, le mot de passe, le fichier de clé, le dossier distant (/ par défaut ; ~ est le dossier personnel de l'utilisateur) et la lecture seule.  Avec un mot de passe vide, le handler le demande à la connexion.  Le volume s'appelle serveur-utilisateur, par exemple basebianca-vagappc.
+
+@{b}MountFTP@{ub} : un site FTP ou SFTP avec SFTPHandler (nécessite filesysbox.library 54.8, clib4.library et, pour SFTP, AmiSSL).  Le site est ajouté à la liste de SFTPHandler (ENV:SFTPHandler/sites.xml) sans toucher aux autres, et VFM ouvre SFTP:<site>.  L'option "Keep the site after a restart" l'enregistre aussi dans ENVARC:.
+
+@{b}MountNFS@{ub} : un export NFS.  Il liste les serveurs dont le port NFS est ouvert et leurs exports.  Il faut un nfs-handler qui fonctionne sous AmigaOS 4 : celui d'Aminet (comm/net/nfs-handler_rs) est pour 68k et ne fonctionne pas.
+
+AmigaOS ne peut pas démonter ces handlers : un montage temporaire disparaît au prochain redémarrage.
+@endnode
+
+@node keys "Clavier"
+@{b}Clavier@{ub}
+
+Touches fléchées  déplacent la sélection
+Lettre            élément suivant avec cette initiale
+Entrée            ouvre l'élément sélectionné
+Maj+Entrée        ouvre dans une nouvelle fenêtre
+Retour arrière    tiroir parent
+Échap             désélectionne tout
+Tab               change de volet (vue divisée)
+F2                renommer
+F5                actualiser
+Suppr             supprimer
+Help, F1          ce guide
+Ctrl+N            nouveau tiroir
+Amiga+N           nouvelle fenêtre
+Amiga+A           tout sélectionner
+Amiga+C/X/V       copier, couper, coller
+Amiga+D           dupliquer
+Amiga+I           informations
+Amiga+E           quitter
+
+Les requêtes s'ouvrent sous le pointeur de la souris.
+@endnode
+
+@node menus "Menus"
+@{b}Menus@{ub}
+
+@{b}Programme@{ub} : Nouvelle... (une autre fenêtre), Guide... (ce guide), Informations... (version et auteur), Quitter.
+
+@{b}Édition@{ub} : Ouvrir dans une nouvelle fenêtre, Ouvrir avec..., Nouveau (dossier, fichier texte), Tout sélectionner, Inverser la sélection, Tout désélectionner, Renommer, Supprimer, Dupliquer, Copier, Couper, Coller, Infos, Calculer la taille, Shell.
+
+@{b}Affichage@{ub} : Taille (des icônes), Barres, Actualiser, Icônes/Détails, Diviser, Émulation WB, Afficher infos fichier, Afficher par, Trier par.
+
+@{b}Favoris@{ub} : Ajouter aux favoris, Gérer..., et la liste des favoris.
+
+@{b}Script@{ub} : les plugins, Actualiser la liste, Ouvrir le dossier des plugins.
+
+Le bouton droit de la souris sur un élément ouvre un menu contextuel avec les commandes pour cet élément ; sur une zone vide, les commandes pour le tiroir (Nouveau, Coller, Shell, Actualiser, Afficher par, Favoris, Barres).
+@endnode
+
+@node tooltypes "ToolTypes et fichiers"
+@{b}ToolTypes et fichiers@{ub}
+
+ToolTypes de l'icône de VagaFileManager :
+
+- @{b}NETHANDLERS@{ub} : voir @{"Tiroirs réseau" link network}.
+
+- @{b}DEBUG@{ub} : TRUE écrit chaque étape dans le journal, pour aider à trouver un problème.  Normalement FALSE : seules les erreurs sont écrites.
+
+ToolTypes de l'icône de WB2VFM :
+
+- @{b}DESKTOPPATH@{ub} : le tiroir ouvert par un double-clic sur le bureau (RAM: par défaut).
+
+- @{b}DEBUG@{ub} : comme ci-dessus.
+
+Fichiers :
+
+- ENVARC:VagaFileManager.prefs : réglages et affichage de chaque tiroir.
+
+- ENVARC:VagaFileManager.bookmarks : les favoris.
+
+- T:VagaFileManager.log, T:WB2VFM.log, T:<plugin>.log : les journaux.
+@endnode
+
+@node author "Auteur et licence"
+@{b}Auteur et licence@{ub}
+
+VagaFileManager est écrit par VagaPPC (Benedetto Lorello), avec l'aide d'outils d'intelligence artificielle.
+
+Mail : vagappc@yahoo.it
+Code source : https://github.com/VagaPPC/VagaFileManager
+
+Remerciements : ldg72, Flash, Kaffeine, ACube et AlfredONE.
+
+VFM est gratuit.  Si vous l'aimez, vous pouvez le soutenir par un don sur Ko-fi : https://ko-fi.com/vagappc.  Mon seul objectif est de récupérer l'argent dépensé pour le projet ; si les dons venaient à dépasser cette somme, l'excédent serait reversé à d'autres projets Amiga.
+
+VagaFileManager est un logiciel libre : vous pouvez le redistribuer et/ou le modifier selon les termes de la GNU General Public License, version 3 ou ultérieure.  Il est fourni sans aucune garantie.  Le texte complet se trouve dans le fichier LICENSE.
+
+Les suggestions et les rapports de bogues sont les bienvenus.
+@endnode

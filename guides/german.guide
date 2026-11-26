@@ -1,0 +1,359 @@
+@database VagaFileManager.guide
+@$VER: VagaFileManager.guide 1.1 build 99 (26.11.2026)
+@author VagaPPC (Benedetto Lorello)
+@(c) GNU General Public License v3 oder neuer
+@wordwrap
+
+@node main "VagaFileManager"
+@{b}VagaFileManager 1.1@{ub}
+
+Ein Dateimanager für AmigaOS 4.1, von VagaPPC.
+
+@{" Einführung                " link intro}
+@{" Installation              " link install}
+@{" Das Fenster               " link window}
+@{" Navigieren                " link browse}
+@{" Ansicht und Sortierung    " link views}
+@{" Auswählen                 " link select}
+@{" Arbeiten mit Dateien      " link files}
+@{" Ziehen und Ablegen        " link dragdrop}
+@{" Geteilte Ansicht          " link split}
+@{" Lesezeichen               " link bookmarks}
+@{" Schnellfilter             " link filter}
+@{" Workbench-Integration     " link workbench}
+@{" Netzwerk-Schubladen       " link network}
+@{" Plugins                   " link plugins}
+@{" Netzwerkfreigaben mounten " link mount}
+@{" Tastatur                  " link keys}
+@{" Menüs                     " link menus}
+@{" ToolTypes und Dateien     " link tooltypes}
+@{" Autor und Lizenz          " link author}
+@endnode
+
+@node intro "Einführung"
+@{b}Einführung@{ub}
+
+Die Workbench wurde für Disketten entworfen.  Mit den heutigen Festplatten voller Dateien kostet es viel Zeit, für jede Schublade ein Fenster zu öffnen, Symbole anzuordnen und Fenster festzuhalten.
+
+Mit VagaFileManager (VFM) bewegen Sie sich in einem einzigen Fenster durch alle Ihre Dateien, mit Symbolen oder einer ausführlichen Liste, und mit einem zweiten Bereich zum Kopieren und Verschieben von Dateien, im Stil von Directory Opus.  VFM kann auch die Schubladenfenster der Workbench ersetzen.
+
+Zusätzliche Funktionen (Archive, Suchen, Netzwerkfreigaben) sind Plugins in Python: Sie werden nur geladen, wenn Sie sie benutzen, und lassen sich hinzufügen oder entfernen, ohne das Programm zu verändern.
+
+VFM verwendet ReAction und die AISS-Bilder und ist ins Englische, Italienische, Französische, Deutsche, Polnische, Spanische und Griechische übersetzt.
+@endnode
+
+@node install "Installation"
+@{b}Installation@{ub}
+
+Voraussetzungen: AmigaOS 4.1.  Optional: AISS (Bilder für Leiste und Menüs aus TBImages:), Python (für die Plugins).
+
+Kopieren Sie die Schublade VFM mit ihrem Symbol VFM.info an einen beliebigen Ort, zum Beispiel nach SYS:Utilities.  Starten Sie VagaFileManager mit einem Doppelklick.
+
+Lassen Sie diese Schubladen neben dem Programm, denn VFM sucht sie in seiner eigenen Schublade (PROGDIR:):
+
+- Catalogs: die Übersetzungen.  VFM verwendet die in den Locale-Voreinstellungen gewählte Sprache.
+
+- icons: die Bilder der Schaltflächenleiste, wenn AISS nicht installiert ist.
+
+- Plugins: die Plugins im Menü Skript.
+
+- Docs: diese Anleitung in allen Sprachen.
+
+Um VFM anstelle der Workbench-Fenster zu verwenden, starten Sie WB2VFM (siehe @{"Workbench-Integration" link workbench}); damit es bei jedem Systemstart läuft, kopieren Sie sein Symbol nach SYS:WBStartup.
+@endnode
+
+@node window "Das Fenster"
+@{b}Das Fenster@{ub}
+
+Von oben nach unten enthält ein VFM-Fenster:
+
+- Die @{b}Pfadleiste@{ub}: die angezeigte Schublade.  Sie können einen Pfad eingeben und mit Return dorthin wechseln.
+
+- Die @{b}Schaltflächenleiste@{ub}: Symbole/Details, Start, Zurück, Vorwärts, Aktualisieren, dann Umbenennen, Löschen, Duplizieren, Kopieren, Ausschneiden, Einfügen, Info, Größe berechnen, Shell und Teilen.  Lassen Sie die Maus auf einer Schaltfläche, um zu sehen, was sie tut und welches Tastenkürzel sie hat.
+
+- Die @{b}Liste@{ub} der Dateien und Schubladen, mit Symbolen oder als ausführliche Liste.
+
+- Die @{b}Filterleiste@{ub}: siehe @{"Schnellfilter" link filter}.
+
+- Die @{b}Statusleiste@{ub}: wie viele Einträge es gibt und wie viele ausgewählt sind.
+
+Jede Leiste kann mit @{b}Ansicht > Leisten@{ub} ausgeblendet werden.  Größe und Position des Fensters werden für jedes Laufwerk getrennt gespeichert.
+
+Jedes VFM-Fenster ist ein eigenes Programm: @{b}Programm > Neu...@{ub} (Amiga+N) öffnet ein weiteres, und das Schließen eines Fensters schließt die anderen nicht.
+@endnode
+
+@node browse "Navigieren"
+@{b}Navigieren@{ub}
+
+- Doppelklicken Sie auf eine Schublade, um sie zu öffnen; ein Doppelklick auf eine Datei öffnet sie, wie auf der Workbench.
+
+- @{b}Zurück@{ub} (oder Rücktaste) wechselt in die übergeordnete Schublade; @{b}Vorwärts@{ub} geht wieder in die Schubladen hinein, die Sie verlassen haben.
+
+- @{b}Start@{ub} zeigt die Liste der Geräte, Laufwerke und Zuweisungen.  Von dort erreichen Sie jeden Datenträger.
+
+- @{b}Aktualisieren@{ub} (F5) liest die Schublade neu ein.  Meist ist das nicht nötig: VFM aktualisiert die Liste selbst, wenn sich Dateien ändern.
+
+- @{b}Bearbeiten > In neuem Fenster öffnen@{ub} (Umschalt+Return) öffnet die ausgewählte Schublade in einem neuen VFM-Fenster in der Nähe des Mauszeigers.
+
+- Return öffnet den ausgewählten Eintrag; Umschalt+Return öffnet ihn in einem neuen Fenster.
+
+Mit @{b}Ansicht > WB-Emulation@{ub} öffnet ein Doppelklick Schubladen in neuen Fenstern, wie die Workbench: siehe @{"Workbench-Integration" link workbench}.
+@endnode
+
+@node views "Ansicht und Sortierung"
+@{b}Ansicht und Sortierung@{ub}
+
+Die Schaltfläche @{b}Symbole/Details@{ub} (auch @{b}Ansicht > Symbole@{ub}) wechselt zwischen:
+
+- @{b}Symbole@{ub}: die Symbole der Dateien, wie ein Workbench-Fenster.  @{b}Ansicht > Größe@{ub} wählt die Größe der Symbolfelder: Auto, 32, 48, 64 oder 96 Pixel.
+
+- @{b}Details@{ub}: eine Liste mit Symbol, Name, Typ, Größe, Datum und Kommentar.  Jede zweite Zeile hat einen dunkleren Hintergrund.  Klicken Sie auf einen Spaltentitel, um nach dieser Spalte zu sortieren; ein weiterer Klick kehrt die Reihenfolge um.
+
+@{b}Ansicht > Anzeigen nach@{ub} wählt, welche Dateien angezeigt werden:
+
+- @{b}nach Symbolen@{ub}: nur Dateien mit Symbol, wie die Workbench.
+
+- @{b}alle Dateien@{ub}: alle Dateien, auch die ohne Symbol.
+
+@{b}Ansicht > Datei-Infos anzeigen@{ub} zeigt auch die .info-Dateien (nur in der Ansicht Details).
+
+@{b}Ansicht > Sortieren nach@{ub} sortiert nach Typ (Schubladen zuerst), Name, Datum oder Größe.
+
+VFM merkt sich für jede Schublade die Ansicht, die Symbolgröße, die angezeigten Dateien und die Sortierung.
+@endnode
+
+@node select "Auswählen"
+@{b}Auswählen@{ub}
+
+- Klicken Sie auf einen Eintrag, um ihn auszuwählen; Umschalt+Klick fügt Einträge hinzu oder entfernt sie.
+
+- Die Cursortasten bewegen die Auswahl.  In der Ansicht Symbole springen hoch und runter um eine Zeile.
+
+- Tippen Sie einen Buchstaben, um den nächsten Eintrag mit diesem Anfangsbuchstaben auszuwählen; ein erneuter Druck springt zum folgenden.  Tippen Sie schnell mehrere Buchstaben, um den ersten Eintrag zu wählen, dessen Name damit beginnt (zum Beispiel st für Startup-Sequence).
+
+- @{b}Bearbeiten > Alles auswählen@{ub} (Amiga+A), @{b}Auswahl umkehren@{ub} und @{b}Auswahl aufheben@{ub} (Esc).
+
+Die Statusleiste zeigt, wie viele Einträge ausgewählt sind.
+@endnode
+
+@node files "Arbeiten mit Dateien"
+@{b}Arbeiten mit Dateien@{ub}
+
+Die Schaltflächen, das Menü @{b}Bearbeiten@{ub} und das Kontextmenü (rechte Maustaste auf einem Eintrag) wirken auf die ausgewählten Einträge.
+
+- @{b}Kopieren@{ub} (Amiga+C) und @{b}Ausschneiden@{ub} (Amiga+X) merken sich die Einträge; @{b}Einfügen@{ub} (Amiga+V) kopiert oder verschiebt sie in die angezeigte Schublade.  Sie können auch in ein anderes VFM-Fenster einfügen.
+
+- @{b}Duplizieren@{ub} (Amiga+D) erstellt eine Kopie in derselben Schublade.
+
+- @{b}Umbenennen@{ub} (F2) und @{b}Löschen@{ub} (Entf) fragen nach einer Bestätigung.
+
+- @{b}Bearbeiten > Neu@{ub} erstellt eine Schublade (Ctrl+N) oder eine leere Textdatei.
+
+- @{b}Info@{ub} (Amiga+I) öffnet das Informationsfenster der Workbench: Schutzbits, Kommentar, ToolTypes.
+
+- @{b}Größe berechnen@{ub} ermittelt Größe, Dateien und Schubladen der ausgewählten Schublade oder des Laufwerks.  Ein animierter Balken zeigt, dass gearbeitet wird; Sie können anhalten oder abbrechen.
+
+- @{b}Öffnen mit...@{ub} öffnet eine Datei mit einem Programm Ihrer Wahl.  Für eine Datei ohne eigenes Symbol kann VFM dieses Programm zum Standard für alle Dateien desselben Typs machen, oder nur für diese Datei.
+
+- @{b}Shell@{ub} öffnet ein Shell-Fenster in der angezeigten Schublade.
+
+Wenn eine Datei schon existiert, fragt VFM, was zu tun ist: Überschreiben, Alle überschreiben, Aktualisieren (nur kopieren, wenn die Datei neuer ist), Alle aktualisieren, Umbenennen oder Überspringen.  Kann eine Datei nicht kopiert oder gelöscht werden, erscheint der Systemfehler (zum Beispiel "Objekt wird benutzt") mit Wiederholen, Überspringen und Abbrechen.
+
+Lange Vorgänge zeigen ein Fortschrittsfenster: Sie können sie anhalten und später fortsetzen oder abbrechen.
+@endnode
+
+@node dragdrop "Ziehen und Ablegen"
+@{b}Ziehen und Ablegen@{ub}
+
+Ziehen Sie die ausgewählten Einträge mit der Maus: Ihre Symbole folgen dem Zeiger, und die Stelle, an der sie abgelegt würden, wird umrandet.
+
+- Abgelegt auf einer Schublade, dem anderen Bereich, einem anderen VFM-Fenster oder einer Workbench-Schublade, werden die Einträge kopiert oder verschoben: VFM fragt am Mauszeiger Kopieren, Verschieben oder Abbrechen.
+
+- Abgelegt auf einem anderen Programm (Texteditor, Shell, Dateiauswahl), erhält das Programm die Dateien so, wie es sie von der Workbench erhalten würde.  Das klappt nur mit Fenstern, die nach VFM geöffnet wurden; AmiDock, das meist vorher startet, erhält sie nicht.
+
+- Abgelegt dort, wo nichts geschehen kann (zum Beispiel in derselben Schublade), geschieht nichts.
+@endnode
+
+@node split "Geteilte Ansicht"
+@{b}Geteilte Ansicht@{ub}
+
+Die Schaltfläche @{b}Teilen@{ub} (oder @{b}Ansicht > Teilen@{ub}) öffnet einen zweiten Bereich neben dem ersten, wie in Directory Opus; ein erneuter Druck schließt ihn.
+
+- Der aktive Bereich ist umrandet.  Klicken Sie auf einen Bereich oder drücken Sie Tab, um ihn zu aktivieren.
+
+- Sie können Einträge auch von einem Bereich in den anderen ziehen.
+
+Der zweite Bereich belegt nur Speicher, solange er geöffnet ist.
+@endnode
+
+@node bookmarks "Lesezeichen"
+@{b}Lesezeichen@{ub}
+
+@{b}Lesezeichen > Zu Lesezeichen hinzufügen@{ub} merkt sich die angezeigte Schublade.  Die Lesezeichen stehen im Menü Lesezeichen und im Kontextmenü: Wählen Sie eines, um dorthin zu wechseln.
+
+@{b}Lesezeichen > Verwalten...@{ub} erlaubt es, sie umzubenennen und zu löschen.  Sie werden in ENVARC:VagaFileManager.bookmarks gespeichert und von allen VFM-Fenstern gemeinsam genutzt.
+@endnode
+
+@node filter "Schnellfilter"
+@{b}Schnellfilter@{ub}
+
+Tippen Sie in die Filterleiste unten im Fenster: Schon während der Eingabe zeigt die Liste nur die Einträge, deren Name mit dem eingegebenen Text beginnt.  Groß- und Kleinschreibung spielen keine Rolle.
+
+Sie können AmigaDOS-Muster verwenden: #? oder * für beliebigen Text, ? für ein beliebiges Zeichen, [a-c] für einen Bereich, ~ für "nicht".  Zum Beispiel zeigt *.lha nur die LHA-Archive.
+
+Die Schaltfläche neben dem Feld leert den Filter.
+@endnode
+
+@node workbench "Workbench-Integration"
+@{b}Workbench-Integration@{ub}
+
+@{b}WB2VFM@{ub} ist ein Commodity, das die Schubladenfenster der Workbench durch VFM ersetzt:
+
+- Wenn Sie auf der Workbench einen Datenträger oder eine Schublade öffnen, öffnet sich stattdessen ein VFM-Fenster.
+
+- Ein Doppelklick auf den leeren Hintergrund des Schreibtischs öffnet VFM auf RAM: oder auf dem Pfad im ToolType DESKTOPPATH des WB2VFM-Symbols (zum Beispiel DESKTOPPATH=Work:).
+
+Starten Sie WB2VFM mit einem Doppelklick, oder legen Sie es in SYS:WBStartup, damit es bei jedem Systemstart läuft.  Es erscheint in Exchange, wo Sie es abschalten oder beenden können.
+
+@{b}Ansicht > WB-Emulation@{ub} lässt VFM wie ein Workbench-Fenster aussehen und sich so verhalten: Die Leisten sind ausgeblendet, die rechte Maustaste zeigt die Menüleiste statt der Kontextmenüs, und Schubladen öffnen sich mit Doppelklick oder Return in neuen Fenstern.  Schalten Sie sie aus, um die in Ansicht > Leisten gewählten Leisten zurückzubekommen.
+@endnode
+
+@node network "Netzwerk-Schubladen"
+@{b}Netzwerk-Schubladen@{ub}
+
+Um das Symbol einer Datei ohne .info-Datei zu wählen, liest das System den Anfang der Datei.  Auf einer Netzwerkfreigabe heißt das, von jeder Datei einen Teil herunterzuladen, und eine Schublade kann lange zum Öffnen brauchen.
+
+Auf den Laufwerken der Handler, die im ToolType NETHANDLERS des VagaFileManager-Symbols stehen, wählt VFM das Symbol stattdessen nach dem Namen (Bild, Archiv, Klang...), mit den Standardsymbolen des Systems in voller Farbe.  Die Schublade öffnet sich sofort.
+
+Der ToolType ist anfangs NETHANDLERS=smb2-handler.  Trennen Sie mehrere Handler mit |, zum Beispiel NETHANDLERS=smb2-handler|ssh2-handler.  Ein leeres NETHANDLERS= schaltet die Funktion ab.
+@endnode
+
+@node plugins "Plugins"
+@{b}Plugins@{ub}
+
+Die Plugins liegen in der Schublade Plugins und stehen im Menü @{b}Skript@{ub}, mit ihrem AISS-Bild, wenn es vorhanden ist.  Sie wirken auf den Bereich, aus dem sie gestartet werden.
+
+- @{b}Skript > Plugin-Ordner öffnen@{ub} öffnet die Schublade Plugins.
+
+- Um ein Plugin hinzuzufügen, kopieren Sie seine .py- oder .rexx-Datei in die Schublade Plugins und wählen Sie @{b}Skript > Liste aktualisieren@{ub}.
+
+Python-Plugins brauchen C:Python (oder C:Python3).  Die Fenster der Plugins sind auf Englisch.
+
+Mitgelieferte Plugins:
+
+- @{b}Find@{ub}: sucht Dateien nach Namen ab der angezeigten Schublade, auch in Unterordnern.  Der Name darf Jokerzeichen enthalten (#?, *, ?); ohne sie werden alle Namen gefunden, die den Text enthalten.  Wählen Sie ein Ergebnis, und VFM zeigt es an.
+
+- @{b}Grep@{ub}: sucht Textdateien, die ein Wort enthalten.
+
+- @{b}CompressLHA@{ub}, @{b}CompressLZX@{ub}, @{b}CompressGZIP@{ub}: packen die ausgewählten Dateien in ein LHA-, LZX- oder .tar.gz-Archiv.  In der geteilten Ansicht kommt das Archiv in die Schublade des anderen Bereichs.  Existiert das Archiv schon, können Sie die Dateien hinzufügen oder es überschreiben.  Das Fortschrittsfenster kann die Arbeit abbrechen; ein halb fertiges Archiv wird gelöscht oder in den alten Zustand zurückversetzt.
+
+- @{b}MountSamba@{ub}, @{b}MountSSH@{ub}, @{b}MountFTP@{ub}, @{b}MountNFS@{ub}: siehe @{"Netzwerkfreigaben mounten" link mount}.
+
+Wenn ein Plugin nichts tut, sehen Sie in sein Protokoll in T: (zum Beispiel T:CompressLHA.log).
+
+Um eigene Plugins zu schreiben, lesen Sie Docs/Developer.guide (auf Englisch).
+@endnode
+
+@node mount "Netzwerkfreigaben mounten"
+@{b}Netzwerkfreigaben mounten@{ub}
+
+Die Mount-Plugins suchen die Rechner Ihres lokalen Netzwerks, fragen nur das Nötige ab, mounten die Freigabe und öffnen sie in VFM.  Fehlt ein Handler, sagen sie es und zeigen, wo man ihn herunterladen kann.  Jedes Plugin funktioniert für sich allein.
+
+@{b}MountSamba@{ub}: ein freigegebener Ordner eines Windows-PCs, eines NAS oder eines Samba-Servers (SMB2/3).  Benötigt smb2-handler (smb2fs) und filesysbox.library 54.4 oder neuer.
+
+- Wählen Sie den Server (per NetBIOS gefunden oder eingegeben), dann die Freigabe, dann geben Sie Benutzer und Passwort ein.
+
+- Ein bereits ausgefülltes Formular fasst alles zusammen und fragt, wo die Mount-Datei bleiben soll: vorübergehend (T:), DEVS:DOSDrivers oder SYS:Storage/DOSDrivers.  Eine gespeicherte Datei enthält das Passwort im Klartext.
+
+- Das Gerät erhält den Namen der Freigabe, zum Beispiel Archivio:.
+
+@{b}MountSSH@{ub}: die Dateien eines SSH-Servers (SFTP), mit ssh2-handler (Enhancer Software; benötigt AmiSSL).  Es listet die Rechner mit offenem SSH-Port auf.  Das Formular fragt Benutzer, Passwort, Schlüsseldatei, entfernten Ordner (anfangs /; ~ ist das Home-Verzeichnis des Benutzers) und Nur-Lesen ab.  Bei leerem Passwort fragt der Handler beim Verbinden danach.  Das Laufwerk heißt Server-Benutzer, zum Beispiel basebianca-vagappc.
+
+@{b}MountFTP@{ub}: eine FTP- oder SFTP-Seite mit SFTPHandler (benötigt filesysbox.library 54.8, clib4.library und für SFTP AmiSSL).  Die Seite wird zur Liste von SFTPHandler (ENV:SFTPHandler/sites.xml) hinzugefügt, ohne die anderen zu verändern, und VFM öffnet SFTP:<Seite>.  Die Option "Keep the site after a restart" speichert sie auch in ENVARC:.
+
+@{b}MountNFS@{ub}: ein NFS-Export.  Es listet die Server mit offenem NFS-Port und ihre Exporte auf.  Es braucht einen nfs-handler, der unter AmigaOS 4 funktioniert: Der aus dem Aminet (comm/net/nfs-handler_rs) ist für 68k und funktioniert nicht.
+
+AmigaOS kann diese Handler nicht abmelden: Ein vorübergehender Mount verschwindet beim nächsten Neustart.
+@endnode
+
+@node keys "Tastatur"
+@{b}Tastatur@{ub}
+
+| Cursortasten      bewegen die Auswahl
+| Buchstabe         nächster Eintrag mit diesem Anfangsbuchstaben
+| Return            öffnet den ausgewählten Eintrag
+| Umschalt+Return   öffnet in einem neuen Fenster
+| Rücktaste         übergeordnete Schublade
+| Esc               Auswahl aufheben
+| Tab               Bereich wechseln (geteilte Ansicht)
+| F2                umbenennen
+| F5                aktualisieren
+| Entf              löschen
+| Help, F1          diese Anleitung
+| Ctrl+N            neue Schublade
+| Amiga+N           neues Fenster
+| Amiga+A           alles auswählen
+| Amiga+C/X/V       kopieren, ausschneiden, einfügen
+| Amiga+D           duplizieren
+| Amiga+I           Informationen
+| Amiga+E           beenden
+
+Abfragefenster öffnen sich unter dem Mauszeiger.
+@endnode
+
+@node menus "Menüs"
+@{b}Menüs@{ub}
+
+@{b}Programm@{ub}: Neu... (ein weiteres Fenster), Anleitung... (diese Anleitung), Informationen... (Version und Autor), Beenden.
+
+@{b}Bearbeiten@{ub}: In neuem Fenster öffnen, Öffnen mit..., Neu (Ordner, Textdatei), Alles auswählen, Auswahl umkehren, Auswahl aufheben, Umbenennen, Löschen, Duplizieren, Kopieren, Ausschneiden, Einfügen, Info, Größe berechnen, Shell.
+
+@{b}Ansicht@{ub}: Größe (der Symbole), Leisten, Aktualisieren, Symbole/Details, Teilen, WB-Emulation, Datei-Infos anzeigen, Anzeigen nach, Sortieren nach.
+
+@{b}Lesezeichen@{ub}: Zu Lesezeichen hinzufügen, Verwalten... und die Liste der Lesezeichen.
+
+@{b}Skript@{ub}: die Plugins, Liste aktualisieren, Plugin-Ordner öffnen.
+
+Die rechte Maustaste über einem Eintrag öffnet ein Kontextmenü mit den Befehlen für diesen Eintrag; über einer leeren Fläche die Befehle für die Schublade (Neu, Einfügen, Shell, Aktualisieren, Anzeigen nach, Lesezeichen, Leisten).
+@endnode
+
+@node tooltypes "ToolTypes und Dateien"
+@{b}ToolTypes und Dateien@{ub}
+
+ToolTypes des VagaFileManager-Symbols:
+
+- @{b}NETHANDLERS@{ub}: siehe @{"Netzwerk-Schubladen" link network}.
+
+- @{b}DEBUG@{ub}: TRUE schreibt jeden Schritt ins Protokoll, um ein Problem zu finden.  Normalerweise FALSE: Nur Fehler werden geschrieben.
+
+ToolTypes des WB2VFM-Symbols:
+
+- @{b}DESKTOPPATH@{ub}: die Schublade, die ein Doppelklick auf den Schreibtisch öffnet (anfangs RAM:).
+
+- @{b}DEBUG@{ub}: wie oben.
+
+Dateien:
+
+- ENVARC:VagaFileManager.prefs: Einstellungen und Ansicht jeder Schublade.
+
+- ENVARC:VagaFileManager.bookmarks: die Lesezeichen.
+
+- T:VagaFileManager.log, T:WB2VFM.log, T:<Plugin>.log: die Protokolle.
+@endnode
+
+@node author "Autor und Lizenz"
+@{b}Autor und Lizenz@{ub}
+
+VagaFileManager wurde von VagaPPC (Benedetto Lorello) geschrieben, mit Hilfe von KI-Werkzeugen.
+
+| Mail: vagappc@yahoo.it
+| Quellcode: https://github.com/VagaPPC/VagaFileManager
+
+Besonderer Dank: ldg72, Flash, Kaffeine, ACube und AlfredONE.
+
+VFM ist kostenlos.  Wenn es Ihnen gefällt, können Sie es mit einer Spende auf Ko-fi unterstützen: https://ko-fi.com/vagappc.  Mein einziges Ziel ist es, das für das Projekt ausgegebene Geld zurückzubekommen; sollten die Spenden einmal darüber hinausgehen, wird der Überschuss an andere Amiga-Projekte weitergegeben.
+
+VagaFileManager ist freie Software: Sie können sie unter den Bedingungen der GNU General Public License, Version 3 oder neuer, weitergeben und/oder verändern.  Sie wird ohne jede Gewährleistung geliefert.  Der vollständige Text steht in der Datei LICENSE.
+
+Vorschläge und Fehlerberichte sind willkommen.
+@endnode

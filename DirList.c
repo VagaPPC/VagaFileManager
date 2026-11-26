@@ -435,6 +435,39 @@ BOOL ClipboardReserve(LONG count)
     return TRUE;
 }
 
+/* Fa crescere un array allocato su richiesta (preferiti, plugin) fino a
+   'need' elementi, a blocchi di 'step' e al massimo 'max'.  Il blocco
+   precedente non viene liberato subito ma tenuto in *retired fino alla
+   crescita successiva (o a FreeGrownArray): i menu puntano ai nomi
+   contenuti nell'array e vengono ricostruiti solo dopo la modifica. */
+BOOL GrowArray(void **arr, void **retired, LONG *cap, LONG need,
+               LONG elemSize, LONG step, LONG max)
+{
+    APTR grown;
+    LONG newCap;
+
+    if (need <= *cap) return TRUE;
+    if (need > max) return FALSE;
+    newCap = ((need + step - 1) / step) * step;
+    if (newCap > max) newCap = max;
+    grown = IExec->AllocVecTags(newCap * elemSize, AVT_Type, MEMF_PRIVATE,
+                                AVT_ClearWithValue, 0, TAG_DONE);
+    if (!grown) { LOGERR("out of memory (%ld x %ld)", (long)newCap, (long)elemSize); return FALSE; }
+    if (*retired) IExec->FreeVec(*retired);
+    *retired = *arr;
+    if (*arr) IExec->CopyMem(*arr, grown, *cap * elemSize);
+    *arr = grown;
+    *cap = newCap;
+    return TRUE;
+}
+
+void FreeGrownArray(void **arr, void **retired, LONG *cap)
+{
+    if (*arr) { IExec->FreeVec(*arr); *arr = NULL; }
+    if (*retired) { IExec->FreeVec(*retired); *retired = NULL; }
+    *cap = 0;
+}
+
 void FreeClipboard(void)
 {
     if (gClipboard) { IExec->FreeVec(gClipboard); gClipboard = NULL; }

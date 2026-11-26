@@ -31,6 +31,8 @@
 #include <gadgets/chooser.h>
 #include <proto/getfile.h>
 #include <gadgets/getfile.h>
+#include <proto/fuelgauge.h>
+#include <gadgets/fuelgauge.h>
 
 static BOOL IconFileExists(CONST_STRPTR path);
 static BOOL TbimagesAvailable(void);
@@ -384,7 +386,7 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
     return PromptStringWidth(title, buf, bufSize, 420);
 }
 
-/* Dialogo Reaction generico per gli addon (comando ARexx DIALOG).
+/* Dialogo Reaction generico per gli addon (comando DIALOG).
    Campi: titolo, prompt, testo iniziale, pulsanti separati da '|'
    (massimo 6).  Ritorna l'indice del pulsante (1..n) e lascia in buf
    il testo inserito; 0 se la finestra viene chiusa. */
@@ -392,13 +394,7 @@ BOOL PromptString(CONST_STRPTR title, STRPTR buf, ULONG bufSize)
 #define GID_DLG_BTN   2001
 #define GID_DLG_CHECK 2010
 
-LONG PromptDialog(CONST_STRPTR title, CONST_STRPTR prompt,
-                  STRPTR buf, ULONG bufSize, CONST_STRPTR buttons)
-{
-    return PromptDialogCheck(title, prompt, buf, bufSize, buttons, NULL, NULL);
-}
-
-/* Come PromptDialog, con una casella di spunta facoltativa sotto il campo
+/* Dialogo con una casella di spunta facoltativa sotto il campo
    di testo: checkLabel NULL = nessuna casella.  *checked e' lo stato
    iniziale e, alla chiusura, quello scelto dall'utente. */
 LONG PromptDialogCheck(CONST_STRPTR title, CONST_STRPTR prompt,
@@ -955,6 +951,11 @@ LONG ShowFormFile(CONST_STRPTR specPath, CONST_STRPTR replyPath)
 
 static Object *gProgTextGad = NULL;
 static Object *gProgBar = NULL;
+/* TRUE: gProgBar e' il fuelgauge.gadget di sistema (avanzamento con
+   totale noto); FALSE: la barra custom, usata per la modalita'
+   indeterminata (blocco che scorre) o se il fuelgauge non si apre. */
+static BOOL gProgBarIsGauge = FALSE;
+static Object *gProgLayout = NULL;
 static Object *gProgInfoGad = NULL;
 static ULONG gProgTotal = 0;
 static BOOL gProgIndeterminate = FALSE;
@@ -1064,11 +1065,17 @@ void ProgressUpdate(void)
     static char infoText[160];
 
     if (!gProgWin) return;
-    if (gProgBar)
+    if (gProgBar && gProgBarIsGauge)
+    {
+        /* il totale puo' cambiare (PROGRESS dei plugin): si aggiorna anche Max */
+        IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
+            FUELGAUGE_Max, gProgTotal, FUELGAUGE_Level, gProgDone, TAG_DONE);
+    }
+    else if (gProgBar)
     {
         ULONG level = gProgIndeterminate ? gProgPhase : gProgDone;
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
-            PB_Level, level, TAG_DONE);
+            PB_Max, gProgIndeterminate ? 1 : gProgTotal, PB_Level, level, TAG_DONE);
         IIntuition->RefreshGList((struct Gadget *)gProgBar, gProgWin, NULL, 1);
     }
     BuildProgInfo(infoText, sizeof(infoText));
@@ -1150,6 +1157,28 @@ void ProgressAdvance(void)
     ProgressPoll();
 }
 
+/* Crea la barra adatta alla modalita': fuelgauge.gadget (aspetto delle
+   preferenze GUI) con un totale, la barra custom animata senza. */
+static Object *MakeProgBar(BOOL indeterminate)
+{
+    Object *o = NULL;
+
+    gProgBarIsGauge = FALSE;
+    if (!indeterminate)
+    {
+        o = IIntuition->NewObject(IFuelGauge ? IFuelGauge->FUELGAUGE_GetClass() : NULL,
+            IFuelGauge ? NULL : "fuelgauge.gadget",
+            FUELGAUGE_Min, 0, FUELGAUGE_Max, gProgTotal, FUELGAUGE_Level, 0,
+            FUELGAUGE_Percent, FALSE, FUELGAUGE_Ticks, 0,
+            TAG_DONE);
+        if (o) { gProgBarIsGauge = TRUE; return o; }
+        LOGERR("progress: fuelgauge.gadget not available, using the built-in bar");
+    }
+    return IIntuition->NewObject(MakeProgressBarClass(), NULL,
+        PB_Max, indeterminate ? 1 : gProgTotal, PB_Level, 0,
+        PB_Indeterminate, indeterminate, TAG_DONE);
+}
+
 /* Attiva/disattiva la modalita' indeterminata: la barra mostra un blocco
    che scorre, senza percentuale.  Usata dal calcolo dimensioni, dove il
    totale non e' noto in anticipo. */
@@ -1158,7 +1187,28 @@ void ProgressSetIndeterminate(BOOL on)
     gProgIndeterminate = on;
     gProgPhase = 0;
     gProgIndetTotal = 0;
-    if (gProgBar)
+    if (gProgBar && gProgWin && gProgLayout && gProgBarIsGauge == on)
+    {
+        /* cambia tipo di barra: il nuovo gadget prende il posto del
+           vecchio (CHILD_ReplaceObject distrugge quello vecchio) */
+        Object *nb = MakeProgBar(on);
+        if (nb)
+        {
+            struct lmModifyChild mod;
+            struct TagItem attrs[2];
+            attrs[0].ti_Tag = CHILD_ReplaceObject; attrs[0].ti_Data = (ULONG)nb;
+            attrs[1].ti_Tag = TAG_DONE;            attrs[1].ti_Data = 0;
+            memset(&mod, 0, sizeof(mod));
+            mod.MethodID       = LM_MODIFYCHILD;
+            mod.lm_Window      = gProgWin;
+            mod.lm_Object      = gProgBar;
+            mod.lm_ObjectAttrs = attrs;
+            IIntuition->IDoMethodA(gProgLayout, (Msg)&mod);
+            gProgBar = nb;
+            IIntuition->IDoMethod(gProgWinObj, WM_RETHINK);
+        }
+    }
+    else if (gProgBar && !gProgBarIsGauge)
         IIntuition->RefreshSetGadgetAttrs((struct Gadget *)gProgBar, gProgWin, NULL,
             PB_Indeterminate, on, PB_Max, on ? 1 : gProgTotal, PB_Level, 0, TAG_DONE);
     ProgressUpdate();
@@ -1188,10 +1238,8 @@ void ProgressOpen(struct Window *win, ULONG total)
     gProgPhase = 0;
     gProgAdvanceCount = 0;
 
-    /* Barra di progresso vera (gadget custom); fallback di solo testo. */
-    gProgBar = IIntuition->NewObject(MakeProgressBarClass(), NULL,
-        PB_Max, gProgTotal, PB_Level, 0,
-        TAG_DONE);
+    /* fuelgauge di sistema (o barra custom); fallback di solo testo */
+    gProgBar = MakeProgBar(FALSE);
     if (!gProgBar)
     {
         gProgTextGad = IIntuition->NewObject(NULL, "button.gadget",
@@ -1214,7 +1262,7 @@ void ProgressOpen(struct Window *win, ULONG total)
         WA_SizeGadget, FALSE, WA_Activate, TRUE,
         WA_InnerWidth, 460, WA_InnerHeight, gProgButtons ? 112 : 80,
         WINDOW_Position, WPOS_CENTERMOUSE,
-        WINDOW_Layout, (ULONG)IIntuition->NewObject(NULL, "layout.gadget",
+        WINDOW_Layout, (ULONG)(gProgLayout = IIntuition->NewObject(NULL, "layout.gadget",
             LAYOUT_Orientation, LAYOUT_ORIENT_VERT, LAYOUT_SpaceOuter, TRUE,
             LAYOUT_AddChild, (ULONG)progGad, CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
                 CHILD_MinHeight, 24, CHILD_MaxHeight, 24,
@@ -1226,7 +1274,7 @@ void ProgressOpen(struct Window *win, ULONG total)
                 LAYOUT_AddChild, (ULONG)(gProgPauseBtn = IIntuition->NewObject(NULL, "button.gadget", GA_ID, GID_PROG_PAUSE, GA_RelVerify, TRUE, GA_Disabled, gProgCancelable ? FALSE : TRUE, GA_Text, (ULONG)LS(MSG_PROG_PAUSE), TAG_DONE)),
             TAG_DONE) : NULL),
             gProgButtons ? CHILD_WeightedHeight : TAG_IGNORE, 0,
-        TAG_DONE), TAG_DONE);
+        TAG_DONE)), TAG_DONE);
 
     if (gProgWinObj)
         gProgWin = (struct Window *)IIntuition->IDoMethod(gProgWinObj, WM_OPEN);
@@ -1251,6 +1299,7 @@ void ProgressClose(void)
     if (gProgWinObj) { IIntuition->DisposeObject(gProgWinObj); gProgWinObj = NULL; }
     gProgWin = NULL; gProgPauseBtn = NULL;
     gProgBar = NULL; gProgTextGad = NULL; gProgInfoGad = NULL; gProgTotal = 0;
+    gProgLayout = NULL; gProgBarIsGauge = FALSE;
     gProgBytesDone = 0; gProgBytesTotal = 0;
     gProgIndeterminate = FALSE; gProgPhase = 0;
     gProgActive = FALSE; gProgCancel = FALSE; gProgPause = FALSE;
@@ -1279,12 +1328,12 @@ void DoToggleView(Object *listGad, Object *toggleGad, struct Window *win)
         IIntuition->SetGadgetAttrs((struct Gadget*)toggleGad, win, NULL,
             BUTTON_RenderImage, (ULONG)gBtnImg[IMG_DETAILS],
             BUTTON_SelectImage, (ULONG)gBtnImgSel[IMG_DETAILS],
-            GA_HintInfo, (ULONG)LS(MSG_BTN_DETAILS), TAG_DONE);
+            GA_HintInfo, (ULONG)LS(MSG_HINT_DETAILS), TAG_DONE);
     else
         IIntuition->SetGadgetAttrs((struct Gadget*)toggleGad, win, NULL,
             BUTTON_RenderImage, (ULONG)gBtnImg[IMG_ICONS],
             BUTTON_SelectImage, (ULONG)gBtnImgSel[IMG_ICONS],
-            GA_HintInfo, (ULONG)LS(MSG_BTN_ICONS), TAG_DONE);
+            GA_HintInfo, (ULONG)LS(MSG_HINT_ICONS), TAG_DONE);
 }
 
 /* ===== Finestra About =====
@@ -1534,6 +1583,10 @@ void ShowAbout(struct Window *win)
                 LAYOUT_AddChild, (ULONG)IIntuition->NewObject(NULL, "layout.gadget", TAG_DONE), CHILD_WeightedWidth, 100,
             TAG_DONE), CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
 
+            /* solo il nome della licenza: uguale in tutte le lingue */
+            LAYOUT_AddChild, (ULONG)MakeAboutLabel("GNU General Public License v3", 0),
+                CHILD_WeightedWidth, 100, CHILD_WeightedHeight, 0,
+
             /* [busta AISS] Mail: indirizzo */
             LAYOUT_AddChild, (ULONG)MakeAboutLinkRow(mailIcon,
                 mailLabel, GID_ABOUT_MAIL, mailAddr),
@@ -1598,6 +1651,23 @@ void ShowAbout(struct Window *win)
 
 /* ===== Segnalibri ===== */
 
+static LONG gBookmarkCap = 0;
+static struct Bookmark *gBookmarksOld = NULL;
+
+/* Spazio per almeno 'count' preferiti (a blocchi di 8, al massimo
+   MAX_BOOKMARKS). */
+BOOL BookmarkReserve(LONG count)
+{
+    return GrowArray((void **)&gBookmarks, (void **)&gBookmarksOld, &gBookmarkCap,
+                     count, sizeof(struct Bookmark), 8, MAX_BOOKMARKS);
+}
+
+void FreeBookmarks(void)
+{
+    FreeGrownArray((void **)&gBookmarks, (void **)&gBookmarksOld, &gBookmarkCap);
+    gBookmarkCount = 0;
+}
+
 void AddBookmark(void)
 {
     char name[64], path[PATH_MAX_LEN];
@@ -1607,7 +1677,7 @@ void AddBookmark(void)
     path[PATH_MAX_LEN - 1] = '\0';
     if (!PromptBookmark(name, sizeof(name), path, sizeof(path))) return;
     if (name[0] == '\0' || path[0] == '\0') return;
-    if (gBookmarkCount < MAX_BOOKMARKS)
+    if (BookmarkReserve(gBookmarkCount + 1))
     {
         strncpy(gBookmarks[gBookmarkCount].name, name, sizeof(gBookmarks[0].name) - 1);
         gBookmarks[gBookmarkCount].name[sizeof(gBookmarks[0].name) - 1] = '\0';
@@ -1627,7 +1697,7 @@ void LoadBookmarks(void)
     char line[PATH_MAX_LEN + 128];
     gBookmarkCount = 0;
     if (!fh) return;
-    while (gBookmarkCount < MAX_BOOKMARKS && IDOS->FGets(fh, line, sizeof(line)))
+    while (IDOS->FGets(fh, line, sizeof(line)))
     {
         char *p = line, *name, *path, *vm, *fl, *so;
         ULONG len = strlen(line);
@@ -1637,6 +1707,7 @@ void LoadBookmarks(void)
         vm = p; p = strchr(p, '|'); if (!p) continue; *p++ = '\0';
         fl = p; p = strchr(p, '|'); if (!p) continue; *p++ = '\0';
         so = p;
+        if (!BookmarkReserve(gBookmarkCount + 1)) break;
         strncpy(gBookmarks[gBookmarkCount].name, name, sizeof(gBookmarks[0].name) - 1);
         gBookmarks[gBookmarkCount].name[sizeof(gBookmarks[0].name) - 1] = '\0';
         strncpy(gBookmarks[gBookmarkCount].path, path, PATH_MAX_LEN - 1);
@@ -1924,6 +1995,21 @@ void BuildMenu(void)
     /* Program */
     AddMenuTag(tags, &n, NM_Menu, (ULONG)LS(MSG_MENU_PROGRAM));
     AddMenuItem(tags, &n, LS(MSG_MENU_NEWWINDOW), MENU_NEWWINDOW, "N", MIMG_NEW, FALSE, FALSE, FALSE);
+    {
+        /* Guida (F1 o Help): immagine AISS "help" se c'e', altrimenti quella di Info */
+        Object *img = PluginMenuImage("help");
+        if (img)
+        {
+            AddMenuTag(tags, &n, NM_Item, (ULONG)LS(MSG_MENU_GUIDE));
+            AddMenuTag(tags, &n, MA_EmbeddedKey, FALSE);
+            AddMenuTag(tags, &n, MA_ID, MENU_GUIDE);
+            AddMenuTag(tags, &n, MA_Key, (ULONG)"F1");
+            AddMenuTag(tags, &n, MA_Image, (ULONG)img);
+            AddMenuTag(tags, &n, MA_FreeImage, FALSE);
+        }
+        else
+            AddMenuItem(tags, &n, LS(MSG_MENU_GUIDE), MENU_GUIDE, "F1", MIMG_INFO, FALSE, FALSE, FALSE);
+    }
     AddMenuItem(tags, &n, LS(MSG_MENU_INFO), MENU_INFO, NULL, MIMG_INFO, FALSE, FALSE, FALSE);
     AddMenuSeparator(tags, &n);
     AddMenuItem(tags, &n, LS(MSG_MENU_QUIT), MENU_QUIT, "E", MIMG_QUIT, FALSE, FALSE, FALSE);
@@ -2386,7 +2472,7 @@ void SetViewMode(ULONG mode, Object *listGad, Object *toggleGad, struct Window *
     {
         ULONG img = (ULONG)((gViewMode == FBVM_ICONS) ? gBtnImg[IMG_DETAILS] : gBtnImg[IMG_ICONS]);
         ULONG sel = (ULONG)((gViewMode == FBVM_ICONS) ? gBtnImgSel[IMG_DETAILS] : gBtnImgSel[IMG_ICONS]);
-        CONST_STRPTR hint = (gViewMode == FBVM_ICONS) ? LS(MSG_BTN_DETAILS) : LS(MSG_BTN_ICONS);
+        CONST_STRPTR hint = (gViewMode == FBVM_ICONS) ? LS(MSG_HINT_DETAILS) : LS(MSG_HINT_ICONS);
 
         if (win)
             IIntuition->SetGadgetAttrs((struct Gadget *)toggleGad, win, NULL,

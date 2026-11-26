@@ -3,6 +3,26 @@
 User-visible changes are recorded here for every build.  The version in
 `VagaFileManager_version.h` is the authoritative build number.
 
+## 1.1 build 99 - 2026-11-26
+
+- New AmigaGuide manual in all seven languages (Docs/<language>), opened
+  with Program > Guide..., F1 or the Help key in the language of the
+  system.  A separate English guide (Docs/Developer.guide) explains how
+  to write plugins.  README.txt is shorter and points to the guides.
+- Leaving the mouse over a button shows what it does and its keyboard
+  shortcut.
+- Typing a letter again moves to the next item with that initial;
+  typing several letters quickly selects the first item whose name
+  starts with them, in icon and list mode.
+- The progress bar uses the system gauge, with the look chosen in the
+  GUI preferences.  A plugin that changes the total while working now
+  moves the bar correctly.
+- The Copy / Move / Delete buttons at the bottom of the split view are
+  gone: drag the files or use Copy, Cut and Paste.
+- The information window shows the license.
+- About 120 KB less memory for each window.
+- The Docs and Plugins drawers have an icon.
+
 ## 1.1 build 98 - 2026-11-26
 
 - VFM needs much less memory: about 1.6 MB less for each open window.

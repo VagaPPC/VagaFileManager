@@ -14,9 +14,6 @@ tous les fichiers
 MSG_SORT_BY_TYPE
 type
 ;
-MSG_SORT_ALPHABETICAL
-Alphabétique
-;
 MSG_SORT_BY_NAME
 nom
 ;
@@ -104,9 +101,6 @@ Supprimer %ld éléments sélectionnés ?
 MSG_DELETE_CONFIRM_TITLE
 Confirmer la suppression
 ;
-MSG_DELETE_FAILED
-Impossible de supprimer :\n%s\n%s
-;
 MSG_DUPLICATE
 Dupliquer
 ;
@@ -179,41 +173,17 @@ MSG_STATUS_EMPTY
 MSG_BTN_ICONS
 Icônes
 ;
-MSG_BTN_DETAILS
-Détails
-;
-MSG_BTN_UP
-Haut
-;
 MSG_BTN_OPEN
 Ouvrir
 ;
 MSG_BTN_REFRESH
 Actualiser
 ;
-MSG_BTN_HOME
-Accueil
-;
-MSG_LABEL_VIEW
-Affichage :
-;
-MSG_LABEL_LIST
-Liste :
-;
 MSG_LABEL_PATH
 Chemin :
 ;
-MSG_DROP_NO_TARGET
-Aucune cible de dépôt valide trouvée.
-;
 MSG_COL_COMMENT
 Commentaire
-;
-MSG_BTN_BACK
-Précédent
-;
-MSG_BTN_FORWARD
-Suivant
 ;
 MSG_MENU_PROGRAM
 Programme
@@ -239,9 +209,6 @@ Favoris
 MSG_MENU_ADDBOOKMARK
 Ajouter aux favoris
 ;
-MSG_BOOKMARK_ADDED
-Ajouté aux favoris.
-;
 MSG_MENU_MANAGE
 Gérer...
 ;
@@ -257,23 +224,11 @@ Trier par
 MSG_ABOUT_VERSION
 Version %s
 ;
-MSG_ABOUT_AUTHOR
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL
-mail : vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE
-Logiciel libre : GNU General Public License v3 ou ultérieure
-;
 MSG_MOVE
 Déplacer
 ;
 MSG_PROG_TITLE
 Opération fichier
-;
-MSG_PROG_STATUS
-Copie...
 ;
 MSG_PROG_PAUSE
 Pause
@@ -299,14 +254,11 @@ Calculer la taille
 MSG_SIZE_TITLE
 Taille
 ;
-MSG_SIZE_SELECT_DIR
-Sélectionnez un tiroir ou un volume.
-;
 MSG_SIZE_RESULT
 Taille : %s (%lld octets)   Fichiers : %lld   Tiroirs : %lld
 ;
 MSG_BTN_SPLIT_HINT
-Diviser / fermer le second volet
+Diviser : partager la fenêtre en deux listes (Tab : autre liste)
 ;
 MSG_ABOUT_BY
 par
@@ -323,35 +275,14 @@ Mail : vagappc@yahoo.it
 MSG_ABOUT_THANKS
 Remerciements : ldg72, Flash, Kaffeine, ACube et AlfredONE
 ;
-MSG_MENU_WBREPLACE
-Remplacer le Workbench
-;
-MSG_MENU_WBRESTORE
-Restaurer le Workbench
-;
 MSG_FIND_TITLE
 Rechercher un fichier
-;
-MSG_FIND_NONE
-Aucun fichier trouvé.
-;
-MSG_FIND_RESULTS
-Résultats de la recherche
-;
-MSG_GREP_TITLE
-grep
-;
-MSG_GREP_NONE
-Aucune correspondance dans les fichiers sélectionnés.
-;
-MSG_GREP_RESULTS
-Résultats grep
 ;
 MSG_MENU_SHOWINFO
 Afficher infos fichier
 ;
 MSG_BTN_SHELL_HINT
-Ouvrir un shell ici
+Shell : ouvrir un Shell dans ce tiroir
 ;
 MSG_MENU_SHELL
 Shell
@@ -489,7 +420,7 @@ MSG_MENU_SPLIT
 Diviser
 ;
 MSG_BTN_CLEAR_FILTER
-Effacer le filtre
+Effacer le filtre : afficher de nouveau tous les fichiers
 ;
 MSG_ABOUT_DONATE
 Faire un don :
@@ -502,4 +433,49 @@ Erreur pendant la suppression de '%s' :\n%s
 ;
 MSG_DELETE_ERROR_BUTTONS
 Réessayer|Passer|Tout passer|Annuler
+;
+MSG_MENU_GUIDE
+Guide...
+;
+MSG_HINT_DETAILS
+Détails : afficher les fichiers en liste
+;
+MSG_HINT_ICONS
+Icônes : afficher les fichiers en icônes
+;
+MSG_HINT_HOME
+Accueil : périphériques, volumes et assignations
+;
+MSG_HINT_BACK
+Précédent : tiroir parent (Retour arrière)
+;
+MSG_HINT_FORWARD
+Suivant : revenir dans le tiroir quitté
+;
+MSG_HINT_REFRESH
+Actualiser : relire le tiroir (F5)
+;
+MSG_HINT_RENAME
+Renommer : renommer l'élément sélectionné (F2)
+;
+MSG_HINT_DELETE
+Supprimer : supprimer les éléments sélectionnés (Suppr)
+;
+MSG_HINT_DUPLICATE
+Dupliquer : copier la sélection dans ce tiroir (Amiga+D)
+;
+MSG_HINT_COPY
+Copier : copier la sélection, puis Coller (Amiga+C)
+;
+MSG_HINT_CUT
+Couper : déplacer la sélection, puis Coller (Amiga+X)
+;
+MSG_HINT_PASTE
+Coller : placer ici les éléments copiés ou coupés (Amiga+V)
+;
+MSG_HINT_INFO
+Infos : protections, commentaire et ToolTypes (Amiga+I)
+;
+MSG_HINT_CALCSIZE
+Calculer la taille : taille du tiroir ou du volume sélectionné
 ;

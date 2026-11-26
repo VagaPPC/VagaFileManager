@@ -1,6 +1,6 @@
-VagaFileManager (AmigaOS 4.1, Reaction)
+VagaFileManager (AmigaOS 4.1, ReAction)
 
-Version 1.1 build 84 (25.11.2026)
+Version 1.1 build 99 (26.11.2026)
 
 A modernization project for AmigaOS 4.1.
 
@@ -8,324 +8,55 @@ About the Project
 The old OS3 file management system was functional back in the floppy disk era, and despite the improvements introduced over time, as the number of files grew it became increasingly difficult to launch applications and manage files efficiently.
 It is no coincidence that many file managers (and even full Workbench replacements and upgrades like DOpus Magellan and Scalos) were created on Amiga to allow dynamic filesystem navigation alongside icon views.
 VFM is my personal attempt to fill this gap and put an end to having dozens of open windows where you constantly have to arrange icons, snapshot positions, resize windows, and so on. MorphOS found an excellent solution with Ambient, whereas OS4 (suffering from a state of near-abandonment by its parent company) has been left behind.
-To keep the core program lightweight and fast, I am introducing a plugin system to add external features without bloating the main application. Plugins can be written in ARexx and Python.
+To keep the core program lightweight and fast, extra features are plugins, written in Python or ARexx, loaded only when they are used.
 Note: I am not a hardcore developer, and I made use of LLMs during the development of this project.
 
+Project page: https://github.com/VagaPPC/VagaFileManager
+
+Donations
+VFM is free.  If you like it, you can support it on Ko-fi:
+https://ko-fi.com/vagappc
+My only goal is to recover the money I have spent on the project.  If
+donations ever go beyond that, the excess will be passed on to other
+Amiga projects.
+
 Features
-- Directory Navigation: Fast and dynamic browsing across your filesystem.
-- Context-Sensitive Buttons: Dynamic file management buttons tailored to your current selection.
-- "Split" Mode: Dual-pane workflow inspired by DOpus.
-- Update Copy Mode: Copy only newer or modified files (currently under testing).
-- Workbench Replacement: the WB2VFM commodity seamlessly intercepts and replaces standard Workbench windows; a double-click on the empty desktop background opens a VFM window on RAM:, or on the path given by the DESKTOPPATH ToolType of the WB2VFM icon (for example DESKTOPPATH=Work:).
-- Workbench Emulation (View > Workbench emulation): hides every bar, turns off the context menus (the right mouse button shows the menu bar) and opens drawers in new windows on double-click or Return, like the Workbench.  The setting is saved; turning it off brings back the bars chosen in View > Bars.
-- Logs: VFM (T:VagaFileManager.log), WB2VFM (T:WB2VFM.log) and the bundled plugins (T:<plugin>.log) write only errors.  Set the DEBUG ToolType of the VagaFileManager icon (or of the WB2VFM icon) to TRUE to log every step; it ships as DEBUG=FALSE.
-- Network volumes: on devices whose handler is listed in the NETHANDLERS ToolType of the VagaFileManager icon (names separated by '|', for example smb2-handler|ssh2-handler|nfs-handler|sftp-handler; default smb2-handler) files without an icon get the default icon of their type chosen from the name extension (ENV:Sys/def_jpeg, def_lha, def_mp3...; the project or drawer icon when there is none) instead of the one DefIcons finds by reading the file, so VFM does not have to open and read every file of a remote drawer.  The VagaFileManager icon ships with NETHANDLERS=smb2-handler.  An empty NETHANDLERS= turns this off.  On all volumes VFM learns which files have an icon from the drawer listing itself, without one disk access per file.
-- Scripting & Extensibility:
-- Built-in ARexx port.
-- Python plugin support (Work In Progress).
-- Drag & Drop, Workbench style: the icons of the dragged items follow the
-  mouse pointer and the drop target under the pointer (drawer icon or row,
-  pane, Workbench drawer or icon, another program's window) is outlined.
-  Dropping files on another VFM pane, another VFM window or a Workbench
-  drawer asks Copy / Move / Cancel at the mouse pointer.  Dropping where
-  nothing can happen (for example in the same drawer) does nothing.
-  Dropping on another program works like the Workbench: the window under
-  the pointer (text editor, AmiDock, Shell...) receives the same AppMessage
-  the Workbench would send.  VFM can only do this for windows opened
-  after VFM started (the Workbench does not tell other programs where an
-  AppWindow's messages go), so AmiDock, usually started earlier, is not
-  reached.  On other windows the path is typed into Shell windows and file
-  requesters.
-- Automatic Window Updates: Real-time refreshes when directory contents change.
-- Smart List View: Automatically displays files even if they do not have an associated .info icon file.
-- Customizable Views: Tailor your layout with automatic memory for window sizes and view preferences.
-- Per-Volume Window Geometry: window size and position are remembered separately for each volume a window is opened on; navigating does not change them.
-- Open in a New Window: the Open button/menu opens a selected drawer (or volume) in a new VFM instance, centered on the mouse with a small offset; double-click navigates in the current window.
-- Size Calculation: recursive drawer/volume size with an animated activity bar (single pass, cancel and pause supported).
-- Favorite Paths: Bookmark and quickly jump to your most-used directories.
-- Queue Control: Cancel or pause ongoing file operations and resume them later.
-- Quick Filter: real-time filtering while typing (300 ms debounce), with
-  wildcard and regex support.
-- Find (Find.py plugin): recursive file search with a results window;
-  selecting a result reveals the file in VFM.  Supports AmigaDOS wildcards
-  (#?, ?, [], ~) and *; without wildcards the name is a substring match.
-- Performance: Faster and more responsive than the standard Workbench.
-- Actively Maintained: Supported directly by the author.
+- Fast browsing of the whole filesystem in one window, with icons or a
+  detailed list; view, sort order and icon size remembered per drawer.
+- Split mode: a second pane for copying and moving, inspired by DOpus.
+- Copy, move, delete, duplicate and rename with pause, cancel, update
+  (copy only newer files) and Workbench-style error requesters.
+- Workbench-style drag and drop, also to other programs.
+- Bookmarks, quick filter with AmigaDOS patterns, automatic refresh.
+- WB2VFM commodity: VFM windows instead of the Workbench drawer windows.
+- Fast network drawers (Samba and other handlers listed in NETHANDLERS).
+- Plugins: Find, Grep, LHA/LZX/tar.gz archives, and mounting of Samba,
+  SSH, FTP/SFTP and NFS shares found on the local network.
+- AISS images, ARexx port, translated into English, Italian, French,
+  German, Polish, Spanish and Greek.
 
-Roadmap
-Remote & Archive Support: I would like VFM to eventually handle protocols like FTP/SFTP/SSH as well as archives such as LHA, LZX, ZIP, etc.
-Architectural Considerations: Beyond the implementation complexity, building all of this directly into the executable would make the program heavier and somewhat redundant, since AmigaOS can already handle these formats through dedicated filesystem handlers. I am currently evaluating the cleanest way to integrate this functionality.
-Current Focus: For now, development priority is focused on finalizing and expanding the add-on/plugin system.
+Requirements
+- AmigaOS 4.1.
+- Optional: AISS (toolbar and menu images from TBImages:), Python (for
+  the plugins), the network handlers needed by the Mount plugins.
+
+Installation
+Copy the VFM drawer and its icon VFM.info wherever you like and start
+VagaFileManager.  Keep Catalogs, icons, Plugins and Docs next to the
+program.  Start WB2VFM (or put it in SYS:WBStartup) to use VFM instead of
+the Workbench drawer windows.
+
+Documentation
+- Docs/<language>/VagaFileManager.guide: how to use VFM, in every
+  language.  Program > Guide..., F1 or the Help key opens it in the language
+  of the system.
+- Docs/Developer.guide: writing plugins, the command channel and ARexx
+  port, building and translating VFM (English).
+- CHANGELOG.md: what changed in every build.
+
 Feedback & Contributions
-Any suggestions, bug reports, ideas, and constructive criticism are very welcome! Feel free to open an Issue or start a Discussion in this repository.
-
-Build (makefile included):
-  make            ; builds the program, all catalogs and the VFM/ folder
-  make dist       ; only (re)build the VFM/ distribution folder
-  make catalogs   ; only (re)generate the .catalog files (requires CatComp)
-  make clean      ; remove built files (and VFM/)
-  or manually: make catalogs ; gcc -o VagaFileManager VagaFileManager.c DirList.c FileOps.c Dialogs.c DragDrop.c DragVisual.c FileBrowser.c -lauto
-
-Distribution folder (VFM/):
-  After a successful build, make recreates VFM/ containing ONLY the files
-  needed to run the program:
-    VagaFileManager, VagaFileManager.info
-    WB2VFM, WB2VFM.info
-    icons/            (toolbar and menu PNGs)
-    Catalogs/<lang>/VagaFileManager.catalog
-    Plugins/          (example ARexx/Python plugins)
-    README.txt        (general documentation)
-    README.Aminet     (readme for Aminet/OS4Depot uploads)
-    CHANGELOG.md      (build history)
-    LICENSE
-  Note: VFM/ is deleted and regenerated on every build.
-  The drawer icon for VFM/ is VFM.info, stored next to the folder:
-  copy both VFM/ and VFM.info to the target directory.
-
-Installation:
-- Run VagaFileManager from the VFM/ folder (keep icons/ and Catalogs/ next
-  to the executable; PROGDIR:icons and PROGDIR:Catalogs are used).
-- Put the "icons" folder next to the executable (PROGDIR:icons).
-  If AISS is installed and the `tbimages:` assign exists, toolbar, menu and
-  active-pane icons are loaded from `tbimages:` (24x24 PNGs); otherwise VFM
-  falls back to the local `PROGDIR:icons` copies.
-
-Toolbar / chooser icons (AISS names):
-  Up        arrowup            View (label)   filter
-  Open      open               List (label)   sortingandgrouping
-  Refresh   refresh
-  Home      home
-  View mode drawers (icons) / listview (details)
-  Rename    rename
-  Delete    delete
-  Duplicate duplicate
-  Copy      copy
-  Paste     paste
-  Info      info
-  Each icon also has a "_s" (selected/pressed) variant.
-
-Menu icons (AISS names):
-  Select all       file_selectall
-  Deselect all     file_unselectall
-  Invert selection fx_invert
-
-Views:
-- Icon view (Workbench-like) and details/list view.
-- In list view the leftmost column shows each entry's icon, scaled to
-  the text height.
-- Clicking a column title (Name/Type/Size/Date) sorts by that column
-  (click again to reverse).
-- In split view the active pane's list is outlined with a frame.
-- View > Size sets a fixed icon box (Auto, 32, 48, 64 or 96 pixels).  The
-  choice is remembered per path.
-
-Keyboard:
-- Cursor keys move the selection; in icon view up/down move by a row,
-  left/right by one entry.  If nothing is selected, the first entry is
-  selected.
-- Typing a letter selects the first entry starting with that letter.
-- ESC clears the selection.
-- In split view, TAB switches to the other pane.
-- In split view the active list is outlined in the fill color.
-- Requesters and dialogs open under the mouse pointer.
-- Copy errors show the system error text (for example "object is in use")
-  with Retry, Skip and Cancel, like the Workbench.
-- Amiga/Alt shortcuts are left to menus.
-
-Python / ARexx addons:
-- Copy a .py or .rexx file to PROGDIR:Plugins, then use "Scripts -> Refresh".
-- A plugin can show an AISS image in the Scripts menu with a comment line
-  near its start: "VFM-Icon: <name>" (e.g. "# VFM-Icon: network").  The
-  image is loaded only from tbimages:<name>; without AISS, or if the image
-  is missing, the usual script image is used.  The bundled plugins use
-  archiveadd (Compress*), find, search (Grep), network (MountSamba),
-  connectremote (MountSSH), connectserver (MountNFS) and ftp (MountFTP).
-- VFM passes six arguments to Python addons:
-    C:Python "<script>" "<arexx-port>" "<path>" "<vfm-executable>" \
-             "<drop-port>" "<plugin-channel-dir>"
-  The drop port and the channel directory are used by the file-based
-  command channel.  Each plugin launch gets its own channel directory
-  (a session), deleted when the plugin ends: its commands always act on
-  the pane the plugin was started from, even if the user activates the
-  other pane meanwhile.  If that pane is closed, commands that need it
-  answer "Pane closed".
-- VFM looks for C:Python, then C:Python3.
-- Plugin command channel (no ARexx needed):
-    - write a one-line request to "<plugin-channel-dir>/req_<id>.txt";
-    - run:  VagaFileManager --notify "<drop-port>"
-    - read "<plugin-channel-dir>/rep_<id>.txt", format "<rc>|<result>".
-  The commands are the same as the ARexx API.  This works even when the
-  system ARexx host lookup/RX is not working.
-- Commands (ARexx port and plugin channel).  The port exposes only what a
-  script cannot know or do by itself: VFM state and interface.  File
-  operations (rename, copy, delete...) are done by the plugin itself.
-    Read context:  PATH, ENTRIES, SELECTED, ADDONINFO, VERSION, PROTOCOL
-    Interface:     CD <path>, OPEN [name], UP, FORWARD, REFRESH,
-                   REVEAL <path>, SELECT [ADD] <pattern>, SELECT NONE,
-                   VIEW ICONS|ALLFILES, SORT TYPE|NAME|DATE|SIZE,
-                   MODE ICONS|DETAILS, SPLIT
-    Services:      DIALOG, ASK <prompt>, STATUS [text], PROGRESS
-    Application:   NEW, SCRIPT <file>, QUIT, HELP
-  SELECTED returns the path of a file with one full path per line.
-  SELECT accepts AmigaDOS patterns (a plain name is an exact match) and
-  returns the number of matching entries.  STATUS shows a message in the
-  status bar until VFM updates it; STATUS alone restores it.
-  PROTOCOL returns the version of this command set (currently 2).  It
-  changes only when a command changes or is removed, not when one is
-  added.  Older builds answer "Unknown command": treat that as 1.
-- The stock AmigaOS Python does not expose BOOPSI/ReAction classes.  For a
-  Reaction interface an addon can either use the channel command
-    DIALOG <title>|<prompt>|<default>|<buttons>  ->  <index>|<text>
-  With the optional prefix CHECK=<0|1>:<label>| a checkbox is shown under
-  the text field and the reply becomes <index>|<0|1>|<text>.  Find and
-  Grep use it for "Include subfolders".
-- Forms with several fields: the channel command FORM <file> shows a
-  window described by the file (one line each):
-    TITLE <title>
-    FIELD <id>|TEXT|<label>|<value>
-    FIELD <id>|PASSWORD|<label>|<value>      (shown as asterisks)
-    FIELD <id>|CHECK|<label>|<0|1>
-    FIELD <id>|CHOICE|<label>|<item1;item2;...>|<index>
-    FIELD <id>|FILE|<label>|<path>            (with a file requester button,
-                                               build 94 or newer)
-    INFO <text>
-    BUTTONS <button1>|<button2>|...           (up to 6)
-    PLACE LAST                                (open where the last form was)
-  The reply is the button pressed (0 = window closed); the values are
-  written to <file>.out as BUTTON=<n> and one <id>=<value> line per field.
-  Without PLACE LAST the window opens under the mouse pointer; with it,
-  at the position of the last form closed (build 92 or newer; older
-  builds ignore the line), so a plugin asking several questions in a row
-  does not move its windows.  MountSamba uses it.
-  or, without ARexx, launch VFM in dialog mode:
-    VagaFileManager --dialog "<result>|<title>|<prompt>|<value>|<buttons>"
-    VagaFileManager --dialog "@<spec-file>"
-  The spec-file form has five lines (result, title, prompt, value,
-  buttons); it avoids quoting problems when the text contains '|' or '"'.
-  VFM writes "<index>|<typed-text>" to the result file; 0 = cancelled.
-  <buttons> accepts up to six labels separated by '|'.
-  See Plugins/CompressLHA.py for a complete, commented example that uses
-  the file channel, DIALOG and PROGRESS.
-- Python plugins use the file channel and do not need ARexx.  `.rexx`
-  plugins are ARexx scripts and still use C:RX.  The VFM ARexx port remains
-  available to external clients.
-- `Plugins/Find.py` asks for the pattern with DIALOG, searches by name
-  by itself, shows the results (same window as Grep.py) and reveals the
-  selected file.
-- `Plugins/Grep.py` recursively searches text files from the active pane
-  path.  It uses ProAction (if running) for the results list, with an ASL
-  fallback, and reveals the selected file in VFM.
-- `Plugins/CompressLHA.py` creates an LHA archive from the selected files.
-  Single-pane mode uses an ASL save requester; split view asks only for the
-  archive name and stores it in the other pane.  It uses C:LHA.
-- `Plugins/CompressLZX.py` works the same way with C:LZX and creates a
-  `.lzx` archive.  If the archive exists it offers Add / Overwrite /
-  Cancel.
-- `Plugins/CompressGZIP.py` packs the selection with C:TAR and compresses
-  the result with C:gzip, producing a `.tar.gz` archive.  It also offers
-  Add / Overwrite / Cancel; Add decompresses the existing archive, appends
-  the new entries and compresses it again.
-- `Plugins/MountSamba.py` mounts an SMB2/3 share (Samba, Windows, NAS)
-  with smb2-handler (smb2fs package, needs filesysbox.library 54.4+).  It
-  starts by asking one thing at a time: the server (found on the local
-  network with NetBIOS, or typed: computers with NetBIOS turned off
-  cannot be found), then the share (listed by the server, SMB 2.0/2.1;
-  user and password are asked first if the server wants them), then user
-  and password.  A form, already filled in, shows host, share, user,
-  password, read only, guest and where to save the DOSDriver: temporary
-  (T:), DEVS:DOSDrivers or SYS:Storage/DOSDrivers (a saved DOSDriver
-  keeps the password in plain text); Browse... asks again.  The device
-  takes the name of the share (Archivio -> Archivio:).  The plugin checks
-  that the share answers before VFM opens it.  Long lists come in pages.
-  Nothing is remembered between two runs.  Unmounting is not available
-  (AmigaOS has no DISMOUNT for this handler).
-- `Plugins/MountSSH.py` mounts the files of an SSH server (SFTP) with
-  ssh2-handler (Enhancer Software; needs filesysbox.library 54.4+ and
-  AmiSSL v4).  It starts by looking for the computers of the local
-  network with the SSH port (22) open, showing their name and server
-  version (a name, address and port can also be typed).  Then one form
-  asks user, password, key file, remote folder, read only and where to
-  keep the DOSDriver: temporary (T:), DEVS:DOSDrivers or
-  SYS:Storage/DOSDrivers; the key file has a file requester button
-  (VFM build 94 or newer) and Browse... chooses the server again.  The
-  remote folder starts as /; ~ is the home of the user on the server
-  (/root for root, /home/<user> for the others).  With an
-  empty password ssh2-handler asks it when it connects, so it is not
-  written in the DOSDriver.  The server name is its short DNS name
-  (reverse lookup: gundam.vagappc.net -> gundam), else the typed name or
-  the NetBIOS name.  The device takes the name of the server
-  (basebianca:, or SSH_<last number>: for an address without a name) and
-  the volume is named <server>-<user>, e.g. basebianca-vagappc, which
-  VFM opens after the mount.
-- `Plugins/MountNFS.py` mounts an NFSv3 export with nfs-handler
-  (https://aminet.net/package/comm/net/nfs-handler_rs, needs
-  filesysbox.library 54.3+; if they are missing the plugin says so and
-  gives the download link).  It looks for the computers of the local
-  network with the NFS port (2049) open, then asks the chosen server for
-  its exports (like showmount -e); a server or a path can also be typed.
-  A form, already filled in, shows server, export, volume name, UID, GID,
-  read only and where to keep the DOSDriver.  The volume (and the device)
-  is named after the export (/exp/archivio -> archivio:).  NFS has no
-  password: the server must export with the "insecure" option (TrueNAS:
-  "Allow non-root mount").
-- `Plugins/MountFTP.py` opens an FTP or SFTP site with SFTPHandler
-  (https://os4depot.net/?function=showfile&file=driver/handler/sftphandler.lha;
-  needs filesysbox.library 54.8+, clib4.library and, for SFTP, AmiSSL; if
-  they are missing the plugin says so and gives the link).  It looks for
-  the computers of the local network with the SFTP (22) or FTP (21) port
-  open, showing name, protocol and server version (a name can also be
-  typed).  A form, already filled in, shows site name (proposed as
-  <server>-<user>), protocol, server, port, user, password, start folder,
-  key file (with a file requester) and "Keep the site after a restart".
-  The site is added to ENV:SFTPHandler/sites.xml (and ENVARC: to keep it)
-  as sftphprefs writes it, leaving the other sites alone; SFTP: is
-  mounted if needed and VFM opens SFTP:<site>.  With an empty password
-  sftp-handler asks it when it connects; a saved one is in plain text.
-- All three archive add-ons use the VFM progress window with the total
-  file count.  Its close button interrupts the compression after a
-  confirmation: the archiver gets CTRL-C and a window without close button
-  says to wait while the files are removed; it closes by itself when the
-  clean-up is done.  A new archive is removed,
-  an archive that was being added to is restored from a safety copy (LHA,
-  LZX), and GZIP keeps the old archive because it only replaces it at the
-  end.
-- Add-ons can drive the VFM progress window with the channel command
-  `PROGRESS [NOCANCEL] [NOBUTTONS] [INDET] done total [bytesDone bytesTotal]`;
-  `PROGRESS CLOSE` closes it.  NOBUTTONS shows no Cancel/Pause buttons:
-  only the close button, which reports the cancel request (reply 1).
-  `PROGRESS TEXT <message>` shows a message instead of the file count in
-  the open window (`PROGRESS TEXT` alone brings the count back).
-- If a plugin does nothing, check its log in T: (for example
-  T:CompressLHA.log): every add-on writes its startup and channel
-  commands there.
-
-ARexx diagnostics:
-- With VFM running, from the project directory:
-    C:Python Tools/ARexxProbe.py VAGAFILEMANAGER VFM/VagaFileManager
-  The probe uses VFM --findport for VAGAFILEMANAGER and WORKBENCH, then
-  runs two clean RX scripts (LF only) against WORKBENCH and VFM.
-  Results go to T:ARexxProbe.log and to the Shell.
-
-GitHub mirror:
-- MIRROR.md describes the Gitea push mirror (recommended), the manual push
-  and the optional GitHub Actions pull mirror.
-- Tools/mirror-github.sh pushes this checkout to
-  https://github.com/VagaPPC/VagaFileManager.git after the SSH key (or a PAT)
-  has been authorized on GitHub.
-- .github/workflows/mirror.yml is the optional scheduled pull mirror.
-
-Localization:
-- Built-in language: english (fallback)
-- Uses the system language by default via locale.library catalogs
-- Catalog name: VagaFileManager.catalog
-- Languages provided (.ct): english, italian, french, german, polish, spanish, greek
-- OS4 uses ENGLISH language names for catalog directories:
-    Catalogs/english, Catalogs/italian, Catalogs/french,
-    Catalogs/german, Catalogs/polish, Catalogs/spanish, Catalogs/greek
-- Install the generated .catalog files as:
-    PROGDIR:Catalogs/<language>/VagaFileManager.catalog
-    or
-    LOCALE:Catalogs/<language>/VagaFileManager.catalog
+Any suggestions, bug reports, ideas, and constructive criticism are very welcome! Feel free to open an Issue or start a Discussion in this repository:
+https://github.com/VagaPPC/VagaFileManager
 
 License
 -------

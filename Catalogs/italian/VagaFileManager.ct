@@ -14,9 +14,6 @@ tutti file
 MSG_SORT_BY_TYPE
 tipo
 ;
-MSG_SORT_ALPHABETICAL
-Alfabetico
-;
 MSG_SORT_BY_NAME
 nome
 ;
@@ -104,9 +101,6 @@ Eliminare %ld elementi selezionati?
 MSG_DELETE_CONFIRM_TITLE
 Conferma eliminazione
 ;
-MSG_DELETE_FAILED
-Impossibile eliminare:\n%s\n%s
-;
 MSG_DUPLICATE
 Duplica
 ;
@@ -179,41 +173,17 @@ Elementi: 0  |  Selezionati: 0
 MSG_BTN_ICONS
 Icone
 ;
-MSG_BTN_DETAILS
-Dettagli
-;
-MSG_BTN_UP
-Su
-;
 MSG_BTN_OPEN
 Apri
 ;
 MSG_BTN_REFRESH
 Ricarica
 ;
-MSG_BTN_HOME
-Home
-;
-MSG_LABEL_VIEW
-Visualizza:
-;
-MSG_LABEL_LIST
-Elenco:
-;
 MSG_LABEL_PATH
 Percorso:
 ;
-MSG_DROP_NO_TARGET
-Nessuna destinazione valida per il rilascio.
-;
 MSG_COL_COMMENT
 Commento
-;
-MSG_BTN_BACK
-Indietro
-;
-MSG_BTN_FORWARD
-Avanti
 ;
 MSG_MENU_PROGRAM
 Programma
@@ -239,9 +209,6 @@ Preferiti
 MSG_MENU_ADDBOOKMARK
 Aggiungi a preferiti
 ;
-MSG_BOOKMARK_ADDED
-Aggiunto ai preferiti.
-;
 MSG_MENU_MANAGE
 Gestisci...
 ;
@@ -257,23 +224,11 @@ Ordina per
 MSG_ABOUT_VERSION
 Versione %s
 ;
-MSG_ABOUT_AUTHOR
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL
-mail: vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE
-Software libero: GNU General Public License v3 o successive
-;
 MSG_MOVE
 Sposta
 ;
 MSG_PROG_TITLE
 Operazione file
-;
-MSG_PROG_STATUS
-Copia...
 ;
 MSG_PROG_PAUSE
 Pausa
@@ -299,14 +254,11 @@ Calcola dimensione
 MSG_SIZE_TITLE
 Dimensione
 ;
-MSG_SIZE_SELECT_DIR
-Seleziona un cassetto o un volume.
-;
 MSG_SIZE_RESULT
 Dimensione: %s (%lld byte)   File: %lld   Cassetti: %lld
 ;
 MSG_BTN_SPLIT_HINT
-Dividi / chiudi secondo pannello
+Dividi: divide la finestra in due elenchi (Tab: altro elenco)
 ;
 MSG_ABOUT_BY
 by
@@ -323,35 +275,14 @@ Mail: vagappc@yahoo.it
 MSG_ABOUT_THANKS
 Ringraziamenti speciali: ldg72, Flash, Kaffeine, ACube e AlfredONE
 ;
-MSG_MENU_WBREPLACE
-Sostituisci Workbench
-;
-MSG_MENU_WBRESTORE
-Ripristina Workbench
-;
 MSG_FIND_TITLE
 Cerca file
-;
-MSG_FIND_NONE
-Nessun file trovato.
-;
-MSG_FIND_RESULTS
-Risultati ricerca
-;
-MSG_GREP_TITLE
-grep
-;
-MSG_GREP_NONE
-Nessuna occorrenza nei file selezionati.
-;
-MSG_GREP_RESULTS
-Risultati grep
 ;
 MSG_MENU_SHOWINFO
 Mostra file info
 ;
 MSG_BTN_SHELL_HINT
-Apri una shell in questo percorso
+Shell: apre una Shell in questo cassetto
 ;
 MSG_MENU_SHELL
 Shell
@@ -489,7 +420,7 @@ MSG_MENU_SPLIT
 Dividi
 ;
 MSG_BTN_CLEAR_FILTER
-Svuota filtro
+Svuota filtro: mostra di nuovo tutti i file
 ;
 MSG_ABOUT_DONATE
 Dona:
@@ -502,4 +433,49 @@ Errore durante l'eliminazione di '%s':\n%s
 ;
 MSG_DELETE_ERROR_BUTTONS
 Riprova|Salta|Salta tutti|Annulla
+;
+MSG_MENU_GUIDE
+Guida...
+;
+MSG_HINT_DETAILS
+Dettagli: mostra i file come elenco
+;
+MSG_HINT_ICONS
+Icone: mostra i file come icone
+;
+MSG_HINT_HOME
+Home: dispositivi, volumi e assegnazioni
+;
+MSG_HINT_BACK
+Indietro: cassetto superiore (Backspace)
+;
+MSG_HINT_FORWARD
+Avanti: torna nel cassetto da cui sei uscito
+;
+MSG_HINT_REFRESH
+Ricarica: rilegge il cassetto (F5)
+;
+MSG_HINT_RENAME
+Rinomina: rinomina la voce selezionata (F2)
+;
+MSG_HINT_DELETE
+Elimina: elimina le voci selezionate (Canc)
+;
+MSG_HINT_DUPLICATE
+Duplica: copia le voci selezionate in questo cassetto (Amiga+D)
+;
+MSG_HINT_COPY
+Copia: copia le voci selezionate, poi Incolla (Amiga+C)
+;
+MSG_HINT_CUT
+Taglia: sposta le voci selezionate, poi Incolla (Amiga+X)
+;
+MSG_HINT_PASTE
+Incolla: mette qui le voci copiate o tagliate (Amiga+V)
+;
+MSG_HINT_INFO
+Informazioni: protezioni, commento e ToolType (Amiga+I)
+;
+MSG_HINT_CALCSIZE
+Calcola dimensione: dimensione del cassetto o volume selezionato
 ;

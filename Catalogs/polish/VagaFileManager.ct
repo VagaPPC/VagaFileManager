@@ -14,9 +14,6 @@ wszystkie pliki
 MSG_SORT_BY_TYPE
 typ
 ;
-MSG_SORT_ALPHABETICAL
-Alfabetycznie
-;
 MSG_SORT_BY_NAME
 nazwa
 ;
@@ -104,9 +101,6 @@ Usun±æ %ld wybranych elementów?
 MSG_DELETE_CONFIRM_TITLE
 Potwierd¼ usuniêcie
 ;
-MSG_DELETE_FAILED
-Nie mo¿na usun±æ:\n%s\n%s
-;
 MSG_DUPLICATE
 Duplikuj
 ;
@@ -179,41 +173,17 @@ Elementy: 0  |  Zaznaczone: 0
 MSG_BTN_ICONS
 Ikony
 ;
-MSG_BTN_DETAILS
-Szczegó³y
-;
-MSG_BTN_UP
-W górê
-;
 MSG_BTN_OPEN
 Otwórz
 ;
 MSG_BTN_REFRESH
 Od¶wie¿
 ;
-MSG_BTN_HOME
-Start
-;
-MSG_LABEL_VIEW
-Widok:
-;
-MSG_LABEL_LIST
-Lista:
-;
 MSG_LABEL_PATH
 ¦cie¿ka:
 ;
-MSG_DROP_NO_TARGET
-Nie znaleziono prawid³owego celu upuszczenia.
-;
 MSG_COL_COMMENT
 Komentarz
-;
-MSG_BTN_BACK
-Wstecz
-;
-MSG_BTN_FORWARD
-Dalej
 ;
 MSG_MENU_PROGRAM
 Program
@@ -239,9 +209,6 @@ Zak³adki
 MSG_MENU_ADDBOOKMARK
 Dodaj do zak³adek
 ;
-MSG_BOOKMARK_ADDED
-Dodano do zak³adek.
-;
 MSG_MENU_MANAGE
 Zarz±dzaj...
 ;
@@ -257,23 +224,11 @@ Sortuj wg
 MSG_ABOUT_VERSION
 Wersja %s
 ;
-MSG_ABOUT_AUTHOR
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL
-mail: vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE
-Wolne oprogramowanie: GNU GPL v3 lub nowsza
-;
 MSG_MOVE
 Przenie¶
 ;
 MSG_PROG_TITLE
 Operacja na plikach
-;
-MSG_PROG_STATUS
-Kopiowanie...
 ;
 MSG_PROG_PAUSE
 Pauza
@@ -299,14 +254,11 @@ Oblicz rozmiar
 MSG_SIZE_TITLE
 Rozmiar
 ;
-MSG_SIZE_SELECT_DIR
-Wybierz szufladê lub wolumin.
-;
 MSG_SIZE_RESULT
 Rozmiar: %s (%lld bajtów)   Pliki: %lld   Szuflady: %lld
 ;
 MSG_BTN_SPLIT_HINT
-Podziel / zamknij drugi panel
+Podziel: podziel okno na dwie listy (Tab: druga lista)
 ;
 MSG_ABOUT_BY
 przez
@@ -323,35 +275,14 @@ Mail: vagappc@yahoo.it
 MSG_ABOUT_THANKS
 Podziêkowania: ldg72, Flash, Kaffeine, ACube i AlfredONE
 ;
-MSG_MENU_WBREPLACE
-Zast±p Workbench
-;
-MSG_MENU_WBRESTORE
-Przywróæ Workbench
-;
 MSG_FIND_TITLE
 Znajd¼ plik
-;
-MSG_FIND_NONE
-Nie znaleziono pliku.
-;
-MSG_FIND_RESULTS
-Wyniki wyszukiwania
-;
-MSG_GREP_TITLE
-grep
-;
-MSG_GREP_NONE
-Brak dopasowañ w wybranych plikach.
-;
-MSG_GREP_RESULTS
-Wyniki grep
 ;
 MSG_MENU_SHOWINFO
 Poka¿ info plików
 ;
 MSG_BTN_SHELL_HINT
-Otwórz pow³okê tutaj
+Shell: otwórz Shell w tym katalogu
 ;
 MSG_MENU_SHELL
 Shell
@@ -489,7 +420,7 @@ MSG_MENU_SPLIT
 Podziel
 ;
 MSG_BTN_CLEAR_FILTER
-Wyczy¶æ filtr
+Wyczy¶æ filtr: poka¿ znowu wszystkie pliki
 ;
 MSG_ABOUT_DONATE
 Wesprzyj:
@@ -502,4 +433,49 @@ B³±d podczas usuwania '%s':\n%s
 ;
 MSG_DELETE_ERROR_BUTTONS
 Ponów|Pomiñ|Pomiñ wszystkie|Anuluj
+;
+MSG_MENU_GUIDE
+Przewodnik...
+;
+MSG_HINT_DETAILS
+Szczegó³y: poka¿ pliki jako listê
+;
+MSG_HINT_ICONS
+Ikony: poka¿ pliki jako ikony
+;
+MSG_HINT_HOME
+Start: urz±dzenia, wolumeny i przypisania
+;
+MSG_HINT_BACK
+Wstecz: katalog nadrzêdny (Backspace)
+;
+MSG_HINT_FORWARD
+Dalej: wróæ do opuszczonego katalogu
+;
+MSG_HINT_REFRESH
+Od¶wie¿: wczytaj katalog ponownie (F5)
+;
+MSG_HINT_RENAME
+Zmieñ nazwê: zmieñ nazwê zaznaczonej pozycji (F2)
+;
+MSG_HINT_DELETE
+Usuñ: usuñ zaznaczone pozycje (Del)
+;
+MSG_HINT_DUPLICATE
+Duplikuj: skopiuj zaznaczenie do tego katalogu (Amiga+D)
+;
+MSG_HINT_COPY
+Kopiuj: skopiuj zaznaczenie, potem Wklej (Amiga+C)
+;
+MSG_HINT_CUT
+Wytnij: przenie¶ zaznaczenie, potem Wklej (Amiga+X)
+;
+MSG_HINT_PASTE
+Wklej: umie¶æ tu skopiowane lub wyciête pozycje (Amiga+V)
+;
+MSG_HINT_INFO
+Informacje: bity ochrony, komentarz i ToolTypes (Amiga+I)
+;
+MSG_HINT_CALCSIZE
+Oblicz rozmiar: rozmiar zaznaczonego katalogu lub wolumenu
 ;

@@ -13,9 +13,6 @@ all files
 MSG_SORT_BY_TYPE (//)
 type
 ;
-MSG_SORT_ALPHABETICAL (//)
-Alphabetical
-;
 MSG_SORT_BY_NAME (//)
 name
 ;
@@ -103,9 +100,6 @@ Delete %ld selected items?
 MSG_DELETE_CONFIRM_TITLE (//)
 Confirm deletion
 ;
-MSG_DELETE_FAILED (//)
-Unable to delete:\n%s\n%s
-;
 MSG_DUPLICATE (//)
 Duplicate
 ;
@@ -178,90 +172,47 @@ Items: 0  |  Selected: 0
 MSG_BTN_ICONS (//)
 Icons
 ;
-MSG_BTN_DETAILS (//)
-Details
-;
-MSG_BTN_UP (//)
-Up
-;
 MSG_BTN_OPEN (//)
 Open
 ;
 MSG_BTN_REFRESH (//)
 Refresh
 ;
-MSG_BTN_HOME (//)
-Home
-;
-MSG_LABEL_VIEW (//)
-View:
-;
-MSG_LABEL_LIST (//)
-List:
-;
 MSG_LABEL_PATH (//)
 Path:
-;
-;
-MSG_DROP_NO_TARGET (//)
-No valid drop target found.
-;
 ;
 MSG_COL_COMMENT (//)
 Comment
 ;
-;
-MSG_BTN_BACK (//)
-Back
-;
-;
-MSG_BTN_FORWARD (//)
-Forward
-;
-;
 MSG_MENU_PROGRAM (//)
 Program
-;
 ;
 MSG_MENU_NEWWINDOW (//)
 New...
 ;
-;
 MSG_MENU_INFO (//)
 Information...
-;
 ;
 MSG_MENU_QUIT (//)
 Quit
 ;
-;
 MSG_MENU_EDIT (//)
 Edit
-;
 ;
 MSG_MENU_VIEW (//)
 View
 ;
-;
 MSG_MENU_BOOKMARKS (//)
 Bookmarks
-;
 ;
 MSG_MENU_ADDBOOKMARK (//)
 Add to favorites
 ;
-;
-MSG_BOOKMARK_ADDED (//)
-Added to favorites.
-;
-;
 MSG_MENU_MANAGE (//)
 Manage...
 ;
-;
 MSG_CUT (//)
 Cut
-;
 ;
 MSG_FILTER (//)
 Filter
@@ -269,28 +220,14 @@ Filter
 MSG_SORT (//)
 Sort by
 ;
-;
 MSG_ABOUT_VERSION (//)
 Version %s
-;
-MSG_ABOUT_AUTHOR (//)
-VagaPPC (Benedetto Lorello)
-;
-MSG_ABOUT_EMAIL (//)
-mail: vagappc@yahoo.it
-;
-MSG_ABOUT_LICENSE (//)
-Free software: GNU General Public License v3 or later
-;
 ;
 MSG_MOVE (//)
 Move
 ;
 MSG_PROG_TITLE (//)
 File operation
-;
-MSG_PROG_STATUS (//)
-Copying...
 ;
 MSG_PROG_PAUSE (//)
 Pause
@@ -316,14 +253,11 @@ Calculate size
 MSG_SIZE_TITLE (//)
 Size
 ;
-MSG_SIZE_SELECT_DIR (//)
-Select a drawer or a volume.
-;
 MSG_SIZE_RESULT (//)
 Size: %s (%lld bytes)   Files: %lld   Drawers: %lld
 ;
 MSG_BTN_SPLIT_HINT (//)
-Split / close second pane
+Split: divide the window into two lists (Tab: other list)
 ;
 MSG_ABOUT_BY (//)
 by
@@ -340,35 +274,14 @@ Mail: vagappc@yahoo.it
 MSG_ABOUT_THANKS (//)
 Special thanks: ldg72, Flash, Kaffeine, ACube and AlfredONE
 ;
-MSG_MENU_WBREPLACE (//)
-Replace Workbench
-;
-MSG_MENU_WBRESTORE (//)
-Restore Workbench
-;
 MSG_FIND_TITLE (//)
 Find file
-;
-MSG_FIND_NONE (//)
-No file found.
-;
-MSG_FIND_RESULTS (//)
-Search results
-;
-MSG_GREP_TITLE (//)
-grep
-;
-MSG_GREP_NONE (//)
-No match in the selected files.
-;
-MSG_GREP_RESULTS (//)
-grep results
 ;
 MSG_MENU_SHOWINFO (//)
 Show file info
 ;
 MSG_BTN_SHELL_HINT (//)
-Open shell here
+Shell: open a Shell in this drawer
 ;
 MSG_MENU_SHELL (//)
 Shell
@@ -506,7 +419,7 @@ MSG_MENU_SPLIT (//)
 Split
 ;
 MSG_BTN_CLEAR_FILTER (//)
-Clear filter
+Clear filter: show all the files again
 ;
 MSG_ABOUT_DONATE (//)
 Donate:
@@ -519,4 +432,49 @@ Error while deleting '%s':\n%s
 ;
 MSG_DELETE_ERROR_BUTTONS (//)
 Retry|Skip|Skip all|Cancel
+;
+MSG_MENU_GUIDE (//)
+Guide...
+;
+MSG_HINT_DETAILS (//)
+Details: show the files as a list
+;
+MSG_HINT_ICONS (//)
+Icons: show the files as icons
+;
+MSG_HINT_HOME (//)
+Home: devices, volumes and assigns
+;
+MSG_HINT_BACK (//)
+Back: parent drawer (Backspace)
+;
+MSG_HINT_FORWARD (//)
+Forward: back into the drawer you left
+;
+MSG_HINT_REFRESH (//)
+Refresh: read the drawer again (F5)
+;
+MSG_HINT_RENAME (//)
+Rename: rename the selected item (F2)
+;
+MSG_HINT_DELETE (//)
+Delete: delete the selected items (Del)
+;
+MSG_HINT_DUPLICATE (//)
+Duplicate: copy the selected items into this drawer (Amiga+D)
+;
+MSG_HINT_COPY (//)
+Copy: copy the selected items, then Paste (Amiga+C)
+;
+MSG_HINT_CUT (//)
+Cut: move the selected items, then Paste (Amiga+X)
+;
+MSG_HINT_PASTE (//)
+Paste: put the copied or cut items here (Amiga+V)
+;
+MSG_HINT_INFO (//)
+Info: protection bits, comment and ToolTypes (Amiga+I)
+;
+MSG_HINT_CALCSIZE (//)
+Calculate size: size of the selected drawer or volume
 ;
